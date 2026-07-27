@@ -1,0 +1,100 @@
+# Best Practices — Bikeshare Forecasting Stack
+
+---
+
+## General / Repo
+
+- [ ] `.env` in `.gitignore`; commit `.env.example` with keys but no values
+- [ ] `pre-commit` hooks: ruff (lint), nbstripout (strip notebook outputs before commit)
+- [ ] DVC for data and model versioning — `.dvc` files committed, data in remote storage
+- [ ] Conventional commits: `feat:`, `fix:`, `data:`, `exp:`, `infra:`
+- [ ] GitHub Actions CI: ruff + pytest on every push, fail fast
+  - Cache pip deps with `actions/cache`
+  - Separate lint and test into different jobs
+  - Add `dbt compile` as a third job to catch broken SQL
+
+---
+
+## Kafka
+
+- [ ] Validate message schema in the consumer before writing to DB — never silently accept malformed data
+- [ ] Dead letter queue topic (`station_status_dlq`, `weather_dlq`) for messages that fail parsing — inspect and replay rather than drop
+- [ ] Enable idempotent producers to prevent duplicates on retry: `enable.idempotence=True`
+- [ ] Set `acks=all` on producers for durability
+- [ ] Run Kafka UI (Kafdrop or Redpanda Console) in Docker Compose — monitor consumer lag from a browser
+- [ ] Define explicit retention on topics (e.g. 7 days for raw status) — don't rely on defaults
+
+---
+
+## TimescaleDB
+
+- [ ] Override default chunk interval from 7 days to 1 day: `chunk_time_interval => INTERVAL '1 day'`
+- [ ] Add compression policy on chunks older than 7 days — columnar compression cuts storage 90%+ on time-series
+- [ ] Set a retention policy on raw snapshots (30–90 days of 30s resolution is enough; keep aggregates longer)
+- [ ] Add composite index on `(station_id, time DESC)` — TimescaleDB creates the time index automatically, station_id won't be there by default
+- [ ] Never query the raw hypertable for training — always go through a continuous aggregate or materialized dbt model
+- [ ] Use `EXPLAIN ANALYZE` on slow queries before optimizing indexes
+
+---
+
+## dbt
+
+- [ ] Test every model: at minimum `not_null` and `unique` on primary keys, `accepted_values` on categoricals (borough, etc.)
+- [ ] Run `dbt build` (not `dbt run`) — runs models and tests together in dependency order
+- [ ] Write a one-line `description:` for every model in `schema.yml`
+- [ ] Use incremental models for anything touching raw snapshot tables — full refreshes over months of 2,000-station history will be slow
+- [ ] Separate source definitions from models: define `sources:` in `schema.yml`, reference with `{{ source() }}` not raw table names
+- [ ] Run `dbt test` in GitHub Actions CI
+
+---
+
+## Prefect
+
+- [ ] Add retry logic with exponential backoff on every task that calls an external system (GBFS, Open-Meteo, DB writes)
+- [ ] Configure flow failure alerts early — a silently dead pipeline is worse than a noisy one
+- [ ] Cache weather fetches with task result caching — avoid unnecessary re-polls on downstream retries
+- [ ] Use `@flow` and `@task` decorators consistently; keep flows thin (orchestration only), business logic in tasks
+- [ ] Log task inputs and outputs at INFO level — makes debugging flow failures much faster
+
+---
+
+## MLflow
+
+- [ ] Log the DVC data hash or training date range as a run tag on every experiment — reproducibility requires knowing exactly what data was used
+- [ ] Log model signatures on every logged model: `mlflow.models.infer_signature(X_train, y_pred)` — serving layer needs the expected input schema
+- [ ] Use the model registry with explicit stage transitions: Staging → Production
+- [ ] Load models in FastAPI by stage (`models:/bikeshare-lgbm/Production`), not by run ID — promotes without code changes
+- [ ] Log per-station error metrics (MAE per station), not just aggregate RMSE — a poor-performing Grand Central model is not production-ready regardless of overall score
+- [ ] Tag runs with feature set version so you can compare feature experiments cleanly
+
+---
+
+## FastAPI
+
+- [ ] Pydantic models for every request and response — FastAPI validates automatically
+- [ ] `/health` endpoint returning model version, stage, and last prediction timestamp — used for Docker health checks and dashboard status display
+- [ ] Structured JSON logging (`structlog` or `python-json-logger`) — makes logs grep-able in production
+- [ ] Test with `httpx.AsyncClient` + pytest for async routes — not FastAPI's sync TestClient
+- [ ] Handle model loading errors explicitly at startup — fail loudly rather than serve wrong predictions
+- [ ] Rate limit the `/predict` endpoint if exposed publicly (`slowapi` is straightforward with FastAPI)
+
+---
+
+## Streamlit
+
+- [ ] `@st.cache_data` on every function that calls FastAPI or queries the DB — Streamlit re-runs the whole script on any interaction
+- [ ] Handle FastAPI unavailability explicitly — show a clear error state, not a Python traceback
+- [ ] Keep data fetching in a separate `data.py` module; pages import from it — don't mix API calls with rendering logic
+- [ ] Use `st.session_state` for anything that should persist across reruns (selected station, time horizon)
+- [ ] Set a reasonable auto-refresh interval (60–120 seconds is enough) — avoid hammering the API
+
+---
+
+## Docker Compose
+
+- [ ] Health checks on every service; use `condition: service_healthy` in `depends_on` — prevents race conditions on startup
+- [ ] `restart: unless-stopped` on all services — everything comes back after a Mac Mini reboot
+- [ ] Named volumes for TimescaleDB and MLflow artifact storage — anonymous volumes are deleted on `docker compose down`
+- [ ] Set memory limits on Kafka and TimescaleDB — without them one service can starve the others
+- [ ] Use a `.env` file for all config (ports, passwords, topic names) and reference with `${VAR}` in compose — no hardcoded values
+- [ ] Separate `docker-compose.override.yml` for local dev settings (e.g. exposed ports, debug flags) that you don't want in the production compose file
