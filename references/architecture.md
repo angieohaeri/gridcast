@@ -2,7 +2,7 @@
 
 ## Overview
 
-End-to-end ML portfolio project. Predicts short-term bike availability at Divvy (Chicago)
+End-to-end ML portfolio project. Predicts short-term bike availability at Citi Bike (NYC)
 stations using live GBFS feeds, weather data, and a streaming infrastructure built around
 Apache Kafka and TimescaleDB.
 
@@ -15,17 +15,20 @@ modeling → serving → deployment), build a public-facing portfolio project.
 
 ## Data Sources
 
-### Divvy GBFS Feed
-- Provider: Divvy (Chicago), operated by Lyft — GBFS 2.3 spec
-- Station information (static): `https://gbfs.divvybikes.com/gbfs/2/en/station_information.json`
-- Station status (live): `https://gbfs.divvybikes.com/gbfs/2/en/station_status.json`
+### Citi Bike GBFS Feed
+- Provider: Citi Bike (New York City), operated by Lyft — GBFS 2.3 spec
+- Station information (static): `https://gbfs.citibikenyc.com/gbfs/2/en/station_information.json`
+- Station status (live): `https://gbfs.citibikenyc.com/gbfs/2/en/station_status.json`
 - Update frequency: every 10–15 seconds; poll every 30–60 seconds
-- Auth: none required; ~700 stations with lat/lng, dock counts, bike availability
+- Auth: none required; ~2,000+ stations with lat/lng, dock counts, bike availability
+- Historical trip data (for training): https://citibikenyc.com/system-data — publicly
+  available monthly CSVs going back to 2013; use these to build the training set before
+  the streaming pipeline has accumulated enough data
 
 ### Open-Meteo API
 - URL: https://open-meteo.com/ — free, no API key required
 - Provides: current conditions + hourly forecast (temp, precipitation, wind, cloud cover)
-- Historical data available (useful for training set)
+- Historical data available (useful for training set, aligns with Citi Bike trip history)
 - Poll every 5–10 minutes
 
 ---
@@ -87,7 +90,8 @@ modeling → serving → deployment), build a public-facing portfolio project.
 
 **Spatial:**
 - Station lat/lng (raw coordinates or learned embeddings)
-- Distance to city center
+- Distance to city center (Midtown Manhattan)
+- Borough label (Manhattan, Brooklyn, Queens, Bronx, Jersey City) — strong demand signal
 - Station cluster label (compute from historical demand patterns via k-means or DBSCAN)
 - Current status of N nearest stations, weighted by distance — captures demand spillover
 
@@ -100,8 +104,9 @@ modeling → serving → deployment), build a public-facing portfolio project.
 - LightGBM is the right starting point — strong baseline, handles missing values, fast
 - Temporal Fusion Transformer is worth adding later: designed exactly for multivariate
   time series with known future inputs (i.e., weather forecast is a "known future covariate")
-- Train per-station models vs. a single global model with station as a feature — try both,
-  the global model typically wins if you have enough data and good spatial features
+- Train per-station models vs. a single global model with station as a feature — try both;
+  with ~2,000 stations and years of historical data, the global model has a strong advantage
+  here vs. a smaller network
 
 ---
 
@@ -148,10 +153,11 @@ bikeshare/
 ## Starting Point (in order)
 
 1. Install Ubuntu 24.04 Server on Mac Mini; install Docker + Compose; disable sleep
-2. Write a single Python producer that polls Divvy GBFS station status and prints to stdout
+2. Write a single Python producer that polls Citi Bike GBFS station status and prints to stdout
 3. Wire producer to Kafka (single topic, no consumers yet) — verify messages flowing
 4. Add consumer that writes raw snapshots to TimescaleDB
-5. Build dbt models for lag + rolling features
-6. Train LightGBM baseline with MLflow tracking
-7. Wrap model in FastAPI; build Streamlit map dashboard
-8. Wire up Cloudflare Tunnel for public access
+5. Download historical Citi Bike trip CSVs; backfill TimescaleDB for training data
+6. Build dbt models for lag + rolling features
+7. Train LightGBM baseline with MLflow tracking
+8. Wrap model in FastAPI; build Streamlit map dashboard
+9. Wire up Cloudflare Tunnel for public access
