@@ -139,15 +139,16 @@ sudo usermod -aG docker $USER
 bikeshare/
 ├── docker-compose.yml
 ├── .env                    # secrets, not committed
-├── producers/              # Kafka producer scripts (GBFS, weather)
-├── consumers/              # Kafka consumer scripts (→ TimescaleDB)
-├── dbt/                    # Feature engineering models
-├── prefect/                # Orchestration flows
-├── training/               # MLflow training scripts
-├── api/                    # FastAPI prediction service
-├── dashboard/              # Streamlit app
-├── notebooks/              # EDA, model exploration
-└── infra/                  # Cloudflare config, nginx, etc.
+├── src/
+  ├── producers/              # Kafka producer scripts (GBFS, weather)
+  ├── consumers/              # Kafka consumer scripts (→ TimescaleDB)
+  ├── dbt/                    # Feature engineering models
+  ├── prefect/                # Orchestration flows
+  ├── training/               # MLflow training scripts
+  ├── api/                    # FastAPI prediction service
+  ├── dashboard/              # Streamlit app
+  ├── notebooks/              # EDA, model exploration
+  └── infra/                  # Cloudflare config, nginx, etc.
 ```
 
 ---
