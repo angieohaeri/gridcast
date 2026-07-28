@@ -5,18 +5,37 @@ build-backend = "flit_core.buildapi"
 [project]
 name = "bikeshare"
 version = "0.0.1"
-description = "Bike availability fpredictorr for Divvy bikeshare system in Chicago."
+description = "Live bike availability forecasting for Citi Bike (NYC)."
 authors = [
   { name = "Angie Ohaeri" },
 ]
-
 readme = "README.md"
 classifiers = [
     "Programming Language :: Python :: 3",
-    
 ]
-requires-python = "==3.13.0"
+requires-python = ">=3.12"
+dependencies = [
+    "loguru",
+    "matplotlib",
+    "mlflow",
+    "numpy",
+    "pandas",
+    "python-dotenv",
+    "scikit-learn",
+    "tqdm",
+    "typer",
+    "dvc",
+]
 
+[project.optional-dependencies]
+dev = [
+    "ipython",
+    "jupyterlab",
+    "notebook",
+    "pre-commit",
+    "pytest",
+    "ruff",
+]
 
 [tool.ruff]
 line-length = 99
@@ -24,9 +43,13 @@ src = ["bikeshare"]
 include = ["pyproject.toml", "bikeshare/**/*.py"]
 
 [tool.ruff.lint]
-extend-select = ["I"]  # Add import sorting
+extend-select = ["I"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["bikeshare"]
 force-sort-within-sections = true
 
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.1",
+]

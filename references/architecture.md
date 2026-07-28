@@ -35,7 +35,7 @@ modeling → serving → deployment), build a public-facing portfolio project.
 
 ## Stack
 
-![title](/images/bikeshare_system_architecture.svg)
+![title](images/bikeshare_system_architecture.svg)
 
 ### Ingestion
 - **Apache Kafka** (KRaft mode — no ZooKeeper, stable since Kafka 3.3+)
