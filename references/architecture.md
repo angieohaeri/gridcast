@@ -1,10 +1,10 @@
-# Bike Share Demand Forecasting — Architecture Reference
+# Electricity Demand Forecasting — Architecture Reference
 
 ## Overview
 
-End-to-end ML portfolio project. Predicts short-term bike availability at Citi Bike (NYC)
-stations using live GBFS feeds, weather data, and a streaming infrastructure built around
-Apache Kafka and TimescaleDB.
+End-to-end ML portfolio project. Predicts short-term zonal electricity load on the
+**PJM Interconnection** using EIA-930 hourly demand data, PJM real-time LMP data, and
+weather data, with a streaming infrastructure built around Apache Kafka and TimescaleDB.
 
 **Goal:** practice end-to-end ML engineering (ingestion → storage → feature engineering →
 modeling → serving → deployment), build a public-facing portfolio project.
@@ -15,44 +15,64 @@ modeling → serving → deployment), build a public-facing portfolio project.
 
 ## Data Sources
 
-### Citi Bike GBFS Feed
-- Provider: Citi Bike (New York City), operated by Lyft — GBFS 2.3 spec
-- Station information (static): `https://gbfs.citibikenyc.com/gbfs/2/en/station_information.json`
-- Station status (live): `https://gbfs.citibikenyc.com/gbfs/2/en/station_status.json`
-- Update frequency: every 10–15 seconds; poll every 30–60 seconds
-- Auth: none required; ~2,000+ stations with lat/lng, dock counts, bike availability
-- Historical trip data (for training): https://citibikenyc.com/system-data — publicly
-  available monthly CSVs going back to 2013; use these to build the training set before
-  the streaming pipeline has accumulated enough data
+### gridstatus (primary wrapper)
+- Library: `https://github.com/gridstatus/gridstatus` — `pip install gridstatus`
+- Docs: `https://opensource.gridstatus.io/en/latest/`
+- Use the `PJM()` class for load, load forecasts, LMPs (day-ahead and real-time), and fuel mix
+- Returns pandas DataFrames with timezone-aware columns; date args accept "today",
+  "latest", an ISO-8601 string, or a `(start, end)` range in PJM's local timezone
+- The open-source library hits PJM endpoints directly — no paid `gridstatusio` client needed
+
+### EIA Open Data API v2
+- `https://www.eia.gov/opendata/`, docs at `https://www.eia.gov/opendata/documentation.php`
+- Free API key required
+- `/v2/electricity/rto/` routes carry EIA-930 Hourly Electric Grid Monitor data: hourly
+  demand, forecast demand, net generation, and interchange, with balancing authority and
+  subregion facets
+- Best source for the load and generation-mix features
+
+### PJM Data Miner 2
+- `https://dataminer2.pjm.com/`
+- Real-time hourly LMP feed: `https://dataminer2.pjm.com/feed/rt_hrl_lmps`
+- Browsable manually; programmatic access needs a free pjm.com account
 
 ### Open-Meteo API
 - URL: https://open-meteo.com/ — free, no API key required
 - Provides: current conditions + hourly forecast (temp, precipitation, wind, cloud cover)
-- Historical data available (useful for training set, aligns with Citi Bike trip history)
+- Historical data available (useful for training set, aligns with EIA-930 history)
+- Scoped to a handful of representative PJM zone cities to start (e.g. RTO total plus 3-4
+  zones), not every zone — matches the "start small, scale up if needed" call on zone count
 - Poll every 5–10 minutes
+
+### On frequency mismatch
+EIA-930 is hourly; PJM LMPs are 5- or 15-minute. Handle this explicitly rather than
+resampling silently: raw data for each lands in its own hypertable at native
+resolution, and any join across the two happens in a named, documented dbt model.
 
 ---
 
 ## Stack
 
-![title](images/bikeshare_system_architecture.svg)
+![system_architecture](images/gridcast_system_architecture.svg)
 
 ### Ingestion
 - **Apache Kafka** (KRaft mode — no ZooKeeper, stable since Kafka 3.3+)
-- Two Kafka topics: `station_status`, `weather`
-- Python producers using `confluent-kafka` poll GBFS and Open-Meteo REST APIs and publish
+- Three Kafka topics: `load`, `lmp`, `weather`
+- Python producers using `confluent-kafka` poll EIA-930, PJM Data Miner, and Open-Meteo
+  REST APIs (via `gridstatus` where possible) and publish
 - Python consumers read topics and write to TimescaleDB
 
 ### Storage
 - **TimescaleDB** (PostgreSQL extension — familiar tooling, time-series optimized)
 - Hypertables for automatic time-based partitioning
 - Continuous aggregates: materialized views that stay fresh as data arrives
-- One hypertable for station snapshots, one for weather observations
+- One hypertable each for `load`, `lmp`, and `weather` — kept at native resolution, joined explicitly downstream
 
 ### Feature Engineering / Orchestration
 - **Prefect** for scheduling and orchestration
 - **dbt** for feature transformations running against TimescaleDB
-- Produces: lag features, rolling averages, joined weather+station feature tables
+- Produces: lag features, rolling averages, joined weather+load feature tables, and the
+  explicit hourly LMP alignment model
 
 ### Modeling
 - **MLflow** for experiment tracking and model registry
@@ -67,7 +87,7 @@ modeling → serving → deployment), build a public-facing portfolio project.
 
 ### Dashboard
 - **Streamlit** with **Pydeck** for geographic map (deck.gl, better than Folium for this)
-- Live station status on map, predicted availability in 30 min, weather overlay
+- Live zone load on map, predicted load N hours ahead, weather overlay
 - Calls FastAPI for predictions
 
 ### Deployment
@@ -80,35 +100,33 @@ modeling → serving → deployment), build a public-facing portfolio project.
 ## ML Details
 
 ### Prediction Target
-`bikes_available` at each station in 30 minutes (regression)
+Zonal `load_mw`, N hours ahead (regression). Hourly grain matches EIA-930, so v1
+avoids the frequency-mismatch problem entirely. LMP forecasting is a stretch extension
+once the load model and the LMP-alignment pattern are proven.
 
 ### Features
 
 **Temporal:**
-- Hour of day, day of week, is_weekend, is_holiday
-- Time since midnight (use cyclical encoding — sin/cos transforms)
-- Lag features: `bikes_available` at t-15, t-30, t-60 minutes
-- Rolling means: 1hr, 6hr, 24hr, same time last week
+- Hour of day, day of week, is_weekend, is_holiday (holidays matter more for grid load than bikeshare)
+- Time since midnight (cyclical encoding — sin/cos transforms)
+- Lag features: `load_mw` at t-1h, t-3h, t-24h, t-168h (same time last week)
+- Rolling means: 6hr, 24hr, 7d
 
-**Spatial:**
-- Station lat/lng (raw coordinates or learned embeddings)
-- Distance to city center (Midtown Manhattan)
-- Borough label (Manhattan, Brooklyn, Queens, Bronx, Jersey City) — strong demand signal
-- Station cluster label (compute from historical demand patterns via k-means or DBSCAN)
-- Current status of N nearest stations, weighted by distance — captures demand spillover
+**Zonal:**
+- Zone/BA identifier as a categorical feature (global model, mirrors "station as feature" from the bikeshare version)
+- Zone-level historical load profile stats (e.g. typical peak hour, weekday/weekend spread)
 
 **Weather:**
-- Current: temperature, precipitation rate, wind speed, cloud cover
-- Forecast: same fields 1 hour ahead
+- Current: temperature, precipitation rate, wind speed, cloud cover, per representative zone city
+- Forecast: same fields N hours ahead
 - Including forecast (not just current conditions) is a meaningful differentiator
 
 ### Model Notes
 - LightGBM is the right starting point — strong baseline, handles missing values, fast
 - Temporal Fusion Transformer is worth adding later: designed exactly for multivariate
   time series with known future inputs (i.e., weather forecast is a "known future covariate")
-- Train per-station models vs. a single global model with station as a feature — try both;
-  with ~2,000 stations and years of historical data, the global model has a strong advantage
-  here vs. a smaller network
+- Train per-zone models vs. a single global model with zone as a feature — try both,
+  but start with the global model given the small initial zone count
 
 ---
 
@@ -136,18 +154,19 @@ sudo usermod -aG docker $USER
 ## Suggested Project Structure
 
 ```
-bikeshare/
+gridcast/
 ├── docker-compose.yml
 ├── .env                    # secrets, not committed
-├── producers/              # Kafka producer scripts (GBFS, weather)
-├── consumers/              # Kafka consumer scripts (→ TimescaleDB)
-├── dbt/                    # Feature engineering models
-├── prefect/                # Orchestration flows
-├── training/               # MLflow training scripts
-├── api/                    # FastAPI prediction service
-├── dashboard/              # Streamlit app
-├── notebooks/              # EDA, model exploration
-└── infra/                  # Cloudflare config, nginx, etc.
+├── src/
+  ├── producers/              # Kafka producer scripts (EIA-930, PJM LMP, weather)
+  ├── consumers/              # Kafka consumer scripts (→ TimescaleDB)
+  ├── dbt/                    # Feature engineering models
+  ├── prefect/                # Orchestration flows
+  ├── training/               # MLflow training scripts
+  ├── api/                    # FastAPI prediction service
+  ├── dashboard/              # Streamlit app
+  ├── notebooks/              # EDA, model exploration
+  └── infra/                  # Cloudflare config, nginx, etc.
 ```
 
 ---
@@ -155,11 +174,68 @@ bikeshare/
 ## Starting Point (in order)
 
 1. Install Ubuntu 24.04 Server on Mac Mini; install Docker + Compose; disable sleep
-2. Write a single Python producer that polls Citi Bike GBFS station status and prints to stdout
+2. Write a single Python producer that polls EIA-930 hourly demand (via `gridstatus` or
+   the EIA API directly) and prints to stdout
 3. Wire producer to Kafka (single topic, no consumers yet) — verify messages flowing
 4. Add consumer that writes raw snapshots to TimescaleDB
-5. Download historical Citi Bike trip CSVs; backfill TimescaleDB for training data
-6. Build dbt models for lag + rolling features
-7. Train LightGBM baseline with MLflow tracking
-8. Wrap model in FastAPI; build Streamlit map dashboard
-9. Wire up Cloudflare Tunnel for public access
+5. Backfill TimescaleDB with EIA-930 historical extracts for training data
+6. Add the PJM LMP producer/consumer as a second, separately-resolved feed
+7. Build dbt models for lag + rolling features, including the explicit LMP alignment model
+8. Train LightGBM baseline with MLflow tracking
+9. Wrap model in FastAPI; build Streamlit map dashboard
+10. Wire up Cloudflare Tunnel for public access
+
+---
+
+## Project Organization
+
+```
+├── LICENSE            <- Open-source license if one is chosen
+├── Makefile           <- Makefile with convenience commands like `make data` or `make train`
+├── README.md          <- The top-level README for developers using this project.
+├── data
+│   ├── external       <- Data from third party sources.
+│   ├── interim        <- Intermediate data that has been transformed.
+│   ├── processed      <- The final, canonical data sets for modeling.
+│   └── raw            <- The original, immutable data dump.
+│
+├── docs               <- A default mkdocs project; see www.mkdocs.org for details
+│
+├── models             <- Trained and serialized models, model predictions, or model summaries
+│
+├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
+│                         the creator's initials, and a short `-` delimited description, e.g.
+│                         `1.0-jqp-initial-data-exploration`.
+│
+├── pyproject.toml     <- Project configuration file with package metadata for 
+│                         gridcast and configuration for tools like black
+│
+├── references         <- Data dictionaries, manuals, and all other explanatory materials.
+│
+├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
+│   └── figures        <- Generated graphics and figures to be used in reporting
+│
+├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
+│                         generated with `pip freeze > requirements.txt`
+│
+├── setup.cfg          <- Configuration file for flake8
+│
+└── gridcast   <- Source code for use in this project.
+    │
+    ├── __init__.py             <- Makes gridcast a Python module
+    │
+    ├── config.py               <- Store useful variables and configuration
+    │
+    ├── dataset.py              <- Scripts to download or generate data
+    │
+    ├── features.py             <- Code to create features for modeling
+    │
+    ├── modeling                
+    │   ├── __init__.py 
+    │   ├── predict.py          <- Code to run model inference with trained models          
+    │   └── train.py            <- Code to train models
+    │
+    └── plots.py                <- Code to create visualizations
+```
+
+--------

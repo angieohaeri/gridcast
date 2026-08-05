@@ -3,9 +3,9 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "bikeshare"
+name = "gridcast"
 version = "0.0.1"
-description = "Live bike availability forecasting for Citi Bike (NYC)."
+description = "Short-term electricity load forecasting for PJM zones."
 authors = [
   { name = "Angie Ohaeri" },
 ]
@@ -22,9 +22,11 @@ dependencies = [
     "pandas",
     "python-dotenv",
     "scikit-learn",
+    "lightgbm",
     "tqdm",
     "typer",
     "dvc",
+    "gridstatus>=0.36.0",
 ]
 
 [project.optional-dependencies]
@@ -39,14 +41,14 @@ dev = [
 
 [tool.ruff]
 line-length = 99
-src = ["bikeshare"]
-include = ["pyproject.toml", "bikeshare/**/*.py"]
+src = ["gridcast"]
+include = ["pyproject.toml", "gridcast/**/*.py"]
 
 [tool.ruff.lint]
 extend-select = ["I"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["bikeshare"]
+known-first-party = ["gridcast"]
 force-sort-within-sections = true
 
 [dependency-groups]

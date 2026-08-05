@@ -1,11 +1,11 @@
-# Best Practices — Bikeshare Forecasting Stack
+# Best Practices — Electricity Demand Forecasting Stack
 
 ---
 
 ## General / Repo
 
-- [ ] `.env` in `.gitignore`; commit `.env.example` with keys but no values
-- [ ] `pre-commit` hooks: ruff (lint), nbstripout (strip notebook outputs before commit)
+- [x] `.env` in `.gitignore`; commit `.env.example` with keys but no values
+- [x] `pre-commit` hooks: ruff (lint), nbstripout (strip notebook outputs before commit)
 - [ ] DVC for data and model versioning — `.dvc` files committed, data in remote storage
 - [ ] Conventional commits: `feat:`, `fix:`, `data:`, `exp:`, `infra:`
 - [ ] GitHub Actions CI: ruff + pytest on every push, fail fast
@@ -18,7 +18,7 @@
 ## Kafka
 
 - [ ] Validate message schema in the consumer before writing to DB — never silently accept malformed data
-- [ ] Dead letter queue topic (`station_status_dlq`, `weather_dlq`) for messages that fail parsing — inspect and replay rather than drop
+- [ ] Dead letter queue topic (`load_dlq`, `lmp_dlq`, `weather_dlq`) for messages that fail parsing — inspect and replay rather than drop
 - [ ] Enable idempotent producers to prevent duplicates on retry: `enable.idempotence=True`
 - [ ] Set `acks=all` on producers for durability
 - [ ] Run Kafka UI (Kafdrop or Redpanda Console) in Docker Compose — monitor consumer lag from a browser
@@ -31,7 +31,7 @@
 - [ ] Override default chunk interval from 7 days to 1 day: `chunk_time_interval => INTERVAL '1 day'`
 - [ ] Add compression policy on chunks older than 7 days — columnar compression cuts storage 90%+ on time-series
 - [ ] Set a retention policy on raw snapshots (30–90 days of 30s resolution is enough; keep aggregates longer)
-- [ ] Add composite index on `(station_id, time DESC)` — TimescaleDB creates the time index automatically, station_id won't be there by default
+- [ ] Add composite index on `(zone, time DESC)` — TimescaleDB creates the time index automatically, zone won't be there by default
 - [ ] Never query the raw hypertable for training — always go through a continuous aggregate or materialized dbt model
 - [ ] Use `EXPLAIN ANALYZE` on slow queries before optimizing indexes
 
@@ -39,10 +39,10 @@
 
 ## dbt
 
-- [ ] Test every model: at minimum `not_null` and `unique` on primary keys, `accepted_values` on categoricals (borough, etc.)
+- [ ] Test every model: at minimum `not_null` and `unique` on primary keys, `accepted_values` on categoricals (zone, etc.)
 - [ ] Run `dbt build` (not `dbt run`) — runs models and tests together in dependency order
 - [ ] Write a one-line `description:` for every model in `schema.yml`
-- [ ] Use incremental models for anything touching raw snapshot tables — full refreshes over months of 2,000-station history will be slow
+- [ ] Use incremental models for anything touching raw snapshot tables — full refreshes over months of hourly zone history will be slow
 - [ ] Separate source definitions from models: define `sources:` in `schema.yml`, reference with `{{ source() }}` not raw table names
 - [ ] Run `dbt test` in GitHub Actions CI
 
@@ -50,7 +50,7 @@
 
 ## Prefect
 
-- [ ] Add retry logic with exponential backoff on every task that calls an external system (GBFS, Open-Meteo, DB writes)
+- [ ] Add retry logic with exponential backoff on every task that calls an external system (EIA-930, PJM Data Miner, Open-Meteo, DB writes)
 - [ ] Configure flow failure alerts early — a silently dead pipeline is worse than a noisy one
 - [ ] Cache weather fetches with task result caching — avoid unnecessary re-polls on downstream retries
 - [ ] Use `@flow` and `@task` decorators consistently; keep flows thin (orchestration only), business logic in tasks
@@ -63,8 +63,8 @@
 - [ ] Log the DVC data hash or training date range as a run tag on every experiment — reproducibility requires knowing exactly what data was used
 - [ ] Log model signatures on every logged model: `mlflow.models.infer_signature(X_train, y_pred)` — serving layer needs the expected input schema
 - [ ] Use the model registry with explicit stage transitions: Staging → Production
-- [ ] Load models in FastAPI by stage (`models:/bikeshare-lgbm/Production`), not by run ID — promotes without code changes
-- [ ] Log per-station error metrics (MAE per station), not just aggregate RMSE — a poor-performing Grand Central model is not production-ready regardless of overall score
+- [ ] Load models in FastAPI by stage (`models:/gridcast-lgbm/Production`), not by run ID — promotes without code changes
+- [ ] Log per-zone error metrics (MAE per zone), not just aggregate RMSE — a poor-performing zone model is not production-ready regardless of overall score
 - [ ] Tag runs with feature set version so you can compare feature experiments cleanly
 
 ---
@@ -85,7 +85,7 @@
 - [ ] `@st.cache_data` on every function that calls FastAPI or queries the DB — Streamlit re-runs the whole script on any interaction
 - [ ] Handle FastAPI unavailability explicitly — show a clear error state, not a Python traceback
 - [ ] Keep data fetching in a separate `data.py` module; pages import from it — don't mix API calls with rendering logic
-- [ ] Use `st.session_state` for anything that should persist across reruns (selected station, time horizon)
+- [ ] Use `st.session_state` for anything that should persist across reruns (selected zone, time horizon)
 - [ ] Set a reasonable auto-refresh interval (60–120 seconds is enough) — avoid hammering the API
 
 ---

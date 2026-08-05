@@ -1,4 +1,5 @@
 from pathlib import Path
+import sys
 
 from dotenv import load_dotenv
 from loguru import logger
@@ -20,6 +21,21 @@ MODELS_DIR = PROJ_ROOT / "models"
 
 REPORTS_DIR = PROJ_ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
+
+def setup_logging():
+    """Initializes and customizes global Loguru configuration."""
+    # Remove the default standard error sink to prevent duplicate logs
+    logger.remove()
+
+    # 1. Console Handler (Colorful, clean, for development)
+    logger.add(
+        sys.stderr,
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        level="DEBUG",
+        enqueue=True  # Thread-safe and asynchronous
+    )
+    logger.add(level="INFO", sink=sys.stderr, colorize=True, format="<orange>{time: YYYY-MM-DD HH:mm:ss}</orange>"
+    " | <level>{message}</level>")
 
 # If tqdm is installed, configure loguru with tqdm.write
 # https://github.com/Delgan/loguru/issues/135

@@ -2,7 +2,7 @@
 # GLOBALS                                                                       #
 #################################################################################
 
-PROJECT_NAME = bikeshare
+PROJECT_NAME = gridcast
 PYTHON_VERSION = 3.13.0
 PYTHON_INTERPRETER = python
 
@@ -65,7 +65,7 @@ create_environment:
 ## Make dataset
 .PHONY: data
 data: requirements
-	$(PYTHON_INTERPRETER) bikeshare/dataset.py
+	$(PYTHON_INTERPRETER) gridcast/dataset.py
 
 
 #################################################################################

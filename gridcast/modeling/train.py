@@ -4,7 +4,7 @@ from loguru import logger
 from tqdm import tqdm
 import typer
 
-from bikeshare.config import MODELS_DIR, PROCESSED_DATA_DIR
+from gridcast.config import MODELS_DIR, PROCESSED_DATA_DIR
 
 app = typer.Typer()
 
