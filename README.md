@@ -8,6 +8,10 @@ weather data.
 LightGBM → FastAPI → Streamlit, self-hosted on a Mac Mini via Docker Compose and
 Cloudflare Tunnel.
 
+## Architecture
+
+![architecture](/references/images/gridcast_system_architecture.svg)
+
 See `references/architecture.md` for the full architecture, data sources, ML details,
 and starting point. See `CLAUDE.md` for repo conventions.
 
