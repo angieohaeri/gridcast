@@ -68,6 +68,17 @@ data: requirements
 	$(PYTHON_INTERPRETER) gridcast/dataset.py
 
 
+## Start docker services
+.PHONY: up
+up:
+	docker compose up -d
+
+## Stop docker services
+.PHONY: down
+down:
+	docker compose down
+
+
 #################################################################################
 # Self Documenting Commands                                                     #
 #################################################################################
