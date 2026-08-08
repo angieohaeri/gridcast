@@ -44,6 +44,8 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+    networks:
+      - kafka-net
 
   kafka-ui:
     image: kafbat/kafka-ui:latest
@@ -61,6 +63,9 @@ services:
       KAFKA_CLUSTERS_0_NAME: 'local-kraft-cluster'
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'kafka-kraft:9092'
 
+
+networks:
+  kafka-net:
 
 volumes:
   timescaledb_data:
