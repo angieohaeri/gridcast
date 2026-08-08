@@ -37,6 +37,7 @@ dev = [
     "ipython",
     "jupyterlab",
     "notebook",
+    "ipykernel",
     "pre-commit",
     "pytest",
     "ruff",
