@@ -1,0 +1,4 @@
+[core]
+    remote = myremote
+['remote "myremote"']
+    url = ssh://angieohaeri@angies-server:22/gridcast_dvc/

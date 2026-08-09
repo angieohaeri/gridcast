@@ -34,7 +34,7 @@ def setup_logging():
         level="DEBUG",
         enqueue=True  # Thread-safe and asynchronous
     )
-    logger.add(level="INFO", sink=sys.stderr, colorize=True, format="<orange>{time: YYYY-MM-DD HH:mm:ss}</orange>"
+    logger.add(level="INFO", sink=sys.stderr, colorize=True, format="<fg #FFA500>{time: YYYY-MM-DD HH:mm:ss}</fg #FFA500>"
     " | <level>{message}</level>")
 
 # If tqdm is installed, configure loguru with tqdm.write

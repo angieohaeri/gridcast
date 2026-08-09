@@ -8,22 +8,38 @@ TimescaleDB table definitions.
 
 Title: Added load hypertable, Author: Angie Ohaeri, Date: August 4th Time: (session)
 
-Raw landing table for EIA-930 hourly demand data (Kafka topic `load`). One row per
-balancing authority/subregion per hour.
+Title: Dropped ba_code (constant across all rows, single-BA project), renamed subregion
+to zone for consistency with lmp/weather, Author: Angie Ohaeri, Date: August 8th Time: (session)
+
+Title: Added source and is_verified columns, made zone NOT NULL (EIA's RTO-level row
+now uses zone='RTO' instead of NULL, distinguished from PJM's own zone='RTO' row via
+source), added UNIQUE(time, zone, source) for upsert-safe consumer writes,
+Author: Angie Ohaeri, Date: August 8th Time: (session)
+
+Raw landing table for EIA-930 hourly demand data and PJM zonal load (Kafka topic
+`load`). One row per (zone, source) per hour. PJM's own metered feed (`source='pjm'`)
+and EIA's grid monitor (`source='eia'`) are independent measurements - PJM's feed
+includes its own `zone='RTO'` system total, and EIA's RTO-level row also uses
+`zone='RTO'`; the two are kept as separate rows (never merged) since they're
+different measurements of the same quantity, not duplicates.
 
 DDL: `src/consumers/schema.sql`
 
 | column | type | notes |
 |---|---|---|
-| `time` | timestamptz, not null, default now() | EIA-930 reporting hour; hypertable partitioning column |
-| `ba_code` | text, not null | balancing authority code (e.g. `PJM`) |
-| `subregion` | text | subregion code, when reported; null for BA-level totals |
+| `time` | timestamptz, not null, default now() | EIA-930/PJM reporting hour; hypertable partitioning column |
+| `zone` | text, not null | PJM zone, or `RTO` for system-wide totals (from either source) |
+| `source` | text, not null | `pjm` or `eia` - which feed this row came from |
 | `demand_mw` | double precision, not null | actual demand |
 | `demand_forecast_mw` | double precision | EIA-930's own day-ahead forecast, when present |
 | `net_generation_mw` | double precision | |
 | `total_interchange_mw` | double precision | |
+| `is_verified` | boolean | only meaningful for `source='pjm'`; PJM revises a given (time, zone) from unverified to verified over ~3 days after publish. Null for `source='eia'` (EIA exposes no equivalent flag) |
 
-Index: `(ba_code, time DESC)` for per-zone lookups.
+Unique constraint: `(time, zone, source)` - the upsert key consumers write against, since
+both sources republish the same hour as values get revised.
+
+Index: `(zone, time DESC)` for per-zone lookups.
 
 ---
 
@@ -49,6 +65,14 @@ DDL: `src/consumers/schema.sql`
 | `marginal_loss_price` | double precision | |
 
 Index: `(zone, time DESC)` for per-zone lookups.
+
+Title: Documented LMP zone-label mismatch discovered writing the producer, Author: Angie Ohaeri, Date: August 8th Time: 11:30pm
+
+`zone` is written using this project's zone_id codes (`data/processed/pjm_weather_zones.csv`), not PJM's raw `Location Short Name` from `rt_hrl_lmps` - the two disagree for 2 of the 4 in-scope zones (`CE` → `COMED`, `BC` → `BGE`; `DOM` and `AEP` happen to match). The producer (`src/producers/lmp_producer.py`) maps explicitly; scope is the same 4 zones as `load`/`weather` (LMP zone scope was previously undecided, now resolved).
+
+Title: Added UNIQUE(time, pnode_id) and migrated existing rows to zone_id codes, Author: Angie Ohaeri, Date: August 9th Time: (session)
+
+Added `lmp_time_pnode_uidx` so `src/consumers/lmp_consumer.py` can upsert on re-delivery (mirrors `load`'s upsert design; confirmed no existing duplicate `(time, pnode_id)` rows before adding). Also migrated the ~126K in-scope historical rows already in the live table from PJM's raw names to zone_id codes (`COMED`→`CE`, `BGE`→`BC`; `AEP`/`DOM` unchanged) so `zone` is consistent with `load`/`weather` going forward. The other 19 zones' historical rows (outside current live scope) were left as PJM's raw names - not actively maintained, not worth relabeling. Applied directly against the live DB, since `schema.sql` only runs via `docker-entrypoint-initdb.d` on first container init and this table already had data.
 
 ---
 

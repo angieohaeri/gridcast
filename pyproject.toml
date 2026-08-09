@@ -30,6 +30,8 @@ dependencies = [
     "typer",
     "dvc",
     "gridstatus>=0.36.0",
+    "confluent-kafka",
+    "psycopg2-binary>=2.9.12",
 ]
 
 [project.optional-dependencies]
@@ -45,8 +47,8 @@ dev = [
 
 [tool.ruff]
 line-length = 99
-src = ["gridcast"]
-include = ["pyproject.toml", "gridcast/**/*.py"]
+src = ["gridcast", "src"]
+include = ["pyproject.toml", "gridcast/**/*.py", "src/**/*.py"]
 
 [tool.ruff.lint]
 extend-select = ["I"]

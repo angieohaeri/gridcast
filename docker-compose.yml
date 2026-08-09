@@ -21,18 +21,19 @@ services:
   kafka:
     image: apache/kafka:latest
     container_name: kafka-kraft
-    ports: 
+    ports:
       - "9092:9092"
+      - "9094:9094"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: 'broker,controller'
 
-      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093'
-      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://localhost:9092'
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094,INTERNAL://0.0.0.0:9095,CONTROLLER://0.0.0.0:9093'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://localhost:9092,EXTERNAL://${KAFKA_TAILSCALE_HOST}:9094,INTERNAL://kafka-kraft:9095'
       KAFKA_CONTROLLER_QUORUM_VOTERS: '1@localhost:9093'
-      
+
       # Map listener names to security protocols
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT'
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
       KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
       
@@ -49,6 +50,25 @@ services:
     networks:
       - kafka-net
 
+  kafka-init:
+    image: apache/kafka:latest
+    container_name: kafka-init
+    depends_on:
+      - kafka
+    networks:
+      - kafka-net
+    entrypoint: []
+    command:
+      - /bin/bash
+      - -c
+      - |
+        until /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka-kraft:9095 > /dev/null 2>&1; do
+          echo waiting for kafka-kraft:9095...; sleep 2;
+        done
+        for topic in load lmp weather load_dlq lmp_dlq weather_dlq; do
+          /opt/kafka/bin/kafka-topics.sh --create --if-not-exists --bootstrap-server kafka-kraft:9095 --topic $$topic --partitions 1 --replication-factor 1
+        done
+
   kafka-ui:
     image: kafbat/kafka-ui:latest
     container_name: kafka-ui
@@ -57,13 +77,36 @@ services:
     networks:
       - kafka-net
     depends_on:
-      - kafka
+      - kafka-init
     environment:
       # Enable adjustments (like creating topics) via the browser
       DYNAMIC_CONFIG_ENABLED: 'true'
       # Link the UI to your KRaft cluster using the internal listener
       KAFKA_CLUSTERS_0_NAME: 'local-kraft-cluster'
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'kafka-kraft:9092'
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'kafka-kraft:9095'
+
+  prefect-server:
+    image: prefecthq/prefect:3-latest
+    container_name: gridcast-prefect-server
+    restart: unless-stopped
+    entrypoint: ["prefect", "server", "start"]
+    environment:
+      # SQLite, not Postgres - simplest self-hosted option at this project's scale
+      # (a handful of hourly flow runs). Easy to repoint at TimescaleDB's Postgres
+      # later (a separate `prefect` database, not the gridcast hypertables) if
+      # SQLite's concurrency ever becomes a real limit.
+      PREFECT_SERVER_API_HOST: '0.0.0.0'
+      PREFECT_SERVER_API_PORT: '4200'
+      PREFECT_UI_URL: 'http://127.0.0.1:4200/api'
+    ports:
+      - "4200:4200"
+    volumes:
+      - prefect_data:/root/.prefect
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 
 networks:
@@ -72,3 +115,4 @@ networks:
 volumes:
   timescaledb_data:
   kafka_data:
+  prefect_data:

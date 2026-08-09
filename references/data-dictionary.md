@@ -2,6 +2,10 @@
 
 Title: Added data dictionary and power industry glossary, Author: Angie Ohaeri, Date: August 7th Time: (session)
 
+Title: Documented get_dataset("electricity/rto/region-data") as the RTO-level EIA
+method for live/producer polling (get_grid_monitor can't filter by date, so it's
+backfill-only), Author: Angie Ohaeri, Date: August 9th Time: (session)
+
 Reference doc for someone new to the electricity industry. Two parts: (1) the
 vocabulary needed to read PJM/EIA data without guessing, (2) every raw column that
 actually comes back from this project's three data sources, so acronyms don't have
@@ -89,10 +93,14 @@ Columns as they actually come back from each API/library call used in this
 project's notebooks — not aspirational, verified against the installed package
 source and (for PJM) a live test pull.
 
-### EIA-930 — RTO-level (`gridstatus.EIA().get_grid_monitor(area_id="PJM")`)
+### EIA-930 — RTO-level, historical backfill only (`gridstatus.EIA().get_grid_monitor(area_id="PJM")`)
 
 One row per hour, whole-PJM only (no zone breakdown). Source: EIA's published grid
-monitor Excel file per BA.
+monitor Excel file per BA. **Cannot filter by date — always fetches full available
+history.** This is what `notebooks/0.01-pjm-eia-explore.ipynb` actually used for the
+one-time historical backfill (fine there, since a backfill wants full history
+anyway), and is why the `load` table's `source='eia'` rows exist. Do **not** use this
+for a live/recurring poll — see the `get_dataset` method below for that.
 
 | column | meaning |
 |---|---|
@@ -106,6 +114,27 @@ monitor Excel file per BA.
 | `Positive Generation` | Generation only (excludes negative/curtailed values) |
 | `Consumed Electricity` | Demand-side equivalent of Positive Generation |
 | `CO2 Factor: *` / `CO2 Emissions: *` | Emissions intensity and totals by fuel type — not used by this project currently |
+
+### EIA-930 — RTO-level, live/producer polling (`gridstatus.EIA().get_dataset("electricity/rto/region-data", start=, end=, facets={"respondent": "PJM"})`)
+
+One row per hour, whole-PJM only — same underlying quantities as `get_grid_monitor`
+above, but via the EIA v2 REST API's generic dataset endpoint, which **does support
+real `start`/`end` date filtering**. This is the method the `load` producer should
+actually poll with. Verified live (2026-08-09): a 1-day window returned exactly these
+8 columns.
+
+| column | meaning |
+|---|---|
+| `Interval Start` / `Interval End` | UTC hour boundary |
+| `Respondent` / `Respondent Name` | `PJM` / "PJM Interconnection, LLC" |
+| `Load` → `demand_mw` | RTO-wide load, MW |
+| `Load Forecast` → `demand_forecast_mw` | EIA's own published day-ahead demand forecast, MW |
+| `Net Generation` → `net_generation_mw` | RTO-wide generation, MW |
+| `Total Interchange` → `total_interchange_mw` | Net power exported (positive) or imported (negative), MW |
+
+No fuel-mix or emissions breakdown here — those only come from `get_grid_monitor` (or
+the separate `electricity/rto/fuel-type-data` dataset, not currently used by this
+project).
 
 ### EIA-930 — zone-level (`gridstatus.EIA().get_dataset("electricity/rto/region-sub-ba-data")`)
 
@@ -215,3 +244,8 @@ forecast-quality data avoids a train/serve mismatch.
 - **RTO total ≠ sum of the 4 zones you're using.** RTO is the sum of *all 20* zones,
   not just the 4 in `pjm_weather_zones.csv`. Don't expect `CE + DOM + AEP + BC` to
   reconcile against the `RTO` row.
+- **Two RTO totals, from two different EIA methods, only one of which is pollable.**
+  `get_grid_monitor` and `get_dataset("electricity/rto/region-data")` report the same
+  underlying quantities but `get_grid_monitor` can't filter by date at all (full
+  history every call) while `get_dataset` can. Backfill used the former; the producer
+  must use the latter, or it'll refetch and reprocess years of data on every poll.
