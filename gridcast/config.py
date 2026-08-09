@@ -1,8 +1,10 @@
+import os
 from pathlib import Path
 import sys
 
 from dotenv import load_dotenv
 from loguru import logger
+import psycopg2
 
 # Load environment variables from .env file if it exists
 load_dotenv()
@@ -36,6 +38,17 @@ def setup_logging():
     )
     logger.add(level="INFO", sink=sys.stderr, colorize=True, format="<fg #FFA500>{time: YYYY-MM-DD HH:mm:ss}</fg #FFA500>"
     " | <level>{message}</level>")
+
+def get_connection():
+    conn = psycopg2.connect(
+        host=os.environ["TIMESCALEDB_HOST"],
+        port=os.environ["TIMESCALEDB_PORT"],
+        dbname=os.environ["TIMESCALEDB_DB"],
+        user=os.environ["TIMESCALEDB_USER"],
+        password=os.environ["TIMESCALEDB_PASSWORD"],
+    )
+    conn.autocommit = True
+    return conn
 
 # If tqdm is installed, configure loguru with tqdm.write
 # https://github.com/Delgan/loguru/issues/135

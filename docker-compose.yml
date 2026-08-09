@@ -21,6 +21,7 @@ services:
   kafka:
     image: apache/kafka:latest
     container_name: kafka-kraft
+    restart: unless-stopped
     ports:
       - "9092:9092"
       - "9094:9094"
@@ -72,6 +73,7 @@ services:
   kafka-ui:
     image: kafbat/kafka-ui:latest
     container_name: kafka-ui
+    restart: unless-stopped
     ports:
       - "8080:8080"
     networks:
@@ -97,7 +99,12 @@ services:
       # SQLite's concurrency ever becomes a real limit.
       PREFECT_SERVER_API_HOST: '0.0.0.0'
       PREFECT_SERVER_API_PORT: '4200'
-      PREFECT_UI_URL: 'http://127.0.0.1:4200/api'
+      # Controls what the *served dashboard's JS* calls back to - not the same as
+      # PREFECT_API_URL (that's the client-side setting, for a CLI/worker/flow
+      # connecting to this server, and belongs in .env, not here). Must be the
+      # Tailscale hostname, not 127.0.0.1/localhost - a browser on the laptop
+      # resolves "localhost" to itself, not the Mac Mini.
+      PREFECT_UI_API_URL: 'http://${KAFKA_TAILSCALE_HOST}:4200/api'
     ports:
       - "4200:4200"
     volumes:

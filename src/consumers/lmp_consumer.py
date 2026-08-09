@@ -1,9 +1,8 @@
-from db_client import get_connection
 from dotenv import load_dotenv
 from kafka_client import build_consumer, build_dlq_producer, consume_and_load
 from loguru import logger
 
-from gridcast.config import setup_logging
+from gridcast.config import get_connection, setup_logging
 
 load_dotenv()
 setup_logging()
