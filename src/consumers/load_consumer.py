@@ -1,8 +1,9 @@
 from dotenv import load_dotenv
-from kafka_client import build_consumer, build_dlq_producer, consume_and_load
+from kafka_consumer_client import build_consumer, build_dlq_producer, consume_and_load
 from loguru import logger
 
 from gridcast.config import get_connection, setup_logging
+from prefect import flow
 
 load_dotenv()
 setup_logging()
@@ -20,7 +21,7 @@ ON CONFLICT (time, zone, source) DO UPDATE SET
     is_verified = EXCLUDED.is_verified;
 """
 
-
+@flow(name="load_consumer", description="Consumes load messages from Kafka and upserts to Postgres.", log_prints=True)
 def main():
     conn = get_connection()
     cur = conn.cursor()

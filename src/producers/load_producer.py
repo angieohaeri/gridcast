@@ -8,6 +8,7 @@ from loguru import logger
 import pandas as pd
 
 from gridcast.config import PROCESSED_DATA_DIR, setup_logging
+from prefect import flow
 
 load_dotenv()
 setup_logging()
@@ -73,7 +74,7 @@ def poll_eia_load(eia: gs.EIA, start: datetime, end: datetime) -> pd.DataFrame:
     eia_rto["is_verified"] = None
     return eia_rto[LOAD_COLUMNS]
 
-
+@flow(name="load_producer", description="Polls PJM and EIA load data every hour.", log_prints=True)
 def main():
     zones = pd.read_csv(PROCESSED_DATA_DIR / "pjm_weather_zones.csv")
     zone_ids = ["RTO"] + zones["zone_id"].tolist()

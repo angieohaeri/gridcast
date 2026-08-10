@@ -8,6 +8,7 @@ from loguru import logger
 import pandas as pd
 
 from gridcast.config import PROCESSED_DATA_DIR, setup_logging
+from prefect import flow
 
 load_dotenv()
 setup_logging()
@@ -52,7 +53,7 @@ def poll_lmp(pjm: gs.PJM, start: datetime, end: datetime, zone_to_location: dict
     lmp["pnode_id"] = lmp["pnode_id"].astype(str)
     return lmp[LMP_COLUMNS]
 
-
+@flow(name="lmp_producer", description="Polls PJM LMP API every hour.",log_prints=True)
 def main():
     zones = pd.read_csv(PROCESSED_DATA_DIR / "pjm_weather_zones.csv")
 

@@ -17,6 +17,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - kafka-net
 
   kafka:
     image: apache/kafka:latest
@@ -114,6 +116,138 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - kafka-net
+
+  load-producer:
+    build: .
+    container_name: gridcast-load-producer
+    restart: "no"
+    command: python src/producers/load_producer.py
+    env_file: .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
+      TIMESCALEDB_HOST: timescaledb
+      PREFECT_API_URL: http://prefect-server:4200/api
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - kafka-net
+    volumes:
+      - ./data/processed/pjm_weather_zones.csv:/app/data/processed/pjm_weather_zones.csv:ro
+
+  lmp-producer:
+    build: .
+    container_name: gridcast-lmp-producer
+    restart: "no"
+    command: python src/producers/lmp_producer.py
+    env_file: .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
+      TIMESCALEDB_HOST: timescaledb
+      PREFECT_API_URL: http://prefect-server:4200/api
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - kafka-net
+    volumes:
+      - ./data/processed/pjm_weather_zones.csv:/app/data/processed/pjm_weather_zones.csv:ro
+
+  weather-producer:
+    build: .
+    container_name: gridcast-weather-producer
+    restart: "no"
+    command: python src/producers/weather_producer.py
+    env_file: .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
+      TIMESCALEDB_HOST: timescaledb
+      PREFECT_API_URL: http://prefect-server:4200/api
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - kafka-net
+    volumes:
+      - ./data/processed/pjm_weather_zones.csv:/app/data/processed/pjm_weather_zones.csv:ro
+
+  load-consumer:
+    build: .
+    container_name: gridcast-load-consumer
+    restart: "no"
+    command: python src/consumers/load_consumer.py
+    env_file: .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
+      TIMESCALEDB_HOST: timescaledb
+      PREFECT_API_URL: http://prefect-server:4200/api
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      timescaledb:
+        condition: service_healthy
+    networks:
+      - kafka-net
+
+  lmp-consumer:
+    build: .
+    container_name: gridcast-lmp-consumer
+    restart: "no"
+    command: python src/consumers/lmp_consumer.py
+    env_file: .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
+      TIMESCALEDB_HOST: timescaledb
+      PREFECT_API_URL: http://prefect-server:4200/api
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      timescaledb:
+        condition: service_healthy
+    networks:
+      - kafka-net
+
+  weather-consumer:
+    build: .
+    container_name: gridcast-weather-consumer
+    restart: "no"
+    command: python src/consumers/weather_consumer.py
+    env_file: .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
+      TIMESCALEDB_HOST: timescaledb
+      PREFECT_API_URL: http://prefect-server:4200/api
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      timescaledb:
+        condition: service_healthy
+    networks:
+      - kafka-net
+
+  prefect-deployments:
+    build: .
+    container_name: gridcast-prefect-deployments
+    restart: unless-stopped
+    command: python src/prefect/deployments.py
+    env_file: .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
+      TIMESCALEDB_HOST: timescaledb
+      PREFECT_API_URL: http://prefect-server:4200/api
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      timescaledb:
+        condition: service_healthy
+      prefect-server:
+        condition: service_healthy
+    networks:
+      - kafka-net
+    volumes:
+      - ./data/processed/pjm_weather_zones.csv:/app/data/processed/pjm_weather_zones.csv:ro
 
 
 networks:

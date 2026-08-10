@@ -9,6 +9,7 @@ import requests_cache
 from retry_requests import retry
 
 from gridcast.config import PROCESSED_DATA_DIR, setup_logging
+from prefect import flow
 
 load_dotenv()
 setup_logging()
@@ -39,7 +40,7 @@ def poll_weather(openmeteo: openmeteo_requests.Client, zones: pd.DataFrame) -> l
         )
     return records
 
-
+@flow(name="weather_producer", description="Polls weather data every 7 min from Open-Meteo.", log_prints=True)
 def main():
     zones = pd.read_csv(PROCESSED_DATA_DIR / "pjm_weather_zones.csv")
 

@@ -1,8 +1,9 @@
 from dotenv import load_dotenv
-from kafka_client import build_consumer, build_dlq_producer, consume_and_load
+from kafka_consumer_client import build_consumer, build_dlq_producer, consume_and_load
 from loguru import logger
 
 from gridcast.config import get_connection, setup_logging
+from prefect import flow
 
 load_dotenv()
 setup_logging()
@@ -14,7 +15,7 @@ INSERT INTO weather (time, zone, temperature, precipitation, wind_speed, cloud_c
 VALUES (%(time)s, %(zone)s, %(temperature)s, %(precipitation)s, %(wind_speed)s, %(cloud_cover)s);
 """
 
-
+@flow(name="weather_consumer", description="Consumes weather messages from Kafka and inserts to Postgres.", log_prints=True)
 def main():
     conn = get_connection()
     cur = conn.cursor()
