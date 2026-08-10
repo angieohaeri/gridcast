@@ -121,6 +121,7 @@ services:
 
   load-producer:
     build: .
+    image: gridcast:latest
     container_name: gridcast-load-producer
     restart: "no"
     command: python src/producers/load_producer.py
@@ -139,6 +140,7 @@ services:
 
   lmp-producer:
     build: .
+    image: gridcast:latest
     container_name: gridcast-lmp-producer
     restart: "no"
     command: python src/producers/lmp_producer.py
@@ -157,6 +159,7 @@ services:
 
   weather-producer:
     build: .
+    image: gridcast:latest
     container_name: gridcast-weather-producer
     restart: "no"
     command: python src/producers/weather_producer.py
@@ -175,6 +178,7 @@ services:
 
   load-consumer:
     build: .
+    image: gridcast:latest
     container_name: gridcast-load-consumer
     restart: "no"
     command: python src/consumers/load_consumer.py
@@ -193,6 +197,7 @@ services:
 
   lmp-consumer:
     build: .
+    image: gridcast:latest
     container_name: gridcast-lmp-consumer
     restart: "no"
     command: python src/consumers/lmp_consumer.py
@@ -211,6 +216,7 @@ services:
 
   weather-consumer:
     build: .
+    image: gridcast:latest
     container_name: gridcast-weather-consumer
     restart: "no"
     command: python src/consumers/weather_consumer.py
@@ -229,6 +235,7 @@ services:
 
   prefect-deployments:
     build: .
+    image: gridcast:latest
     container_name: gridcast-prefect-deployments
     restart: unless-stopped
     command: python src/prefect/deployments.py

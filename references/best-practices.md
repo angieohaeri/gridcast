@@ -17,12 +17,12 @@
 
 ## Kafka
 
-- [ ] Validate message schema in the consumer before writing to DB — never silently accept malformed data
-- [ ] Dead letter queue topic (`load_dlq`, `lmp_dlq`, `weather_dlq`) for messages that fail parsing — inspect and replay rather than drop
+- [x] Validate message schema in the consumer before writing to DB — never silently accept malformed data
+- [x] Dead letter queue topic (`load_dlq`, `lmp_dlq`, `weather_dlq`) for messages that fail parsing — inspect and replay rather than drop
 - [ ] Enable idempotent producers to prevent duplicates on retry: `enable.idempotence=True`
-- [ ] Set `acks=all` on producers for durability
-- [ ] Run Kafka UI (Kafdrop or Redpanda Console) in Docker Compose — monitor consumer lag from a browser
-- [ ] Define explicit retention on topics (e.g. 7 days for raw status) — don't rely on defaults
+- [x] Set `acks=all` on producers for durability
+- [x] Run Kafka UI (Kafdrop or Redpanda Console) in Docker Compose — monitor consumer lag from a browser
+- [x] Define explicit retention on topics (e.g. 7 days for raw status) — don't rely on defaults
 
 ---
 
@@ -50,8 +50,8 @@
 
 ## Prefect
 
-- [ ] Add retry logic with exponential backoff on every task that calls an external system (EIA-930, PJM Data Miner, Open-Meteo, DB writes)
-- [ ] Configure flow failure alerts early — a silently dead pipeline is worse than a noisy one
+- [x] Add retry logic with exponential backoff on every task that calls an external system (EIA-930, PJM Data Miner, Open-Meteo, DB writes)
+- [x] Configure flow failure alerts early — a silently dead pipeline is worse than a noisy one
 - [ ] Cache weather fetches with task result caching — avoid unnecessary re-polls on downstream retries
 - [ ] Use `@flow` and `@task` decorators consistently; keep flows thin (orchestration only), business logic in tasks
 - [ ] Log task inputs and outputs at INFO level — makes debugging flow failures much faster
