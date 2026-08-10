@@ -31,6 +31,11 @@ services:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: 'broker,controller'
 
+      # This host has 4GB total RAM shared across ~10 containers - cap the JVM
+      # heap explicitly rather than trust the image's default sizing heuristic,
+      # which assumes more headroom than this box has.
+      KAFKA_HEAP_OPTS: '-Xmx512m -Xms256m'
+
       KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094,INTERNAL://0.0.0.0:9095,CONTROLLER://0.0.0.0:9093'
       KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://localhost:9092,EXTERNAL://${KAFKA_TAILSCALE_HOST}:9094,INTERNAL://kafka-kraft:9095'
       KAFKA_CONTROLLER_QUORUM_VOTERS: '1@localhost:9093'
@@ -95,13 +100,16 @@ services:
     restart: unless-stopped
     entrypoint: ["prefect", "server", "start"]
     environment:
-      # SQLite, not Postgres - simplest self-hosted option at this project's scale
-      # (a handful of hourly flow runs). Easy to repoint at TimescaleDB's Postgres
-      # later (a separate `prefect` database, not the gridcast hypertables) if
-      # SQLite's concurrency ever becomes a real limit.
+      # Postgres, not SQLite - moved off SQLite because concurrent writes from
+      # background services (automation bucket cleanup, telemetry) collided with
+      # deployment registration and caused "database is locked" crashes. Uses its
+      # own `prefect` database on the existing timescaledb instance, not the
+      # gridcast hypertables. Needs the `+asyncpg` scheme specifically - Prefect's
+      # server uses SQLAlchemy's async engine, and psycopg2 (sync-only) isn't
+      # even installed in the prefecthq/prefect image.
       PREFECT_SERVER_API_HOST: '0.0.0.0'
       PREFECT_SERVER_API_PORT: '4200'
-      PREFECT_API_DATABASE_CONNECTION_URL: 'postgresql+psycopg2://${TIMESCALEDB_USER}:${TIMESCALEDB_PASSWORD}@timescaledb:5432/prefect'
+      PREFECT_API_DATABASE_CONNECTION_URL: 'postgresql+asyncpg://${TIMESCALEDB_USER}:${TIMESCALEDB_PASSWORD}@timescaledb:5432/prefect'
       # Controls what the *served dashboard's JS* calls back to - not the same as
       # PREFECT_API_URL (that's the client-side setting, for a CLI/worker/flow
       # connecting to this server, and belongs in .env, not here). Must be the
