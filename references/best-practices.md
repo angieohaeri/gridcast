@@ -19,7 +19,7 @@
 
 - [x] Validate message schema in the consumer before writing to DB — never silently accept malformed data
 - [x] Dead letter queue topic (`load_dlq`, `lmp_dlq`, `weather_dlq`) for messages that fail parsing — inspect and replay rather than drop
-- [ ] Enable idempotent producers to prevent duplicates on retry: `enable.idempotence=True`
+- [x] Enable idempotent producers to prevent duplicates on retry: `enable.idempotence=True`
 - [x] Set `acks=all` on producers for durability
 - [x] Run Kafka UI (Kafdrop or Redpanda Console) in Docker Compose — monitor consumer lag from a browser
 - [x] Define explicit retention on topics (e.g. 7 days for raw status) — don't rely on defaults
@@ -31,7 +31,7 @@
 - [ ] Override default chunk interval from 7 days to 1 day: `chunk_time_interval => INTERVAL '1 day'`
 - [ ] Add compression policy on chunks older than 7 days — columnar compression cuts storage 90%+ on time-series
 - [ ] Set a retention policy on raw snapshots (30–90 days of 30s resolution is enough; keep aggregates longer)
-- [ ] Add composite index on `(zone, time DESC)` — TimescaleDB creates the time index automatically, zone won't be there by default
+- [x] Add composite index on `(zone, time DESC)` — TimescaleDB creates the time index automatically, zone won't be there by default
 - [ ] Never query the raw hypertable for training — always go through a continuous aggregate or materialized dbt model
 - [ ] Use `EXPLAIN ANALYZE` on slow queries before optimizing indexes
 

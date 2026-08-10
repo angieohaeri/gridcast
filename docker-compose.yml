@@ -101,6 +101,7 @@ services:
       # SQLite's concurrency ever becomes a real limit.
       PREFECT_SERVER_API_HOST: '0.0.0.0'
       PREFECT_SERVER_API_PORT: '4200'
+      PREFECT_API_DATABASE_CONNECTION_URL: 'postgresql+psycopg2://${TIMESCALEDB_USER}:${TIMESCALEDB_PASSWORD}@timescaledb:5432/prefect'
       # Controls what the *served dashboard's JS* calls back to - not the same as
       # PREFECT_API_URL (that's the client-side setting, for a CLI/worker/flow
       # connecting to this server, and belongs in .env, not here). Must be the
@@ -129,6 +130,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
       TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
       PREFECT_API_URL: http://prefect-server:4200/api
     depends_on:
       kafka-init:
@@ -148,6 +150,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
       TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
       PREFECT_API_URL: http://prefect-server:4200/api
     depends_on:
       kafka-init:
@@ -167,6 +170,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
       TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
       PREFECT_API_URL: http://prefect-server:4200/api
     depends_on:
       kafka-init:
@@ -186,6 +190,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
       TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
       PREFECT_API_URL: http://prefect-server:4200/api
     depends_on:
       kafka-init:
@@ -205,6 +210,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
       TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
       PREFECT_API_URL: http://prefect-server:4200/api
     depends_on:
       kafka-init:
@@ -224,6 +230,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
       TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
       PREFECT_API_URL: http://prefect-server:4200/api
     depends_on:
       kafka-init:
@@ -243,6 +250,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
       TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
       PREFECT_API_URL: http://prefect-server:4200/api
     depends_on:
       kafka-init:
