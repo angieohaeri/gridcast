@@ -14,13 +14,12 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
+vars:
+  in_scope_zones: ['AEP', 'BC', 'CE', 'DOM']
+
 models:
   gridcast:
     staging:
       +materialized: view
     features:
-      +materialized: table
-seeds:
-  gridcast:
-    csvs:
       +materialized: table

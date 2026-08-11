@@ -1,15 +1,47 @@
 version: 2
 
-sources:
-  - name: raw
-    schema: public
-    tables:
-      - name: load
-        loaded_at_field: time
-        freshness:
-          warn_after: {count: 3, period: hour}
-          error_after: {count: 12, period: hour}
-     - name: lmp
-       loaded_at_field: time
-     - name: weather
-       loaded_at_time: time
+models:
+  - name: stg_load
+    description: "Cleaned load rows. Grain: one row per (time, zone, source)."
+    columns:
+      - name: time
+        tests: [not_null]
+      - name: zone
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['AEP', 'BC', 'CE', 'DOM', 'RTO']
+      - name: source
+        tests:
+          - not_null
+          - accepted_values: {values: ['pjm', 'eia']}
+      - name: demand_mw
+        tests: [not_null]
+
+  - name: stg_lmp
+    description: "Cleaned LMP rows, in-scope zones only. Grain: one row per (time, pnode_id)."
+    columns:
+      - name: time
+        tests: [not_null]
+      - name: zone
+        tests:
+          - not_null
+          - relationships:
+              to: ref('pjm_weather_zones')
+              field: zone_id
+      - name: lmp_total
+        tests: [not_null]
+
+  - name: stg_weather
+    description: Cleaned weather observations at native sub-hourly grain.
+    columns:
+      - name: time
+        tests: [not_null]
+      - name: zone
+        tests:
+          - not_null
+          - relationships:
+              to: ref('pjm_weather_zones')
+              field: zone_id
+      - name: temperature
+        tests: [not_null]

@@ -1,21 +1,43 @@
 version: 2
 
 models:
-  - name: stg_load
+  - name: load_features
+    description: >
+      Lag and rolling-mean demand features from PJM's metered feed.
+      Grain: one row per (time, zone).
     columns:
+      - name: time
+        tests: [not_null]
       - name: zone
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['AEP', 'BC', 'CE', 'DOM', 'RTO']
-      - name: source
-        tests:
-          - accepted_values: {values: ['pjm', 'eia']}
+        tests: [not_null]
       - name: demand_mw
-        tests:
-          - not_null
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [time, zone]
 
-  - name: feat_load_lags
+  - name: lmp_features
+    description: "LMP at zone-hour grain. Grain: one row per (time, zone)."
+    columns:
+      - name: time
+        tests: [not_null]
+      - name: zone
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [time, zone]
+
+  - name: weather_features
+    description: >
+      Weather collapsed to hourly, timestamped Hour Ending to match load_features.
+      Grain: one row per (time, zone).
+    columns:
+      - name: time
+        tests: [not_null]
+      - name: zone
+        tests: [not_null]
+      - name: observation_count
+        description: Polls collapsed into this hour. Expect ~3; fewer means a producer gap.
     tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns: [time, zone]
