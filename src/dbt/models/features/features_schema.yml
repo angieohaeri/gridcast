@@ -1,0 +1,21 @@
+version: 2
+
+models:
+  - name: stg_load
+    columns:
+      - name: zone
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['AEP', 'BC', 'CE', 'DOM', 'RTO']
+      - name: source
+        tests:
+          - accepted_values: {values: ['pjm', 'eia']}
+      - name: demand_mw
+        tests:
+          - not_null
+
+  - name: feat_load_lags
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [time, zone]

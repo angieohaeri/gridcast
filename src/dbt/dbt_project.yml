@@ -16,4 +16,11 @@ clean-targets:
 
 models:
   gridcast:
-    +materialized: view
+    staging:
+      +materialized: view
+    features:
+      +materialized: table
+seeds:
+  gridcast:
+    csvs:
+      +materialized: table

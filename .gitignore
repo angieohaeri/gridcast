@@ -90,6 +90,7 @@ target/
 
 # dbt
 src/dbt/logs/
+src/dbt/dbt_packages/
 
 # Jupyter Notebook
 .ipynb_checkpoints
