@@ -14,7 +14,8 @@ models:
         tests: [not_null]
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: [time, zone]
+          arguments:
+            combination_of_columns: [time, zone]
 
   - name: lmp_features
     description: "LMP at zone-hour grain. Grain: one row per (time, zone)."
@@ -25,7 +26,8 @@ models:
         tests: [not_null]
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: [time, zone]
+          arguments:
+            combination_of_columns: [time, zone]
 
   - name: weather_features
     description: >
@@ -40,7 +42,8 @@ models:
         description: Polls collapsed into this hour. Expect ~3; fewer means a producer gap.
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: [time, zone]
+          arguments:
+            combination_of_columns: [time, zone]
 
   - name: features
     description: >
@@ -54,4 +57,5 @@ models:
         tests: [not_null]
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns: [time, zone]
+          arguments:
+            combination_of_columns: [time, zone]
