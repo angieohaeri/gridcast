@@ -68,6 +68,12 @@ data: requirements
 	$(PYTHON_INTERPRETER) gridcast/dataset.py
 
 
+## Run dbt build (seeds + staging + features)
+.PHONY: features
+features:
+	set -a && . ./.env && set +a && .venv/bin/dbt build --project-dir src/dbt
+
+
 ## Start docker services
 .PHONY: up
 up:
