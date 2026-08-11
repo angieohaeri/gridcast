@@ -12,6 +12,7 @@ SRC = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SRC / "producers"))
 sys.path.insert(0, str(SRC / "consumers"))
 
+from dbt_build import main as dbt_build_flow  # noqa: E402
 from lmp_consumer import main as lmp_consumer_flow  # noqa: E402
 from lmp_producer import main as lmp_producer_flow  # noqa: E402
 from load_consumer import main as load_consumer_flow  # noqa: E402
@@ -27,4 +28,5 @@ if __name__ == "__main__":
         load_consumer_flow.to_deployment(name="load_consumer", cron="15 * * * *"),
         lmp_consumer_flow.to_deployment(name="lmp_consumer", cron="15 * * * *"),
         weather_consumer_flow.to_deployment(name="weather_consumer", interval=timedelta(minutes=20)),
+        dbt_build_flow.to_deployment(name="dbt_build", cron="25 * * * *"),
     )
