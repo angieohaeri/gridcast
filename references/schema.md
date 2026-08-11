@@ -6,20 +6,14 @@ TimescaleDB table definitions.
 
 ### `load`
 
-**Title: Dropped ba_code (constant across all rows, single-BA project), renamed subregion
-to zone for consistency with lmp/weather, Author: Angie Ohaeri, Date: August 8th Time: (session)**
+**Title:** Dropped ba_code (constant across all rows, single-BA project), renamed subregion to zone for consistency with lmp/weather, **Author:** Angie Ohaeri, 
+**Date: August 8th Time: (session)**
 
-**Title: Added source and is_verified columns, made zone NOT NULL (EIA's RTO-level row
-now uses zone='RTO' instead of NULL, distinguished from PJM's own zone='RTO' row via
-source), added UNIQUE(time, zone, source) for upsert-safe consumer writes,
-Author: Angie Ohaeri, Date: August 8th Time: (session)**
+**Title:** Added source and is_verified columns, made zone NOT NULL (EIA's RTO-level row now uses zone='RTO' instead of NULL, distinguished from PJM's own zone='RTO' row via source), added UNIQUE(time, zone, source) for upsert-safe consumer writes, 
+**Author:** Angie Ohaeri, 
+**Date: August 8th Time: (session)**
 
-Raw landing table for EIA-930 hourly demand data and PJM zonal load (Kafka topic
-`load`). One row per (zone, source) per hour. PJM's own metered feed (`source='pjm'`)
-and EIA's grid monitor (`source='eia'`) are independent measurements - PJM's feed
-includes its own `zone='RTO'` system total, and EIA's RTO-level row also uses
-`zone='RTO'`; the two are kept as separate rows (never merged) since they're
-different measurements of the same quantity, not duplicates.
+Raw landing table for EIA-930 hourly demand data and PJM zonal load (Kafka topic `load`). One row per (zone, source) per hour. PJM's own metered feed (`source='pjm’`) and EIA's grid monitor (`source='eia'`) are independent measurements - PJM's feed includes its own `zone='RTO'` system total, and EIA's RTO-level row also uses `zone='RTO'`; the two are kept as separate rows (never merged) since they’re different measurements of the same quantity, not duplicates.
 
 DDL: `src/consumers/schema.sql`
 
@@ -45,10 +39,7 @@ Index: `(zone, time DESC)` for per-zone lookups.
 
 **Title: Added lmp hypertable, Author: Angie Ohaeri, Date: August 4th Time: (session)**
 
-Raw landing table for the PJM Data Miner 2 `rt_hrl_lmps` real-time hourly LMP feed
-(Kafka topic `lmp`). One row per pricing node per hour. Kept at native resolution —
-not resampled to match `load`'s grain at ingestion time; any alignment happens
-explicitly in a named dbt model.
+Raw landing table for the PJM Data Miner 2 `rt_hrl_lmps` real-time hourly LMP feed (Kafka topic `lmp`). One row per pricing node per hour. Kept at native resolution — not resampled to match `load`'s grain at ingestion time; any alignment happens explicitly in a named dbt model.
 
 DDL: `src/consumers/schema.sql`
 
@@ -76,11 +67,9 @@ Added `lmp_time_pnode_uidx` so `src/consumers/lmp_consumer.py` can upsert on re-
 
 ### `weather`
 
-**Title: Added weather hypertable, Author: Angie Ohaeri, Date: August 4th Time: (session)**
+**Title:** Added weather hypertable, Author: Angie Ohaeri, Date: August 4th Time: (session)
 
-Raw landing table for Open-Meteo observations (Kafka topic `weather`), one row per
-representative zone city per poll. Not every PJM zone gets its own weather feed —
-scoped to a small set of representative cities to start.
+Raw landing table for Open-Meteo observations (Kafka topic `weather`), one row per representative zone city per poll. Not every PJM zone gets its own weather feed — scoped to a small set of representative cities to start.
 
 DDL: `src/consumers/schema.sql`
 

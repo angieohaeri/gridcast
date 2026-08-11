@@ -17,7 +17,7 @@ select
 from {{ ref('stg_lmp') }}
 
 {% if is_incremental() %}
-where time >= (select max(time) - interval '2 days' from {{ this }})
+where time >= (select max(time) - interval '3 days' from {{ this }})
 {% endif %}
 
 group by 1, 2

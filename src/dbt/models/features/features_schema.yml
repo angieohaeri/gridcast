@@ -41,3 +41,17 @@ models:
     tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns: [time, zone]
+
+  - name: features
+    description: >
+      Join of load, lmp, and weather features. Grain: one row per (time, zone).
+    columns:
+      - name: time
+        tests: [not_null]
+      - name: zone
+        tests: [not_null]
+      - name: demand_mw
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [time, zone]

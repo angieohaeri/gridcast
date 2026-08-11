@@ -10,7 +10,7 @@ with base as (
     where source = 'pjm'
 
     {% if is_incremental() %}
-    -- 8 days of history, not just new rows: lag_168h needs to see a week back
+    -- 8 days (168 hrs) of history being re-aquired
     and time >= (select max(time) - interval '8 days' from {{ this }})
     {% endif %}
 )
@@ -25,11 +25,11 @@ select
     lag(demand_mw, 168) over w as demand_lag_168h,
     avg(demand_mw) over (
         partition by zone order by time
-        range between interval '6 hours' preceding and current row
+        range between interval '6 hours' preceding and interval '1 hour' preceding
     ) as demand_roll_6h,
     avg(demand_mw) over (
         partition by zone order by time
-        range between interval '24 hours' preceding and current row
+        range between interval '24 hours' preceding and and interval '1 hour' preceding
     ) as demand_roll_24h
 from base
 window w as (partition by zone order by time)
