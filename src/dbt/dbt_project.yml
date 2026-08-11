@@ -1,0 +1,19 @@
+name: gridcast
+version: '1.0.0'
+config-version: 2
+
+profile: gridcast
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  gridcast:
+    materialized: view
