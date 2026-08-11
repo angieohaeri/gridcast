@@ -39,7 +39,7 @@ models:
       - name: zone
         tests: [not_null]
       - name: observation_count
-        description: Polls collapsed into this hour. Expect ~3; fewer means a producer gap.
+        description: Polls collapsed into this hour. Expect ~3; fewer means a producer gap or backfilled historical data.
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:

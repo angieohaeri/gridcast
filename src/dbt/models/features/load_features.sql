@@ -5,9 +5,14 @@
 ) }}
 
 with base as (
+    -- zone filter lives here, not in stg_load: every EIA row is zone='RTO', so
+    -- filtering at staging would drop that source entirely. RTO is a system total,
+    -- a different grain from the zonal rows - it doesn't belong in a global model
+    -- that treats zone as a categorical feature.
     select time, zone, demand_mw
     from {{ ref('stg_load') }}
     where source = 'pjm'
+      and zone in ('{{ var("in_scope_zones") | join("','") }}')
 
     {% if is_incremental() %}
     -- 8 days (168 hrs) of history being re-aquired
