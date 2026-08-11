@@ -29,11 +29,14 @@ LMP_COLUMNS = [
 
 
 def poll_lmp(pjm: gs.PJM, start: datetime, end: datetime, zone_to_location: dict[str, str]) -> pd.DataFrame:
+    # error="raise" - gridstatus defaults to "ignore", which swallows the real API
+    # exception and surfaces it as an empty pd.concat ("No objects to concatenate").
     lmp = pjm.get_lmp(
         start.strftime("%Y-%m-%d"),
         end=end.strftime("%Y-%m-%d"),
         market=gs.Markets.REAL_TIME_HOURLY,
         location_type="ZONE",
+        error="raise",
     )
 
     location_to_zone = {location: zone for zone, location in zone_to_location.items()}
@@ -56,7 +59,7 @@ def poll_lmp(pjm: gs.PJM, start: datetime, end: datetime, zone_to_location: dict
     lmp["pnode_id"] = lmp["pnode_id"].astype(str)
     return lmp[LMP_COLUMNS]
 
-@flow(name="lmp_producer", description="Polls PJM LMP API every hour.",log_prints=True)
+@flow(name="lmp_producer", description="Polls PJM LMP API every hour.", retries=3, retry_delay_seconds=60, log_prints=True)
 def main():
     zones = pd.read_csv(PROCESSED_DATA_DIR / "pjm_weather_zones.csv")
 

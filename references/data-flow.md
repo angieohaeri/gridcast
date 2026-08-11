@@ -3,142 +3,121 @@
 **Title:** Data flow diagram — sources through storage
 **Author:** Angie Ohaeri
 **Date:** August 10, 2026 **Time:** 9:10pm
+**Revised:** August 11, 2026 8:36am — split the single diagram into ingestion / downstream, dropped the inline legend
 
-Traces every byte from external API to TimescaleDB, and sketches the not-yet-built modeling path. Solid lines/boxes are implemented today; dashed boxes are planned (`references/architecture.md`). Colors group nodes by role — data, pipeline infra, modeling, and serving/deployment.
+Traces every byte from external API to TimescaleDB, then the not-yet-built modeling path. Colors group nodes by role: <b>blue = data</b>, <b>purple = pipeline infra</b>, <b>amber = modeling</b>, <b>green = serving</b>. Endpoint and cadence detail lives in the table at the bottom rather than on the edges.
 
 ---
 
-## End-to-end flow
+## Ingestion — sources to storage
+
+Everything here is running today.
 
 ```mermaid
 flowchart TB
-    subgraph LEGEND[" "]
-        direction LR
-        L1["Data"]
-        L2["Pipeline infra"]
-        L3["Modeling"]
-        L4["Serving / deployment"]
-    end
-
-    %% ---------- External sources (data) ----------
     subgraph SOURCES["External sources"]
-        direction TB
-        PJM["<b>PJM Data Miner 2</b><br/><i>gridstatus.PJM</i>"]
-        EIA["<b>EIA Open Data v2</b><br/><i>gridstatus.EIA</i>"]
-        OMF["<b>Open-Meteo Forecast</b><br/><i>no key required</i>"]
-        OMH["<b>Open-Meteo Archive</b><br/><i>no key required</i>"]
+        direction LR
+        PJM["<b>PJM Data Miner 2</b>"]
+        EIA["<b>EIA Open Data v2</b>"]
+        OMF["<b>Open-Meteo Forecast</b>"]
+        OMH["<b>Open-Meteo Archive</b>"]
     end
 
-    ZONES["<b>Zone reference file</b><br/>pjm_weather_zones.csv<br/><i>4 zones — CE, DOM, AEP, BC — read-only mount</i>"]
-
-    %% ---------- Producers (infra) ----------
     subgraph PRODUCERS["Producers"]
-        direction TB
-        LOADP["<b>load_producer.py</b><br/>hourly, 7-day trailing window"]
-        LMPP["<b>lmp_producer.py</b><br/>hourly, 7-day trailing window"]
-        WXP["<b>weather_producer.py</b><br/>every 20 min, current obs"]
+        direction LR
+        LOADP["<b>load_producer</b>"]
+        LMPP["<b>lmp_producer</b>"]
+        WXP["<b>weather_producer</b>"]
     end
 
-    BACKFILL["<b>backfill_weather.py</b><br/><i>one-off, bypasses Kafka</i>"]
-
-    PJM -->|"load: zone MW + verified flag"| LOADP
-    EIA -->|"load: RTO region data"| LOADP
-    PJM -->|"real-time hourly LMP"| LMPP
-    OMF -->|"current conditions"| WXP
-    OMH -->|"hourly history"| BACKFILL
-
-    ZONES -.-> LOADP
-    ZONES -.-> LMPP
-    ZONES -.-> WXP
-    ZONES -.-> BACKFILL
-
-    %% ---------- Kafka (infra) ----------
-    subgraph KAFKA["Kafka — single broker, key = zone"]
-        direction TB
+    subgraph KAFKA["Kafka — key = zone"]
+        direction LR
         TLOAD(["<b>load</b>"])
         TLMP(["<b>lmp</b>"])
         TWX(["<b>weather</b>"])
-        DLQL(["load_dlq"])
-        DLQM(["lmp_dlq"])
-        DLQW(["weather_dlq"])
     end
 
-    LOADP --> TLOAD
-    LMPP -->|"JSON, idempotent"| TLMP
-    WXP --> TWX
-
-    %% ---------- Consumers (infra) ----------
     subgraph CONSUMERS["Consumers — manual offset commits"]
-        direction TB
-        LOADC["<b>load_consumer.py</b>"]
-        LMPC["<b>lmp_consumer.py</b>"]
-        WXC["<b>weather_consumer.py</b>"]
+        direction LR
+        LOADC["<b>load_consumer</b>"]
+        LMPC["<b>lmp_consumer</b>"]
+        WXC["<b>weather_consumer</b>"]
     end
 
-    TLOAD --> LOADC
-    TLMP --> LMPC
-    TWX --> WXC
-
-    LOADC -.->|"rejected rows"| DLQL
-
-
-    %% ---------- Storage (data) ----------
-    subgraph TSDB["TimescaleDB — Postgres 16, db: gridcast"]
-        direction TB
-        HLOAD[("<b>load</b> hypertable<br/>upsert on time, zone, source")]
-        HLMP[("<b>lmp</b> hypertable<br/>upsert on time, pnode_id")]
-        HWX[("<b>weather</b> hypertable<br/>insert only")]
+    subgraph TSDB["TimescaleDB hypertables"]
+        direction LR
+        HLOAD[("<b>load</b>")]
+        HLMP[("<b>lmp</b>")]
+        HWX[("<b>weather</b>")]
     end
 
-    LOADC -->|"upsert"| HLOAD
-    LMPC -->|"upsert"| HLMP
-    WXC -->|"insert"| HWX
-    BACKFILL -->|"insert, skips existing hours"| HWX
+    ZONES["<b>pjm_weather_zones.csv</b><br/><i>4 zones — CE, DOM, AEP, BC</i>"]
+    BACKFILL["<b>backfill_weather</b><br/><i>one-off, bypasses Kafka</i>"]
+    DLQ(["<b>DLQ topics</b><br/><i>load_dlq · lmp_dlq · weather_dlq</i>"])
 
-    %% ---------- Modeling (planned) ----------
-    subgraph MODEL["Modeling — planned"]
-        direction TB
-        DBT["<b>dbt models</b><br/><i>joins load + weather + lmp</i>"]
-        FEAT["<b>feature table</b><br/><i>lags, rolling means, zone</i>"]
-        TRAIN["<b>LightGBM training</b><br/><i>logged to MLflow</i>"]
-        REG["<b>MLflow registry</b>"]
-    end
+    PJM --> LOADP
+    EIA --> LOADP
+    PJM --> LMPP
+    OMF --> WXP
+    OMH --> BACKFILL
 
-    %% ---------- Serving & deployment (planned) ----------
-    subgraph SERVE["Serving & deployment — planned"]
-        direction TB
-        API["<b>FastAPI</b><br/>/predict"]
-        DASH["<b>Streamlit + Pydeck</b><br/><i>via Cloudflare Tunnel</i>"]
-    end
+    ZONES -.->|"zones + coords"| PRODUCERS
+    ZONES -.-> BACKFILL
 
-    HLOAD -.-> DBT
-    HLMP -.-> DBT
-    HWX -.-> DBT
-    DBT -.-> FEAT
-    FEAT -.-> TRAIN
-    TRAIN -.-> REG
-    REG -.-> API
-    FEAT -.-> API
-    API -.-> DASH
-    HLOAD -.->|"actuals for the map"| DASH
+    LOADP --> TLOAD --> LOADC -->|"upsert"| HLOAD
+    LMPP --> TLMP --> LMPC -->|"upsert"| HLMP
+    WXP --> TWX --> WXC -->|"insert"| HWX
+    BACKFILL -->|"insert"| HWX
+
+    LOADC -.-> DLQ
+    LMPC -.-> DLQ
+    WXC -.-> DLQ
 
     classDef dataNode fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
     classDef infraNode fill:#ede9fe,stroke:#7c3aed,color:#4c1d95;
-    classDef modelNode fill:#fef3c7,stroke:#d97706,color:#78350f;
-    classDef serveNode fill:#dcfce7,stroke:#16a34a,color:#14532d;
-    classDef planned stroke-dasharray: 5 5;
-    classDef legend fill:none,stroke:none;
 
     class PJM,EIA,OMF,OMH,ZONES,HLOAD,HLMP,HWX dataNode;
-    class LOADP,LMPP,WXP,BACKFILL,TLOAD,TLMP,TWX,DLQL,DLQM,DLQW,LOADC,LMPC,WXC infraNode;
+    class LOADP,LMPP,WXP,BACKFILL,TLOAD,TLMP,TWX,DLQ,LOADC,LMPC,WXC infraNode;
+```
+
+Producers publish JSON keyed by zone with `acks=all` and idempotence on. Consumers commit offsets one message at a time; anything unparseable or rejected by the database goes to that source's DLQ topic and is committed past.
+
+---
+
+## Downstream — storage to serving
+
+None of this is built yet.
+
+```mermaid
+flowchart LR
+    subgraph TSDB["TimescaleDB"]
+        direction TB
+        HLOAD[("<b>load</b>")]
+        HLMP[("<b>lmp</b>")]
+        HWX[("<b>weather</b>")]
+    end
+
+    DBT["<b>dbt models</b><br/><i>joins load + weather + lmp</i>"]
+    FEAT["<b>feature table</b><br/><i>lags, rolling means, zone</i>"]
+    TRAIN["<b>LightGBM training</b>"]
+    REG["<b>MLflow registry</b>"]
+    API["<b>FastAPI</b> /predict"]
+    DASH["<b>Streamlit + Pydeck</b><br/><i>via Cloudflare Tunnel</i>"]
+
+    HLOAD --> DBT
+    HLMP --> DBT
+    HWX --> DBT
+    DBT --> FEAT --> TRAIN --> REG --> API --> DASH
+    FEAT -->|"inference features"| API
+    HLOAD -->|"actuals for the map"| DASH
+
+    classDef dataNode fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
+    classDef modelNode fill:#fef3c7,stroke:#d97706,color:#78350f;
+    classDef serveNode fill:#dcfce7,stroke:#16a34a,color:#14532d;
+
+    class HLOAD,HLMP,HWX dataNode;
     class DBT,FEAT,TRAIN,REG modelNode;
     class API,DASH serveNode;
-    class DBT,FEAT,TRAIN,REG,API,DASH planned;
-    class L1 dataNode;
-    class L2 infraNode;
-    class L3 modelNode;
-    class L4 serveNode;
-    class LEGEND legend;
 ```
 
 ---
@@ -172,8 +151,7 @@ flowchart LR
     class PDB,GDB dataNode;
 ```
 
-The 5-minute producer→consumer offset is deliberate: producers publish at :10, so
-consumers at :15 find a drained-and-settled topic rather than racing the write.
+The 5-minute producer→consumer offset is deliberate: producers publish at :10, so consumers at :15 find a drained-and-settled topic rather than racing the write.
 
 ---
 
