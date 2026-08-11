@@ -29,7 +29,7 @@ select
     ) as demand_roll_6h,
     avg(demand_mw) over (
         partition by zone order by time
-        range between interval '24 hours' preceding and and interval '1 hour' preceding
+        range between interval '24 hours' preceding and interval '1 hour' preceding
     ) as demand_roll_24h
 from base
 window w as (partition by zone order by time)
