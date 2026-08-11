@@ -88,6 +88,9 @@ docs/site/
 .pybuilder/
 target/
 
+# dbt
+src/dbt/logs/
+
 # Jupyter Notebook
 .ipynb_checkpoints
 

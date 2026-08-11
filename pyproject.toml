@@ -33,6 +33,8 @@ dependencies = [
     "confluent-kafka",
     "prefect",
     "psycopg2-binary>=2.9.12",
+    "dbt-core",
+    "dbt-postgres",
 ]
 
 [project.optional-dependencies]
