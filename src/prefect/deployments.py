@@ -2,13 +2,21 @@ from datetime import timedelta
 from pathlib import Path
 import sys
 
-from prefect import serve
+from dotenv import load_dotenv
+
+SRC = Path(__file__).resolve().parents[1]
+
+# Prefect reads its settings - PREFECT_API_URL included - once, when the package is
+# first imported. .env has to be on os.environ before that import or serve() falls
+# back to starting an ephemeral local server instead of using the one in compose.
+load_dotenv(SRC.parent / ".env")
+
+from prefect import serve  # noqa: E402
 
 # Each producer/consumer script does a bare `from kafka_client import ...` /
 # `from kafka_consumer_client import ...` sibling import, resolved by having its
 # own directory on sys.path - add both directories before importing so those
 # sibling imports succeed here too.
-SRC = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SRC / "producers"))
 sys.path.insert(0, str(SRC / "consumers"))
 
