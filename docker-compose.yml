@@ -99,6 +99,9 @@ services:
     container_name: gridcast-prefect-server
     restart: unless-stopped
     entrypoint: ["prefect", "server", "start"]
+    depends_on:
+      timescaledb:
+        condition: service_healthy
     environment:
       # Postgres, not SQLite - moved off SQLite because concurrent writes from
       # background services (automation bucket cleanup, telemetry) collided with
