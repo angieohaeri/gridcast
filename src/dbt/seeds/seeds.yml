@@ -1,0 +1,15 @@
+  version: 2
+
+  seeds:
+    - name: pjm_weather_zones
+      description: PJM zones in scope, with representative weather city per zone.
+      config:
+        column_types:
+          zone_id: text
+          zone_name: text
+          city: text
+          lat: double precision
+          lon: double precision
+      columns:
+        - name: zone_id
+          tests: [unique, not_null]

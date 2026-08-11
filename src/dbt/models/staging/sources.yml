@@ -1,0 +1,27 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Kafka consumer landing tables, written by src/consumers/.
+    schema: public
+    tables:
+      - name: load
+        description: EIA-930 hourly demand and PJM zonal load. One row per (time, zone, source).
+        loaded_at_field: time
+        freshness:
+          warn_after: {count: 6, period: hour}
+          error_after: {count: 24, period: hour}
+
+      - name: lmp
+        description: PJM Data Miner 2 rt_hrl_lmps. One row per (time, pnode_id).
+        loaded_at_field: time
+        freshness:
+          warn_after: {count: 6, period: hour}
+          error_after: {count: 24, period: hour}
+
+      - name: weather
+        description: Open-Meteo current observations, polled ~3x/hour per zone.
+        loaded_at_field: time
+        freshness:
+          warn_after: {count: 2, period: hour}
+          error_after: {count: 6, period: hour}
