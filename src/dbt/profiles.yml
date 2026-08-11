@@ -1,0 +1,12 @@
+gridcast:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('TIMESCALEDB_HOST') }}"
+      port: "{{ env_var('TIMESCALEDB_PORT') | int }}"
+      user: "{{ env_var('TIMESCALEDB_USER') }}"
+      password: "{{ env_var('TIMESCALEDB_PASSWORD') }}"
+      dbname: "{{ env_var('TIMESCALEDB_DB') }}"
+      schema: analytics
+      threads: 6

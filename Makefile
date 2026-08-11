@@ -71,7 +71,7 @@ data: requirements
 ## Run dbt build (seeds + staging + features)
 .PHONY: features
 features:
-	set -a && . ./.env && set +a && .venv/bin/dbt build --project-dir src/dbt
+	set -a && . ./.env && set +a && .venv/bin/dbt build --project-dir src/dbt --profiles-dir src/dbt
 
 
 ## Start docker services

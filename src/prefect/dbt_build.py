@@ -11,8 +11,9 @@ from prefect import flow
 load_dotenv()
 setup_logging()
 
-# dbt's profiles.yml reads TIMESCALEDB_* via env_var(), so the subprocess needs the
-# .env values load_dotenv() just put on os.environ - it inherits them by default.
+# dbt's profiles.yml reads TIMESCALEDB_* via env_var(), so the subprocess needs those
+# on os.environ - it inherits them from load_dotenv() here, or straight from compose
+# when this runs in the prefect-deployments container.
 DBT = Path(sys.executable).parent / "dbt"
 DBT_PROJECT_DIR = PROJ_ROOT / "src" / "dbt"
 
@@ -20,7 +21,7 @@ DBT_PROJECT_DIR = PROJ_ROOT / "src" / "dbt"
 @flow(name="dbt_build", description="Builds dbt seeds, staging views, and feature tables.", log_prints=True)
 def main():
     result = subprocess.run(
-        [DBT, "build", "--project-dir", DBT_PROJECT_DIR],
+        [DBT, "build", "--project-dir", DBT_PROJECT_DIR, "--profiles-dir", DBT_PROJECT_DIR],
         capture_output=True,
         text=True,
         check=False,
