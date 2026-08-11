@@ -16,4 +16,4 @@ clean-targets:
 
 models:
   gridcast:
-    materialized: view
+    +materialized: view

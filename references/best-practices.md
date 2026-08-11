@@ -6,7 +6,7 @@
 
 - [x] `.env` in `.gitignore`; commit `.env.example` with keys but no values
 - [x] `pre-commit` hooks: ruff (lint), nbstripout (strip notebook outputs before commit)
-- [ ] DVC for data and model versioning — `.dvc` files committed, data in remote storage
+- [x] DVC for data and model versioning — `.dvc` files committed, data in remote storage
 - [ ] Conventional commits: `feat:`, `fix:`, `data:`, `exp:`, `infra:`
 - [ ] GitHub Actions CI: ruff + pytest on every push, fail fast
   - Cache pip deps with `actions/cache`
@@ -30,7 +30,7 @@
 
 - [ ] Override default chunk interval from 7 days to 1 day: `chunk_time_interval => INTERVAL '1 day'`
 - [ ] Add compression policy on chunks older than 7 days — columnar compression cuts storage 90%+ on time-series
-- [ ] Set a retention policy on raw snapshots (30–90 days of 30s resolution is enough; keep aggregates longer)
+- [x] Set a retention policy on raw snapshots (30–90 days of 30s resolution is enough; keep aggregates longer)
 - [x] Add composite index on `(zone, time DESC)` — TimescaleDB creates the time index automatically, zone won't be there by default
 - [ ] Never query the raw hypertable for training — always go through a continuous aggregate or materialized dbt model
 - [ ] Use `EXPLAIN ANALYZE` on slow queries before optimizing indexes
@@ -53,8 +53,8 @@
 - [x] Add retry logic with exponential backoff on every task that calls an external system (EIA-930, PJM Data Miner, Open-Meteo, DB writes)
 - [x] Configure flow failure alerts early — a silently dead pipeline is worse than a noisy one
 - [ ] Cache weather fetches with task result caching — avoid unnecessary re-polls on downstream retries
-- [ ] Use `@flow` and `@task` decorators consistently; keep flows thin (orchestration only), business logic in tasks
-- [ ] Log task inputs and outputs at INFO level — makes debugging flow failures much faster
+- [x] Use `@flow` and `@task` decorators consistently; keep flows thin (orchestration only), business logic in tasks
+- [x] Log task inputs and outputs at INFO level — makes debugging flow failures much faster
 
 ---
 
@@ -94,7 +94,7 @@
 
 - [ ] Health checks on every service; use `condition: service_healthy` in `depends_on` — prevents race conditions on startup
 - [ ] `restart: unless-stopped` on all services — everything comes back after a Mac Mini reboot
-- [ ] Named volumes for TimescaleDB and MLflow artifact storage — anonymous volumes are deleted on `docker compose down`
+- [x] Named volumes for TimescaleDB and MLflow artifact storage — anonymous volumes are deleted on `docker compose down`
 - [ ] Set memory limits on Kafka and TimescaleDB — without them one service can starve the others
-- [ ] Use a `.env` file for all config (ports, passwords, topic names) and reference with `${VAR}` in compose — no hardcoded values
+- [x] Use a `.env` file for all config (ports, passwords, topic names) and reference with `${VAR}` in compose — no hardcoded values
 - [ ] Separate `docker-compose.override.yml` for local dev settings (e.g. exposed ports, debug flags) that you don't want in the production compose file

@@ -23,8 +23,8 @@ if __name__ == "__main__":
     serve(
         load_producer_flow.to_deployment(name="load_producer", cron="10 * * * *"),
         lmp_producer_flow.to_deployment(name="lmp_producer", cron="10 * * * *"),
-        weather_producer_flow.to_deployment(name="weather_producer", interval=timedelta(minutes=7)),
+        weather_producer_flow.to_deployment(name="weather_producer", interval=timedelta(minutes=20)),
         load_consumer_flow.to_deployment(name="load_consumer", cron="15 * * * *"),
         lmp_consumer_flow.to_deployment(name="lmp_consumer", cron="15 * * * *"),
-        weather_consumer_flow.to_deployment(name="weather_consumer", interval=timedelta(minutes=7)),
+        weather_consumer_flow.to_deployment(name="weather_consumer", interval=timedelta(minutes=20)),
     )

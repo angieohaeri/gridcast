@@ -40,9 +40,12 @@ def poll_lmp(pjm: gs.PJM, start: datetime, end: datetime, zone_to_location: dict
     lmp = lmp[lmp["Location Short Name"].isin(location_to_zone)].copy()
     lmp["zone"] = lmp["Location Short Name"].map(location_to_zone)
 
+    # time = Interval End, UTC (gridstatus returns Eastern) - see references/decisions.md
+    lmp["Interval End"] = lmp["Interval End"].dt.tz_convert("UTC")
+
     lmp = lmp.rename(
         columns={
-            "Interval Start": "time",
+            "Interval End": "time",
             "Location Id": "pnode_id",
             "Location Name": "pnode_name",
             "LMP": "lmp",

@@ -39,11 +39,14 @@ def poll_pjm_load(pjm: gs.PJM, start: datetime, end: datetime, zone_ids: list[st
     # zonal total per hour, and only call the total verified if every sub-area is -
     # a partially-verified sum shouldn't be marked as a finished number. No-op for
     # zones that already report a single Load Area.
-    load_hourly = load_hourly.groupby(["Interval Start", "Zone"], as_index=False).agg(
+    # Interval End (Hour Ending / "HE"), not Interval Start - matches PJM's own
+    # display convention for hourly data, and lmp_producer.py's matching choice
+    # (see the comment there for why the two need to agree).
+    load_hourly = load_hourly.groupby(["Interval End", "Zone"], as_index=False).agg(
         demand_mw=("MW", "sum"),
         is_verified=("Is Verified", "all"),
     )
-    load_hourly = load_hourly.rename(columns={"Interval Start": "time", "Zone": "zone"})
+    load_hourly = load_hourly.rename(columns={"Interval End": "time", "Zone": "zone"})
     load_hourly["source"] = "pjm"
     load_hourly["demand_forecast_mw"] = float("nan")
     load_hourly["net_generation_mw"] = float("nan")
@@ -62,7 +65,7 @@ def poll_eia_load(eia: gs.EIA, start: datetime, end: datetime) -> pd.DataFrame:
     )
     eia_rto = eia_rto.rename(
         columns={
-            "Interval Start": "time",
+            "Interval End": "time",
             "Load": "demand_mw",
             "Load Forecast": "demand_forecast_mw",
             "Net Generation": "net_generation_mw",

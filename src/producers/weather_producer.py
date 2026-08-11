@@ -40,7 +40,7 @@ def poll_weather(openmeteo: openmeteo_requests.Client, zones: pd.DataFrame) -> l
         )
     return records
 
-@flow(name="weather_producer", description="Polls weather data every 7 min from Open-Meteo.", log_prints=True)
+@flow(name="weather_producer", description="Polls weather data every 20 min from Open-Meteo.", log_prints=True)
 def main():
     zones = pd.read_csv(PROCESSED_DATA_DIR / "pjm_weather_zones.csv")
 
