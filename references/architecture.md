@@ -40,8 +40,10 @@ modeling → serving → deployment), build a public-facing portfolio project.
 - URL: https://open-meteo.com/ — free, no API key required
 - Provides: current conditions + hourly forecast (temp, precipitation, wind, cloud cover)
 - Historical data available (useful for training set, aligns with EIA-930 history)
-- Scoped to a handful of representative PJM zone cities to start (e.g. RTO total plus 3-4
-  zones), not every zone — matches the "start small, scale up if needed" call on zone count
+- Covers all 20 in-scope PJM zones via 30 representative stations; seven zones spanning
+  more than one climate average 2-3 stations into a single reading. Started at 3-4 zones
+  under a "start small, scale up if needed" call, scaled up August 12th — see
+  `decisions.md` for how the stations were chosen
 - Poll every 5–10 minutes
 
 ### On frequency mismatch
@@ -117,7 +119,7 @@ once the load model and the LMP-alignment pattern are proven.
 - Zone-level historical load profile stats (e.g. typical peak hour, weekday/weekend spread)
 
 **Weather:**
-- Current: temperature, precipitation rate, wind speed, cloud cover, per representative zone city
+- Current: temperature, precipitation rate, wind speed, cloud cover, per zone (composite zones averaged across their stations before publishing)
 - Forecast: same fields N hours ahead
 - Including forecast (not just current conditions) is a meaningful differentiator
 

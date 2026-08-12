@@ -46,8 +46,7 @@ Raw landing table for the PJM Data Miner 2 `rt_hrl_lmps` real-time hourly LMP fe
 
 `zone` had been inconsistent: the original 4 in-scope zones were stored as project zone_ids
 while the rest carried PJM's raw Location Short Name from the backfill. A one-off UPDATE
-renamed the nine that differed (`AECO`→`AE`, `APS`→`AP`, `JCPL`→`JC`, `METED`→`ME`,
-`PECO`→`PE`, `PENELEC`→`PN`, `PEPCO`→`PEP`, `PPL`→`PL`, `PSEG`→`PS`); the other eleven
+renamed the nine that differed, the other eleven
 already matched. `MID-ATL/APS` (an aggregate), `OVEC` (out of scope) and `PJM-RTO` (the RTO
 hub) are still present under their raw names and are excluded by `in_scope_zones` in
 `stg_lmp`. The mapping is recorded in `data/external/pjm_eia930_subregions.csv`.
@@ -68,11 +67,18 @@ Index: `(zone, time DESC)` for per-zone lookups.
 
 **Title: Documented LMP zone-label mismatch discovered writing the producer, Author: Angie Ohaeri, Date: August 8th Time: 11:30pm**
 
-`zone` is written using this project's zone_id codes (`data/processed/pjm_weather_zones.csv`), not PJM's raw `Location Short Name` from `rt_hrl_lmps` - the two disagree for 2 of the 4 in-scope zones (`CE` → `COMED`, `BC` → `BGE`; `DOM` and `AEP` happen to match). The producer (`src/producers/lmp_producer.py`) maps explicitly; scope is the same 4 zones as `load`/`weather` (LMP zone scope was previously undecided, now resolved).
+`rt_hrl_lmps` labels zones by utility short name, not this project's zone_id codes; the
+producer (`src/producers/lmp_producer.py`) maps explicitly. *(Scope was 4 zones at the time
+— superseded by the August 12th entry above.)*
 
 **Title: Added UNIQUE(time, pnode_id) and migrated existing rows to zone_id codes, Author: Angie Ohaeri, Date: August 9th Time: (session)**
 
-Added `lmp_time_pnode_uidx` so `src/consumers/lmp_consumer.py` can upsert on re-delivery (mirrors `load`'s upsert design; confirmed no existing duplicate `(time, pnode_id)` rows before adding). Also migrated the ~126K in-scope historical rows already in the live table from PJM's raw names to zone_id codes (`COMED`→`CE`, `BGE`→`BC`; `AEP`/`DOM` unchanged) so `zone` is consistent with `load`/`weather` going forward. The other 19 zones' historical rows (outside current live scope) were left as PJM's raw names - not actively maintained, not worth relabeling. Applied directly against the live DB, since `schema.sql` only runs via `docker-entrypoint-initdb.d` on first container init and this table already had data.
+Added `lmp_time_pnode_uidx` so `src/consumers/lmp_consumer.py` can upsert on re-delivery
+(mirrors `load`'s upsert design; confirmed no duplicate `(time, pnode_id)` rows first).
+Applied directly against the live DB, since `schema.sql` only runs via
+`docker-entrypoint-initdb.d` on first container init and this table already had data.
+*(This entry migrated only the 4 in-scope zones and deliberately left the other 19 under
+PJM's raw names; that decision was reversed on August 12th — all 20 are now normalized.)*
 
 ---
 
@@ -80,7 +86,14 @@ Added `lmp_time_pnode_uidx` so `src/consumers/lmp_consumer.py` can upsert on re-
 
 **Title:** Added weather hypertable, Author: Angie Ohaeri, Date: August 4th Time: (session)
 
-Raw landing table for Open-Meteo observations (Kafka topic `weather`), one row per representative zone city per poll. Not every PJM zone gets its own weather feed — scoped to a small set of representative cities to start.
+**Title:** Expanded to all 20 zones; composite zones averaged before write, **Author:** Angie
+Ohaeri, **Date: August 12th Time: 11:20am**
+
+Raw landing table for Open-Meteo observations (Kafka topic `weather`), one row per zone per
+poll. All 20 in-scope zones are covered, drawn from 30 stations — seven zones whose load
+spans more than one climate carry 2-3 stations, which `weather_producer.py` averages before
+publishing, so the grain here stays one row per (time, zone) regardless. Station list:
+`pjm_weather_zones.csv`; selection method in `decisions.md`.
 
 DDL: `src/consumers/schema.sql`
 

@@ -51,7 +51,7 @@ flowchart TB
         HWX[("<b>weather</b>")]
     end
 
-    ZONES["<b>pjm_weather_zones.csv</b><br/><i>4 zones — CE, DOM, AEP, BC</i>"]
+    ZONES["<b>pjm_weather_zones.csv</b><br/><i>20 zones · 30 stations</i>"]
     BACKFILL["<b>backfill_weather</b><br/><i>one-off, bypasses Kafka</i>"]
     DLQ(["<b>DLQ topics</b><br/><i>load_dlq · lmp_dlq · weather_dlq</i>"])
 

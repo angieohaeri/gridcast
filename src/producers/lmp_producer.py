@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -13,8 +14,10 @@ from prefect import flow
 load_dotenv()
 setup_logging()
 
-# rt_hrl_lmps settles over ~2 days - poll a trailing window so revised hours get
-# re-produced, same reasoning as the load producer.
+# gridstatus logs the PJM API key in its INFO request lines; WARNING keeps retry warnings
+logging.getLogger("gridstatus").setLevel(logging.WARNING)
+
+# rt_hrl_lmps settles over ~2 days - re-poll so revisions upsert
 POLL_WINDOW_DAYS = 7
 
 LMP_COLUMNS = [
@@ -29,13 +32,6 @@ LMP_COLUMNS = [
 
 
 def poll_lmp(pjm: gs.PJM, start: datetime, end: datetime, zone_to_location: dict[str, str]) -> pd.DataFrame:
-    # error="raise" isn't usable here despite gridstatus's docs - get_lmp stacks
-    # @lmp_config on top of @support_date_range, and lmp_config's bound-argument
-    # check resolves the *pre-decoration* signature (no "error" param) via
-    # functools.wraps' __wrapped__ chain, so passing it raises TypeError before
-    # any request is sent. Left as the "ignore" default; a silent failure surfaces
-    # as an empty pd.concat ("No objects to concatenate") instead of the real
-    # underlying exception - fine for now, gridstatus bug tracked separately.
     lmp = pjm.get_lmp(
         start.strftime("%Y-%m-%d"),
         end=end.strftime("%Y-%m-%d"),
@@ -67,10 +63,8 @@ def poll_lmp(pjm: gs.PJM, start: datetime, end: datetime, zone_to_location: dict
 def main():
     zones = pd.read_csv(PROCESSED_DATA_DIR / "pjm_weather_zones.csv")
 
-    # rt_hrl_lmps labels zones by utility short name, not this project's zone_id
-    # codes (confirmed via a live pull, 2026-08-09) - "COMED" not "CE", "BGE" not
-    # "BC". rt_hrl_lmps also returns MID-ATL/APS, OVEC and PJM-RTO; those are an
-    # aggregate, an out-of-scope zone and the RTO hub, and are left unmapped.
+    # rt_hrl_lmps labels zones by utility short name, not zone_id. MID-ATL/APS, OVEC and
+    # PJM-RTO also come back - aggregate, out of scope, RTO hub - and stay unmapped.
     zone_to_location = {
         "AE": "AECO",
         "AEP": "AEP",

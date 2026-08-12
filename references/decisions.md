@@ -11,7 +11,7 @@ Why I made certain decisions, for future reference.
   - NYISO would've kept geographic continuity with the old Citi Bike framing and needed no ISO account
   - PJM's larger, more heterogeneous market (more zones, more topology) makes for a more interesting engineering story
   - Tradeoff: a free PJM Data Miner account, and per-zone weather features instead of one metro's weather feed
-- Fallback if PJM's scope proves too costly: cut down to a handful of zones rather than modeling the full footprint — the interesting engineering is in the prediction-log and scoring layer, not breadth of coverage
+- Fallback if PJM's scope proves too costly: cut down to a handful of zones rather than modeling the full footprint — the interesting engineering is in the prediction-log and scoring layer, not breadth of coverage *(never needed; went to the full 20 on August 12th)*
 
 ## Data Exploration
 
@@ -67,9 +67,12 @@ in every individual year.
 
 **Title: `lmp` retains all 23 PJM zones historically; `load` only ever has the 4 in-scope zones, Author: Angie Ohaeri, Date: August 10th Time: (session)**
 
-- `load`'s scope (4 zones + `RTO`) was fixed at the query level from the start (`load_producer.py:80`), so nothing else was ever stored
-- `lmp`'s 4-zone scope was decided later (`lmp_producer.py:40`) — the historical bulk import predates that decision and pulled all 23 zones, never pruned after
-- Confirmed via `SELECT zone, count(*) FROM lmp GROUP BY zone` (same for `load`), not assumed
+*Mostly superseded August 12th — `load` was backfilled to all 20 zones and `lmp`'s codes
+normalized. The durable part: producers scope at the query level, so `load` only ever stores
+what the producer asked for, while `lmp`'s historical bulk import predated any scoping and
+pulled everything. That asymmetry is why the two tables needed different remediation —
+`load` a backfill, `lmp` only a rename. Verified by `SELECT zone, count(*) ... GROUP BY
+zone`, not assumed.*
 
 ## dbt
 

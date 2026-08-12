@@ -3,9 +3,8 @@ services:
     image: timescale/timescaledb:latest-pg16
     container_name: gridcast-timescaledb
     restart: unless-stopped
-    # Docker defaults /dev/shm to 64MB, which Postgres parallel workers allocate their
-    # hash tables in. At 20 zones the three-way join in the `features` model exceeds it
-    # and fails with "could not resize shared memory segment ... No space left on device".
+    # Postgres parallel workers hash-join in /dev/shm, which Docker defaults to 64MB. At
+    # 20 zones the `features` join blows past it: "could not resize shared memory segment".
     shm_size: 1gb
     environment:
       POSTGRES_DB: ${TIMESCALEDB_DB}

@@ -199,8 +199,10 @@ hit this path.
 
 ### Open-Meteo — historical weather (`historical-forecast-api.open-meteo.com`, hourly)
 
-One row per hour per zone city. Units are Open-Meteo's metric defaults (no unit
-override params are set in this project's fetch).
+One row per hour per station. Units are Open-Meteo's metric defaults (no unit
+override params are set in this project's fetch). Stations are requested in batches —
+Open-Meteo accepts comma-joined `latitude`/`longitude` and returns one response per
+location in request order, so 30 stations cost one call rather than 30.
 
 | column | meaning | unit |
 |---|---|---|

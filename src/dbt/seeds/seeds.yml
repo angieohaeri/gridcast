@@ -3,10 +3,9 @@ version: 2
 seeds:
   - name: pjm_weather_zones
     description: >
-      PJM zones in scope, one row per representative weather station. Seven zones carry
-      2-3 stations because their load spans more than one climate; the weather producer
-      averages a zone's stations into a single reading, so zone_id repeats here but the
-      weather table stays at one row per (time, zone).
+      PJM zones in scope, one row per weather station. Seven zones carry 2-3 stations and
+      the producer averages them, so zone_id repeats here but `weather` stays one row per
+      (time, zone).
     config:
       column_types:
         zone_id: text

@@ -18,8 +18,7 @@ HOURLY_VARS = ["temperature_2m", "precipitation", "wind_speed_10m", "cloud_cover
 
 
 def poll_weather(openmeteo: openmeteo_requests.Client, zones: pd.DataFrame) -> list[dict]:
-    # Open-Meteo accepts comma-joined coordinates and returns one response per station in
-    # request order, so all 30 stations cost one call rather than 30 sequential ones.
+    # comma-joined coords return one response per station, in order - 30 stations, one call
     params = {
         "latitude": ",".join(str(v) for v in zones["lat"]),
         "longitude": ",".join(str(v) for v in zones["lon"]),
@@ -42,9 +41,7 @@ def poll_weather(openmeteo: openmeteo_requests.Client, zones: pd.DataFrame) -> l
             }
         )
 
-    # Seven zones are built from 2-3 stations (see pjm_weather_zones.csv) because their
-    # load spans more than one climate. Averaging here keeps the weather table at one
-    # reading per zone per poll, so observation_count stays comparable across zones.
+    # seven zones span 2-3 stations; average them so the table stays one row per zone-poll
     collapsed = pd.DataFrame(readings).groupby("zone", as_index=False).agg(
         time=("time", "min"),
         temperature=("temperature", "mean"),

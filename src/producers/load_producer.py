@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -13,10 +14,10 @@ from prefect import flow
 load_dotenv()
 setup_logging()
 
-# PJM settles/verifies `hrl_load_metered` over ~3 days, EIA over ~1 day - poll a
-# trailing window on every run so revised hours get re-produced and upserted, not
-# just the freshest one (see references/architecture.md, load table's UNIQUE(time,
-# zone, source) upsert key).
+# gridstatus logs the PJM API key in its INFO request lines; WARNING keeps retry warnings
+logging.getLogger("gridstatus").setLevel(logging.WARNING)
+
+# PJM revises for ~3 days, EIA ~1. Re-poll the window so revisions upsert on (time, zone, source).
 POLL_WINDOW_DAYS = 7
 
 LOAD_COLUMNS = [
@@ -35,13 +36,8 @@ def poll_pjm_load(pjm: gs.PJM, start: datetime, end: datetime, zone_ids: list[st
     load_hourly = pjm.get_load_metered_hourly(start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
     load_hourly = load_hourly[load_hourly["Zone"].isin(zone_ids)]
 
-    # AEP reports 4 sub-areas (Load Area) per hour under the same Zone; sum MW to one
-    # zonal total per hour, and only call the total verified if every sub-area is -
-    # a partially-verified sum shouldn't be marked as a finished number. No-op for
-    # zones that already report a single Load Area.
-    # Interval End (Hour Ending / "HE"), not Interval Start - matches PJM's own
-    # display convention for hourly data, and lmp_producer.py's matching choice
-    # (see the comment there for why the two need to agree).
+    # Six zones report multiple Load Areas per hour; sum to one zonal total, and only mark
+    # verified if every sub-area is. Interval End = Hour Ending, must match lmp_producer.
     load_hourly = load_hourly.groupby(["Interval End", "Zone"], as_index=False).agg(
         demand_mw=("MW", "sum"),
         is_verified=("Is Verified", "all"),
@@ -55,8 +51,8 @@ def poll_pjm_load(pjm: gs.PJM, start: datetime, end: datetime, zone_ids: list[st
 
 
 def poll_eia_load(eia: gs.EIA, start: datetime, end: datetime) -> pd.DataFrame:
-    # get_grid_monitor (used for the historical backfill) can't filter by date at
-    # all - get_dataset is the one that supports start/end and is safe to re-poll.
+    # get_dataset, not get_grid_monitor - the latter can't filter by date, so it refetches
+    # all history every poll.
     eia_rto = eia.get_dataset(
         "electricity/rto/region-data",
         start=start.strftime("%Y-%m-%d"),
@@ -80,7 +76,7 @@ def poll_eia_load(eia: gs.EIA, start: datetime, end: datetime) -> pd.DataFrame:
 @flow(name="load_producer", description="Polls PJM and EIA load data every hour.", log_prints=True)
 def main():
     zones = pd.read_csv(PROCESSED_DATA_DIR / "pjm_weather_zones.csv")
-    # one row per weather station, so a zone built from several stations repeats
+    # one row per station, so composite zones repeat
     zone_ids = ["RTO"] + zones["zone_id"].unique().tolist()
 
     end = datetime.now(UTC)

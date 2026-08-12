@@ -10,8 +10,7 @@ models:
         tests:
           - not_null
           - accepted_values:
-              # stg_load is unfiltered, so this covers every zone the producers emit:
-              # the 20 in scope plus RTO, PJM's whole-footprint total.
+              # stg_load is unfiltered: 20 in-scope zones plus RTO
               values: ['AE', 'AEP', 'AP', 'ATSI', 'BC', 'CE', 'DAY', 'DEOK', 'DOM', 'DPL',
                        'DUQ', 'EKPC', 'JC', 'ME', 'PE', 'PEP', 'PL', 'PN', 'PS', 'RECO', 'RTO']
       - name: source
