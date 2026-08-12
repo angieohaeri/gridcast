@@ -15,8 +15,8 @@ with base as (
       and zone in ('{{ var("in_scope_zones") | join("','") }}')
 
     {% if is_incremental() %}
-    -- 8 days (168 hrs) of history being re-aquired
-    and time >= (select max(time) - interval '8 days' from {{ this }})
+    -- 15 days (168hrs + 7 days) of history being re-aquired
+    and time >= (select max(time) - interval '15 days' from {{ this }})
     {% endif %}
 )
 

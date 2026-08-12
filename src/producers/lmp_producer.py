@@ -29,14 +29,18 @@ LMP_COLUMNS = [
 
 
 def poll_lmp(pjm: gs.PJM, start: datetime, end: datetime, zone_to_location: dict[str, str]) -> pd.DataFrame:
-    # error="raise" - gridstatus defaults to "ignore", which swallows the real API
-    # exception and surfaces it as an empty pd.concat ("No objects to concatenate").
+    # error="raise" isn't usable here despite gridstatus's docs - get_lmp stacks
+    # @lmp_config on top of @support_date_range, and lmp_config's bound-argument
+    # check resolves the *pre-decoration* signature (no "error" param) via
+    # functools.wraps' __wrapped__ chain, so passing it raises TypeError before
+    # any request is sent. Left as the "ignore" default; a silent failure surfaces
+    # as an empty pd.concat ("No objects to concatenate") instead of the real
+    # underlying exception - fine for now, gridstatus bug tracked separately.
     lmp = pjm.get_lmp(
         start.strftime("%Y-%m-%d"),
         end=end.strftime("%Y-%m-%d"),
         market=gs.Markets.REAL_TIME_HOURLY,
         location_type="ZONE",
-        error="raise",
     )
 
     location_to_zone = {location: zone for zone, location in zone_to_location.items()}

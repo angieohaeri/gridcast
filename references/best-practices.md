@@ -39,11 +39,11 @@
 
 ## dbt
 
-- [ ] Test every model: at minimum `not_null` and `unique` on primary keys, `accepted_values` on categoricals (zone, etc.)
-- [ ] Run `dbt build` (not `dbt run`) — runs models and tests together in dependency order
-- [ ] Write a one-line `description:` for every model in `schema.yml`
-- [ ] Use incremental models for anything touching raw snapshot tables — full refreshes over months of hourly zone history will be slow
-- [ ] Separate source definitions from models: define `sources:` in `schema.yml`, reference with `{{ source() }}` not raw table names
+- [x] Test every model: at minimum `not_null` and `unique` on primary keys, `accepted_values` on categoricals (zone, etc.)
+- [x] Run `dbt build` (not `dbt run`) — runs models and tests together in dependency order
+- [x] Write a one-line `description:` for every model in `schema.yml`
+- [x] Use incremental models for anything touching raw snapshot tables — full refreshes over months of hourly zone history will be slow
+- [x] Separate source definitions from models: define `sources:` in `schema.yml`, reference with `{{ source() }}` not raw table names
 - [ ] Run `dbt test` in GitHub Actions CI
 
 ---
@@ -93,7 +93,7 @@
 ## Docker Compose
 
 - [ ] Health checks on every service; use `condition: service_healthy` in `depends_on` — prevents race conditions on startup
-- [ ] `restart: unless-stopped` on all services — everything comes back after a Mac Mini reboot
+- [x] `restart: unless-stopped` on all services — everything comes back after a Mac Mini reboot
 - [x] Named volumes for TimescaleDB and MLflow artifact storage — anonymous volumes are deleted on `docker compose down`
 - [ ] Set memory limits on Kafka and TimescaleDB — without them one service can starve the others
 - [x] Use a `.env` file for all config (ports, passwords, topic names) and reference with `${VAR}` in compose — no hardcoded values
