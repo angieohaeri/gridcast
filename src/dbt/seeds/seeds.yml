@@ -2,7 +2,11 @@ version: 2
 
 seeds:
   - name: pjm_weather_zones
-    description: PJM zones in scope, with representative weather city per zone.
+    description: >
+      PJM zones in scope, one row per representative weather station. Seven zones carry
+      2-3 stations because their load spans more than one climate; the weather producer
+      averages a zone's stations into a single reading, so zone_id repeats here but the
+      weather table stays at one row per (time, zone).
     config:
       column_types:
         zone_id: text
@@ -12,4 +16,10 @@ seeds:
         lon: double precision
     columns:
       - name: zone_id
-        tests: [unique, not_null]
+        tests: [not_null]
+      - name: city
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [zone_id, city]

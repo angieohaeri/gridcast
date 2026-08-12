@@ -69,12 +69,29 @@ def main():
 
     # rt_hrl_lmps labels zones by utility short name, not this project's zone_id
     # codes (confirmed via a live pull, 2026-08-09) - "COMED" not "CE", "BGE" not
-    # "BC". Scoped to the same 4 zones as load/weather, per project decision.
+    # "BC". rt_hrl_lmps also returns MID-ATL/APS, OVEC and PJM-RTO; those are an
+    # aggregate, an out-of-scope zone and the RTO hub, and are left unmapped.
     zone_to_location = {
-        "CE": "COMED",
-        "DOM": "DOM",
+        "AE": "AECO",
         "AEP": "AEP",
+        "AP": "APS",
+        "ATSI": "ATSI",
         "BC": "BGE",
+        "CE": "COMED",
+        "DAY": "DAY",
+        "DEOK": "DEOK",
+        "DOM": "DOM",
+        "DPL": "DPL",
+        "DUQ": "DUQ",
+        "EKPC": "EKPC",
+        "JC": "JCPL",
+        "ME": "METED",
+        "PE": "PECO",
+        "PEP": "PEPCO",
+        "PL": "PPL",
+        "PN": "PENELEC",
+        "PS": "PSEG",
+        "RECO": "RECO",
     }
     assert set(zone_to_location) == set(zones["zone_id"]), "zone_to_location is out of sync with pjm_weather_zones.csv"
 

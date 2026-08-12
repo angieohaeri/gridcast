@@ -15,6 +15,45 @@ Why I made certain decisions, for future reference.
 
 ## Data Exploration
 
+**Title: Expanded from 4 zones to 20, and chose weather stations by degree-hour regression
+rather than by map, Author: Angie Ohaeri, Date: August 12th Time: 11:10am**
+
+Scope went from `CE`, `DOM`, `AEP`, `BC` to every PJM zone except `OVEC` (54 MW average,
+and absent from EIA's subba list). `RTO` stays ingested but unmodelled — different grain.
+
+**Why not pick weather cities off a map.** Zones are legacy utility territories, not
+metros. `AP` (Allegheny Power) sprawls across southwestern PA, western MD and most of WV,
+and wraps around Pittsburgh without serving it — Pittsburgh is `DUQ`, a separate zone. A
+nearest-city-on-the-map approach lands `AP` on a metro it doesn't cover.
+
+**How they were chosen instead.** 54 candidate stations, 2-4 per zone. For each, hourly
+temperature 2023→present was converted to degree hours against the 65°F utility baseline
+(`cdh = max(tempF-65, 0)`, `hdh = max(65-tempF, 0)`) — raw temperature correlates near
+zero with load because load is U-shaped in it, climbing in both heat and cold. Each
+candidate was then scored by *partial* R²: how much variance it explains beyond hour-of-day
+and day-of-week, which otherwise dominate and are identical across candidates for a given
+zone. Full results in `data/interim/zone_city_scoring.csv`.
+
+`AP` came out on Hagerstown MD (0.784); Morgantown WV, the intuitive pick, ranked last of
+four (0.713). Every zone cleared 0.55, so no zone needed splitting into a finer grain.
+
+**Why seven zones use composite stations.** Averaging 2-3 stations beat the best single
+station by ≥0.02 partial R² for `PN` (+0.052), `AEP` (+0.045), `ATSI` (+0.034), `DOM`
+(+0.032), `AE` (+0.032), `CE` (+0.026) and `DPL` (+0.023) — all zones spanning multiple
+climates. It made four compact single-metro zones *worse* (`PEP` −0.014, `PE` −0.009,
+`DEOK` −0.002, `RECO` −0.001), which is a useful sign the metric isn't just rewarding more
+inputs. Those 13 stay single-station.
+
+This is why `pjm_weather_zones.csv` is one row per station rather than per zone. The
+producer averages a zone's stations before publishing, so the `weather` hypertable grain is
+unchanged at one row per (time, zone), and `zone_id` is no longer unique in the seed.
+
+**`CE` = Chicago + Joliet specifically.** Joliet alone scored higher than Chicago (0.734 vs
+0.694), and its edge has widened every year — 0.000 in 2023, 0.069 in 2026 — consistent
+with new temperature-sensitive load in the area. Chicago's lakefront station understates
+the temperature swing driving HVAC load across ComEd's inland collar counties. Keeping both
+holds the metro population signal while picking up the inland swing, and beat either alone
+in every individual year.
 
 ## Database Design
 

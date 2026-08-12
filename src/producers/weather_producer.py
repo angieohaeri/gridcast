@@ -18,17 +18,20 @@ HOURLY_VARS = ["temperature_2m", "precipitation", "wind_speed_10m", "cloud_cover
 
 
 def poll_weather(openmeteo: openmeteo_requests.Client, zones: pd.DataFrame) -> list[dict]:
-    records = []
-    for _, row in zones.iterrows():
-        params = {
-            "latitude": row["lat"],
-            "longitude": row["lon"],
-            "current": HOURLY_VARS,
-            "timezone": "UTC",
-        }
-        response = openmeteo.weather_api(os.environ["FORECAST_API"], params=params)[0]
+    # Open-Meteo accepts comma-joined coordinates and returns one response per station in
+    # request order, so all 30 stations cost one call rather than 30 sequential ones.
+    params = {
+        "latitude": ",".join(str(v) for v in zones["lat"]),
+        "longitude": ",".join(str(v) for v in zones["lon"]),
+        "current": HOURLY_VARS,
+        "timezone": "UTC",
+    }
+    responses = openmeteo.weather_api(os.environ["FORECAST_API"], params=params)
+
+    readings = []
+    for (_, row), response in zip(zones.iterrows(), responses):
         current = response.Current()
-        records.append(
+        readings.append(
             {
                 "time": pd.to_datetime(current.Time(), unit="s", utc=True),
                 "zone": row["zone_id"],
@@ -38,7 +41,18 @@ def poll_weather(openmeteo: openmeteo_requests.Client, zones: pd.DataFrame) -> l
                 "cloud_cover": current.Variables(3).Value(),
             }
         )
-    return records
+
+    # Seven zones are built from 2-3 stations (see pjm_weather_zones.csv) because their
+    # load spans more than one climate. Averaging here keeps the weather table at one
+    # reading per zone per poll, so observation_count stays comparable across zones.
+    collapsed = pd.DataFrame(readings).groupby("zone", as_index=False).agg(
+        time=("time", "min"),
+        temperature=("temperature", "mean"),
+        precipitation=("precipitation", "mean"),
+        wind_speed=("wind_speed", "mean"),
+        cloud_cover=("cloud_cover", "mean"),
+    )
+    return collapsed.to_dict(orient="records")
 
 @flow(name="weather_producer", description="Polls weather data every 20 min from Open-Meteo.", log_prints=True)
 def main():

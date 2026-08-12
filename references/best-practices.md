@@ -7,7 +7,7 @@
 - [x] `.env` in `.gitignore`; commit `.env.example` with keys but no values
 - [x] `pre-commit` hooks: ruff (lint), nbstripout (strip notebook outputs before commit)
 - [x] DVC for data and model versioning — `.dvc` files committed, data in remote storage
-- [ ] Conventional commits: `feat:`, `fix:`, `data:`, `exp:`, `infra:`
+- [x] Conventional commits: `feat:`, `fix:`, `data:`, `exp:`, `infra:`
 - [ ] GitHub Actions CI: ruff + pytest on every push, fail fast
   - Cache pip deps with `actions/cache`
   - Separate lint and test into different jobs
@@ -32,7 +32,7 @@
 - [ ] Add compression policy on chunks older than 7 days — columnar compression cuts storage 90%+ on time-series
 - [x] Set a retention policy on raw snapshots (30–90 days of 30s resolution is enough; keep aggregates longer)
 - [x] Add composite index on `(zone, time DESC)` — TimescaleDB creates the time index automatically, zone won't be there by default
-- [ ] Never query the raw hypertable for training — always go through a continuous aggregate or materialized dbt model
+- [x] Never query the raw hypertable for training — always go through a continuous aggregate or materialized dbt model
 - [ ] Use `EXPLAIN ANALYZE` on slow queries before optimizing indexes
 
 ---

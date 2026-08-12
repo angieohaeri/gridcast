@@ -39,7 +39,18 @@ Index: `(zone, time DESC)` for per-zone lookups.
 
 **Title: Added lmp hypertable, Author: Angie Ohaeri, Date: August 4th Time: (session)**
 
+**Title: Normalized `zone` to project zone_id codes across the whole table, Author: Angie
+Ohaeri, Date: August 12th Time: 11:15am**
+
 Raw landing table for the PJM Data Miner 2 `rt_hrl_lmps` real-time hourly LMP feed (Kafka topic `lmp`). One row per pricing node per hour. Kept at native resolution — not resampled to match `load`'s grain at ingestion time; any alignment happens explicitly in a named dbt model.
+
+`zone` had been inconsistent: the original 4 in-scope zones were stored as project zone_ids
+while the rest carried PJM's raw Location Short Name from the backfill. A one-off UPDATE
+renamed the nine that differed (`AECO`→`AE`, `APS`→`AP`, `JCPL`→`JC`, `METED`→`ME`,
+`PECO`→`PE`, `PENELEC`→`PN`, `PEPCO`→`PEP`, `PPL`→`PL`, `PSEG`→`PS`); the other eleven
+already matched. `MID-ATL/APS` (an aggregate), `OVEC` (out of scope) and `PJM-RTO` (the RTO
+hub) are still present under their raw names and are excluded by `in_scope_zones` in
+`stg_lmp`. The mapping is recorded in `data/external/pjm_eia930_subregions.csv`.
 
 DDL: `src/consumers/schema.sql`
 

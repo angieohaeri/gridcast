@@ -81,9 +81,22 @@ appears in the PJM load feed, not the EIA subba list.
 | PN | Pennsylvania Electric |
 | OVEC | Ohio Valley Electric Corporation *(appears in PJM load data only, not the EIA subba list)* |
 
-This project currently scopes weather + modeling to `RTO` + `CE`, `DOM`, `AEP`, `BC`
-(see `data/external/pjm_weather_zones.csv`) — chosen for climate diversity, per
-`architecture.md`'s "start small" call on zone count.
+**Title: Expanded modelling scope from 4 zones to all 20, Author: Angie Ohaeri, Date:
+August 12th Time: 11:05am**
+
+This project scopes weather + modelling to all 20 zones above — every PJM zone except
+`OVEC`, which averages 54 MW and appears in PJM's load feed but not EIA's subba list.
+`RTO` is ingested but not modelled: it's the whole-footprint total, a different grain
+from the zonal rows.
+
+The representative weather station per zone lives in `pjm_weather_zones.csv` (copies at
+`data/processed/` and `src/dbt/seeds/`). That file is **one row per station, not per
+zone** — seven zones whose load spans more than one climate carry 2-3 stations, which the
+weather producer averages into a single reading per zone. See `decisions.md` for how the
+stations were chosen.
+
+`pjm_eia930_subregions.csv` also carries an `lmp_short_name` column, mapping each zone_id
+to the utility short name `rt_hrl_lmps` labels it with (`CE`→`COMED`, `AP`→`APS`).
 
 ---
 
@@ -241,9 +254,17 @@ forecast-quality data avoids a train/serve mismatch.
 - **"Verified" data changes after the fact.** Recent PJM load rows can have
   `Is Verified = False` and be revised later. If a backfill and a later re-pull
   disagree slightly for recent dates, this is almost certainly why, not a bug.
-- **RTO total ≠ sum of the 4 zones you're using.** RTO is the sum of *all 20* zones,
-  not just the 4 in `pjm_weather_zones.csv`. Don't expect `CE + DOM + AEP + BC` to
-  reconcile against the `RTO` row.
+- **`is_verified` is not a usable quality filter.** *(Author: Angie Ohaeri, Date: August
+  12th Time: 11:05am)* Measured across the full 2023→2026 backfill: PJM never marks
+  `DAY`, `RTO`, `RECO` or `PL` verified — 31,631 of 31,631 rows each — and `DUQ` is
+  verified for only 24 hours in 3.5 years. `DEOK` (10,799), `AE` (9,193), `DPL` (6,913),
+  `PEP` (5,640) and `EKPC` (2,520) carry large unverified blocks too. Every other zone
+  shows only the expected few-hundred-row settlement tail. Nothing in the pipeline
+  filters on this column today; adding `where is_verified` as a quality gate would
+  silently drop four zones entirely.
+- **RTO total ≠ sum of the zones you're using.** RTO is the sum of *all 21* zones
+  including `OVEC`, which is deliberately out of scope. Don't expect the 20 in
+  `pjm_weather_zones.csv` to reconcile against the `RTO` row.
 - **Two RTO totals, from two different EIA methods, only one of which is pollable.**
   `get_grid_monitor` and `get_dataset("electricity/rto/region-data")` report the same
   underlying quantities but `get_grid_monitor` can't filter by date at all (full

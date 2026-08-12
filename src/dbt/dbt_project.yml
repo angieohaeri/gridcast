@@ -15,7 +15,11 @@ clean-targets:
   - "dbt_packages"
 
 vars:
-  in_scope_zones: ['AEP', 'BC', 'CE', 'DOM']
+  # every PJM zone except OVEC, which averages 54 MW and appears in PJM's load feed but
+  # not EIA's subregion list. RTO is the whole-footprint total, a different grain, and is
+  # deliberately not modelled as a zone.
+  in_scope_zones: ['AE', 'AEP', 'AP', 'ATSI', 'BC', 'CE', 'DAY', 'DEOK', 'DOM', 'DPL',
+                   'DUQ', 'EKPC', 'JC', 'ME', 'PE', 'PEP', 'PL', 'PN', 'PS', 'RECO']
 
 models:
   gridcast:

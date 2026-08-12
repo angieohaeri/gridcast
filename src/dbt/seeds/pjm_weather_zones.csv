@@ -1,5 +1,31 @@
 zone_id,zone_name,city,lat,lon
-CE,Commonwealth Edison,Chicago IL,41.8781,-87.6298
-DOM,Dominion Virginia Power,Richmond VA,37.5407,-77.4360
+AE,Atlantic Electric,Atlantic City NJ,39.3643,-74.4229
+AE,Atlantic Electric,Vineland NJ,39.4864,-75.0257
 AEP,American Electric Power,Columbus OH,39.9612,-82.9988
-BC,Baltimore Gas & Electric,Baltimore MD,39.2904,-76.6122
+AEP,American Electric Power,Roanoke VA,37.2710,-79.9414
+AP,Allegheny Power,Hagerstown MD,39.6418,-77.7200
+ATSI,American Transmission Systems (OH),Akron OH,41.0814,-81.5190
+ATSI,American Transmission Systems (OH),Cleveland OH,41.4993,-81.6944
+ATSI,American Transmission Systems (OH),Toledo OH,41.6528,-83.5379
+BC,Baltimore Gas & Electric,Annapolis MD,38.9784,-76.4922
+CE,Commonwealth Edison,Chicago IL,41.8781,-87.6298
+CE,Commonwealth Edison,Joliet IL,41.5250,-88.0817
+DAY,Dayton Power & Light,Dayton OH,39.7589,-84.1916
+DEOK,Duke Energy Ohio/Kentucky,Cincinnati OH,39.1031,-84.5120
+DOM,Dominion Virginia Power,Norfolk VA,36.8508,-76.2859
+DOM,Dominion Virginia Power,Sterling VA,39.0062,-77.4286
+DPL,Delmarva Power & Light,Dover DE,39.1582,-75.5244
+DPL,Delmarva Power & Light,Salisbury MD,38.3607,-75.5994
+DPL,Delmarva Power & Light,Wilmington DE,39.7391,-75.5398
+DUQ,Duquesne Lighting,Pittsburgh PA,40.4406,-79.9959
+EKPC,East Kentucky Power Cooperative,Lexington KY,38.0406,-84.5037
+JC,Jersey Central Power & Light,Freehold NJ,40.2601,-74.2735
+ME,Metropolitan Edison,York PA,39.9626,-76.7277
+PE,PECO Energy,Philadelphia PA,39.9526,-75.1652
+PEP,Potomac Electric Power (Pepco),Washington DC,38.9072,-77.0369
+PL,Pennsylvania Power & Light,Harrisburg PA,40.2732,-76.8867
+PN,Pennsylvania Electric,Erie PA,42.1292,-80.0851
+PN,Pennsylvania Electric,Johnstown PA,40.3267,-78.9220
+PN,Pennsylvania Electric,Williamsport PA,41.2412,-77.0011
+PS,Public Service Electric & Gas,Newark NJ,40.7357,-74.1724
+RECO,Rockland Electric,Nyack NY,41.0909,-73.9179

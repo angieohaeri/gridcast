@@ -80,7 +80,8 @@ def poll_eia_load(eia: gs.EIA, start: datetime, end: datetime) -> pd.DataFrame:
 @flow(name="load_producer", description="Polls PJM and EIA load data every hour.", log_prints=True)
 def main():
     zones = pd.read_csv(PROCESSED_DATA_DIR / "pjm_weather_zones.csv")
-    zone_ids = ["RTO"] + zones["zone_id"].tolist()
+    # one row per weather station, so a zone built from several stations repeats
+    zone_ids = ["RTO"] + zones["zone_id"].unique().tolist()
 
     end = datetime.now(UTC)
     start = end - timedelta(days=POLL_WINDOW_DAYS)

@@ -1,6 +1,8 @@
 from pathlib import Path
 
 from loguru import logger
+import numpy as np
+import pandas as pd
 from tqdm import tqdm
 import typer
 
@@ -8,6 +10,17 @@ from gridcast.config import PROCESSED_DATA_DIR
 
 app = typer.Typer()
 
+
+def add_cyclical_features(df: pd.DataFrame, time_col: str="time") -> pd.DataFrame:
+      hour = df[time_col].dt.hour
+      month = df[time_col].dt.month
+
+      df["hour_sin"] = np.sin(2 * np.pi * hour / 24)
+      df["hour_cos"] = np.cos(2 * np.pi * hour / 24)
+      df["month_sin"] = np.sin(2 * np.pi * (month - 1) / 12)
+      df["month_cos"] = np.cos(2 * np.pi * (month - 1) / 12)
+
+      return df
 
 @app.command()
 def main(
