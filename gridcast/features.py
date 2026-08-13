@@ -1,4 +1,3 @@
-import holidays
 import numpy as np
 import pandas as pd
 import typer
@@ -28,18 +27,18 @@ pjm_holidays = {
     "Thanksgiving Day",
     "Christmas Day"}
 
-def holiday_flag(df: pd.DataFrame, time_col: str = "time", tz: str = "US/Eastern") -> pd.DataFrame:
-    # time is stored in UTC; the load drop follows the local calendar day
-    local_date = df[time_col].dt.tz_convert(tz).dt.date
-    us_holidays = holidays.US(years=range(local_date.min().year, local_date.max().year + 1))
+# def holiday_flag(df: pd.DataFrame, time_col: str = "time", tz: str = "US/Eastern") -> pd.DataFrame:
+#     # time is stored in UTC; the load drop follows the local calendar day
+#     local_date = df[time_col].dt.tz_convert(tz).dt.date
+#     us_holidays = holidays.US(years=range(local_date.min().year, local_date.max().year + 1))
 
-    # "(observed)" rows are the weekday the closure actually lands on - keep both
-    holiday_dates = {date for date, name in us_holidays.items()
-                    if name.removesuffix(" (observed)") in pjm_holidays}
+#     # "(observed)" rows are the weekday the closure actually lands on - keep both
+#     holiday_dates = {date for date, name in us_holidays.items()
+#                     if name.removesuffix(" (observed)") in pjm_holidays}
     
-    df["is_holiday"] = local_date.isin(holiday_dates)
+#     df["is_holiday"] = local_date.isin(holiday_dates)
 
-    return df
+#     return df
 
 def weekend_flag(df: pd.DataFrame, time_col: str = "time", tz: str = "US/Eastern") -> pd.DataFrame:
     # time is stored in UTC; the load drop follows the local calendar day
@@ -83,7 +82,7 @@ def drop_time(df: pd.DataFrame, time_col: str = "time") -> pd.DataFrame:
 
 def features(df: pd.DataFrame, time_col: str = 'time', tz: str = "US/Eastern", drop_time_col=True):
     df.sort_values(by=[time_col], inplace=True)
-    df = holiday_flag(df, time_col, tz)
+    # df = holiday_flag(df, time_col, tz)
     df = weekend_flag(df, time_col, tz)     
     df = degree_day_features(df)            
     df = peak_hour_flag(df, time_col, tz)   

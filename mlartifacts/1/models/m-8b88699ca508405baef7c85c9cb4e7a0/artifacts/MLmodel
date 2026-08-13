@@ -1,0 +1,48 @@
+artifact_path: mlflow-artifacts:/1/models/m-8b88699ca508405baef7c85c9cb4e7a0/artifacts
+flavors:
+  lightgbm:
+    code: null
+    data: model.skops
+    lgb_version: 4.7.0
+    model_class: lightgbm.sklearn.LGBMRegressor
+    serialization_format: skops
+    skops_trusted_types:
+    - lightgbm.sklearn.LGBMRegressor
+    - lightgbm.sklearn.LGBMClassifier
+    - lightgbm.basic.Booster
+    - collections.OrderedDict
+  python_function:
+    data: model.skops
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.lightgbm
+    python_version: 3.13.5
+is_signature_from_type_hint: false
+mlflow_version: 3.14.0
+model_id: m-8b88699ca508405baef7c85c9cb4e7a0
+model_size_bytes: 200773
+model_uuid: m-8b88699ca508405baef7c85c9cb4e7a0
+prompts: null
+run_id: 3dc63e6ef16f49909cc348ed2912882b
+signature:
+  inputs: '[{"type": "string", "name": "zone", "required": true}, {"type": "double",
+    "name": "demand_lag_72h", "required": true}, {"type": "double", "name": "demand_lag_168h",
+    "required": true}, {"type": "double", "name": "demand_roll_6h", "required": true},
+    {"type": "double", "name": "demand_roll_24h", "required": true}, {"type": "double",
+    "name": "lmp_total_lag_48h", "required": true}, {"type": "double", "name": "congestion_price_lag_48h",
+    "required": true}, {"type": "double", "name": "marginal_loss_price_lag_48h", "required":
+    true}, {"type": "double", "name": "temperature", "required": true}, {"type": "double",
+    "name": "precipitation", "required": true}, {"type": "double", "name": "wind_speed",
+    "required": true}, {"type": "double", "name": "cloud_cover", "required": true},
+    {"type": "boolean", "name": "is_weekend", "required": true}, {"type": "double",
+    "name": "hdd", "required": true}, {"type": "double", "name": "cdd", "required":
+    true}, {"type": "boolean", "name": "is_peak_hour", "required": true}, {"type":
+    "double", "name": "hour_sin", "required": true}, {"type": "double", "name": "hour_cos",
+    "required": true}, {"type": "double", "name": "month_sin", "required": true},
+    {"type": "double", "name": "month_cos", "required": true}, {"type": "integer",
+    "name": "year", "required": true}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}}]'
+  params: null
+type_hint_from_example: false
+utc_time_created: '2026-08-13 03:54:06.245067'
