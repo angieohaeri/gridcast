@@ -22,21 +22,24 @@ with base as (
 ),
 
 lagged as (
+    -- demand_lag_1h/3h/24h dropped: PJM zonal load settles ~2-3 days after the
+    -- fact (see references/decisions.md), so anything newer than 72h is not
+    -- knowable at "now" regardless of forecast horizon - staleness depends on
+    -- now vs. settlement lag, not on how far ahead the target is. 72h floor is
+    -- conservative (measured lag looks closer to 48h).
     select
         time,
         zone,
         demand_mw,
-        lag(demand_mw, 1)   over w as demand_lag_1h,
-        lag(demand_mw, 3)   over w as demand_lag_3h,
-        lag(demand_mw, 24)  over w as demand_lag_24h,
+        lag(demand_mw, 72)  over w as demand_lag_72h,
         lag(demand_mw, 168) over w as demand_lag_168h,
         avg(demand_mw) over (
             partition by zone order by time
-            range between interval '6 hours' preceding and interval '1 hour' preceding
+            range between interval '78 hours' preceding and interval '72 hours' preceding
         ) as demand_roll_6h,
         avg(demand_mw) over (
             partition by zone order by time
-            range between interval '24 hours' preceding and interval '1 hour' preceding
+            range between interval '96 hours' preceding and interval '72 hours' preceding
         ) as demand_roll_24h
     from base
     window w as (partition by zone order by time)

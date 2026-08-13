@@ -36,6 +36,7 @@ dependencies = [
     "dbt-core",
     "dbt-postgres",
     "holidays",
+    "plotly>=6.9.0",
 ]
 
 [project.optional-dependencies]

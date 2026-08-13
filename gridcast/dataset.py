@@ -1,14 +1,25 @@
 from pathlib import Path
 
 from loguru import logger
+import pandas as pd
 from tqdm import tqdm
 import typer
 
-from gridcast.config import PROCESSED_DATA_DIR, RAW_DATA_DIR, setup_logging
+from gridcast.config import PROCESSED_DATA_DIR, RAW_DATA_DIR, get_connection, setup_logging
 
 setup_logging()
 
 app = typer.Typer()
+
+
+def dataset():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM analytics.features;")
+    columns = [desc[0] for desc in cur.description]
+    data = pd.DataFrame(cur.fetchall(), columns=columns)
+
+    return data
 
 
 @app.command()
