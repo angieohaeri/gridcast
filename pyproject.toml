@@ -39,6 +39,10 @@ dependencies = [
     "plotly>=6.9.0",
     "fastapi>=0.140.7",
     "uvicorn>=0.51.0",
+    "shiny",
+    "pydeck",
+    "geopandas>=1.1.4",
+    "shapely>=2.1.2",
 ]
 
 [project.optional-dependencies]
