@@ -12,11 +12,10 @@ from sklearn.metrics import r2_score
 import typer
 
 from gridcast.dataset import dataset
-from gridcast.features import features
+from gridcast.features import build_features, build_labels, horizons
 
 app = typer.Typer()
 
-horizons = (1, 24, 72)
 featureset = "v1"
 
 # val/test are fixed-size windows relative to the most recent row in the data
@@ -28,19 +27,6 @@ val_months = 12
 # not model features: time is a split key not a predictor, demand_mw is the
 # unlagged/raw target, observation_count is a weather data-quality diagnostic
 non_features = ["time", "demand_mw", "observation_count"]
-
-
-def build_labels(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.sort_values(["zone", "time"]).reset_index(drop=True)
-    for h in horizons:
-        df[f"y_{h}h"] = df.groupby("zone")["demand_mw"].shift(-h)
-    return df
-
-
-def build_features(df: pd.DataFrame) -> pd.DataFrame:
-    df = features(df, drop_time_col=False)
-    df["zone"] = df["zone"].astype("category")
-    return df[df["demand_lag_168h"].notna()]
 
 
 def split_by_date(df: pd.DataFrame, start: pd.Timestamp | None, end: pd.Timestamp | None) -> pd.DataFrame:
@@ -99,6 +85,7 @@ def main():
     logger.info("Loading analytics.features...")
     df = build_labels(dataset())
     df = build_features(df)
+    df = df[df["demand_lag_168h"].notna()]
 
     test_start = df["time"].max() - pd.DateOffset(months=test_months)
     val_start = test_start - pd.DateOffset(months=val_months)

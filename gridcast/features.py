@@ -4,6 +4,8 @@ import typer
 
 app = typer.Typer()
 
+horizons = (1, 24, 72)
+
 
 def cyclical_features(df: pd.DataFrame, time_col: str="time", tz: str = "US/Eastern") -> pd.DataFrame:
       local_time = df[time_col].dt.tz_convert(tz)
@@ -90,5 +92,16 @@ def features(df: pd.DataFrame, time_col: str = 'time', tz: str = "US/Eastern", d
     # df = market_on_peak_flag(df, time_col, tz)
     if drop_time_col is True:
         df = drop_time(df, time_col)
+    return df
+
+def build_features(df: pd.DataFrame) -> pd.DataFrame:
+    df = features(df, drop_time_col=False)
+    df["zone"] = df["zone"].astype("category")
+    return df
+
+def build_labels(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.sort_values(["zone", "time"]).reset_index(drop=True)
+    for h in horizons:
+        df[f"y_{h}h"] = df.groupby("zone")["demand_mw"].shift(-h)
     return df
 
