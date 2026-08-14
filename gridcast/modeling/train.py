@@ -8,6 +8,7 @@ from mlflow.models import infer_signature
 from mlflow.tracking import MlflowClient
 import numpy as np
 import pandas as pd
+from sklearn.metrics import r2_score
 import typer
 
 from gridcast.dataset import dataset
@@ -80,6 +81,7 @@ def evaluate(model: lgb.LGBMRegressor, df: pd.DataFrame, feature_cols: list[str]
     metrics = {
         "rmse": float(np.sqrt(np.mean(error**2))),
         "mae": float(np.mean(np.abs(error))),
+        "r2": float(r2_score(df[y_col], preds)),
     }
 
     # per-zone MAE/MAPE: an aggregate score can hide one bad zone, and zones
@@ -124,6 +126,8 @@ def main():
             with mlflow.start_run(run_name=f"{h}h", nested=True):
                 model, feature_cols = train_horizon(train, val, h)
                 metrics = evaluate(model, test, feature_cols, h)
+                metrics["train_r2"] = evaluate(model, train, feature_cols, h)["r2"]
+                metrics["val_r2"] = evaluate(model, val, feature_cols, h)["r2"]
                 mlflow.log_params({"horizon_h": h, **model.get_params()})
                 mlflow.log_metrics(metrics)
 

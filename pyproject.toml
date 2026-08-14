@@ -37,6 +37,8 @@ dependencies = [
     "dbt-postgres",
     "holidays",
     "plotly>=6.9.0",
+    "fastapi>=0.140.7",
+    "uvicorn>=0.51.0",
 ]
 
 [project.optional-dependencies]
