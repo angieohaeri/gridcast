@@ -88,7 +88,7 @@ resolution, and any join across the two happens in a named, documented dbt model
 - Loads model from MLflow model registry (no manual file management)
 
 ### Dashboard
-- **Streamlit** with **Pydeck** for geographic map (deck.gl, better than Folium for this)
+- **Shiny for Python** with **Pydeck** for geographic map (deck.gl, better than Folium for this)
 - Live zone load on map, predicted load N hours ahead, weather overlay
 - Calls FastAPI for predictions
 
@@ -166,7 +166,7 @@ gridcast/
   ├── prefect/                # Orchestration flows
   ├── training/               # MLflow training scripts
   ├── api/                    # FastAPI prediction service
-  ├── dashboard/              # Streamlit app
+  ├── dashboard/              # Shiny app
   ├── notebooks/              # EDA, model exploration
   └── infra/                  # Cloudflare config, nginx, etc.
 ```
@@ -184,7 +184,7 @@ gridcast/
 6. Add the PJM LMP producer/consumer as a second, separately-resolved feed
 7. Build dbt models for lag + rolling features, including the explicit LMP alignment model
 8. Train LightGBM baseline with MLflow tracking
-9. Wrap model in FastAPI; build Streamlit map dashboard
+9. Wrap model in FastAPI; build Shiny map dashboard
 10. Wire up Cloudflare Tunnel for public access
 
 ---

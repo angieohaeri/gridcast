@@ -80,13 +80,13 @@
 
 ---
 
-## Streamlit
+## Shiny for Python
 
-- [ ] `@st.cache_data` on every function that calls FastAPI or queries the DB — Streamlit re-runs the whole script on any interaction
+- [ ] `@reactive.calc` on every function that calls FastAPI or queries the DB — memoizes until an input it depends on invalidates, instead of refetching on every reactive tick
 - [ ] Handle FastAPI unavailability explicitly — show a clear error state, not a Python traceback
-- [ ] Keep data fetching in a separate `data.py` module; pages import from it — don't mix API calls with rendering logic
-- [ ] Use `st.session_state` for anything that should persist across reruns (selected zone, time horizon)
-- [ ] Set a reasonable auto-refresh interval (60–120 seconds is enough) — avoid hammering the API
+- [ ] Keep data fetching in a separate `data.py` module; server functions import from it — don't mix API calls with rendering logic
+- [ ] Use `reactive.value` for anything that should persist across reactive updates (selected zone, time horizon)
+- [ ] Set a reasonable auto-refresh interval via `reactive.invalidate_later()` (60–120 seconds is enough) — avoid hammering the API
 
 ---
 

@@ -5,7 +5,7 @@ PJM Interconnection using EIA-930 hourly demand data, PJM real-time LMP data, an
 weather data.
 
 **Stack:** EIA-930 + PJM Data Miner 2 + Open-Meteo → Kafka → TimescaleDB → dbt →
-LightGBM → FastAPI → Streamlit, self-hosted on a Mac Mini via Docker Compose and
+LightGBM → FastAPI → Shiny, self-hosted on a Mac Mini via Docker Compose and
 Cloudflare Tunnel.
 
 ## Architecture

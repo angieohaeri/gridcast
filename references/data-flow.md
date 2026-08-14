@@ -102,7 +102,7 @@ flowchart LR
     TRAIN["<b>LightGBM training</b>"]
     REG["<b>MLflow registry</b>"]
     API["<b>FastAPI</b> /predict"]
-    DASH["<b>Streamlit + Pydeck</b><br/><i>via Cloudflare Tunnel</i>"]
+    DASH["<b>Shiny + Pydeck</b><br/><i>via Cloudflare Tunnel</i>"]
 
     HLOAD --> DBT
     HLMP --> DBT

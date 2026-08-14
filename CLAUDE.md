@@ -14,7 +14,7 @@ Cloudflare Tunnel.
 
 ## Architecture
 ```
-EIA-930 + PJM Data Miner 2 + Open-Meteo → Kafka → TimescaleDB → dbt → LightGBM → FastAPI → Streamlit
+EIA-930 + PJM Data Miner 2 + Open-Meteo → Kafka → TimescaleDB → dbt → LightGBM → FastAPI → Shiny
 ```
 
 ---
@@ -28,7 +28,7 @@ EIA-930 + PJM Data Miner 2 + Open-Meteo → Kafka → TimescaleDB → dbt → Li
 - **MLflow** — experiment tracking + model registry
 - **LightGBM** — primary model; Temporal Fusion Transformer planned as extension
 - **FastAPI** — prediction serving, loads model from MLflow registry by stage
-- **Streamlit + Pydeck** — live map dashboard
+- **Shiny for Python + Pydeck** — live map dashboard
 - **Docker Compose** — full stack on Mac Mini
 - **Cloudflare Tunnel** — public HTTPS URL, no port forwarding
 
@@ -50,7 +50,7 @@ src/
   prefect/            orchestration flows
   training/           MLflow training entry points
   api/                FastAPI app
-  dashboard/          Streamlit app
+  dashboard/          Shiny app
   infra/              Cloudflare config, Docker supporting files
 notebooks/          EDA and exploration (naming: 0.NN-description.ipynb)
 tests/              pytest — mirrors package structure
