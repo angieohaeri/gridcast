@@ -61,8 +61,8 @@
 ## MLflow
 
 - [ ] Log the DVC data hash or training date range as a run tag on every experiment — reproducibility requires knowing exactly what data was used
-- [ ] Log model signatures on every logged model: `mlflow.models.infer_signature(X_train, y_pred)` — serving layer needs the expected input schema
-- [ ] Use the model registry with explicit stage transitions: Staging → Production
+- [x] Log model signatures on every logged model: `mlflow.models.infer_signature(X_train, y_pred)` — serving layer needs the expected input schema
+- [x] Use the model registry with explicit stage transitions: Staging → Production
 - [ ] Load models in FastAPI by stage (`models:/gridcast-lgbm/Production`), not by run ID — promotes without code changes
 - [ ] Log per-zone error metrics (MAE per zone), not just aggregate RMSE — a poor-performing zone model is not production-ready regardless of overall score
 - [ ] Tag runs with feature set version so you can compare feature experiments cleanly
