@@ -49,13 +49,11 @@ def features_window(hours: int, zone: str | None = None) -> pd.DataFrame:
     return data
 
 
-def latest_load_time(source: str = "pjm") -> pd.Timestamp | None:
-    """Most recent hour written to the raw load table for `source` - a pipeline
-    freshness proxy (PJM's zonal feed settles ~2-3 days behind by design, so this
-    reflects the consumer keeping pace with that lag, not real-time data)."""
+def latest_load_time() -> pd.Timestamp | None:
+    """Most recent hour in analytics.features."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT max(time) FROM load WHERE source = %s;", (source,))
+    cur.execute("SELECT max(time) FROM analytics.features;")
     (result,) = cur.fetchone()
     return result
 

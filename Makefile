@@ -15,8 +15,11 @@ PYTHON_INTERPRETER = python
 .PHONY: requirements
 requirements:
 	uv pip install -r requirements.txt
-	
 
+## start shiny app
+.PHONY: app
+app:
+   shiny run --port 8080 --reload --launch-browser src/dashboard/app.py
 
 
 ## Delete all compiled Python files

@@ -2,6 +2,7 @@ from datetime import timedelta
 from pathlib import Path
 import sys
 
+from gridcast.modeling.train import main as train_flow
 from prefect import serve
 
 # Each producer/consumer script does a bare `from kafka_client import ...` /
@@ -12,6 +13,7 @@ SRC = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SRC / "producers"))
 sys.path.insert(0, str(SRC / "consumers"))
 
+# from db_backup import main as db_backup_flow  # noqa: E402  # disabled until RCLONE_REMOTE/backup setup is done
 from dbt_build import main as dbt_build_flow  # noqa: E402
 from lmp_consumer import main as lmp_consumer_flow  # noqa: E402
 from lmp_producer import main as lmp_producer_flow  # noqa: E402
@@ -29,4 +31,8 @@ if __name__ == "__main__":
         lmp_consumer_flow.to_deployment(name="lmp_consumer", cron="15 * * * *"),
         weather_consumer_flow.to_deployment(name="weather_consumer", interval=timedelta(minutes=20)),
         dbt_build_flow.to_deployment(name="dbt_build", cron="25 * * * *"),
+        # db_backup_flow.to_deployment(name="db_backup", cron="0 3 * * *"),  # disabled until RCLONE_REMOTE/backup setup is done
+        # weekly retrain - adjust cadence once there's a sense of how much drift
+        # actually shows up week to week
+        train_flow.to_deployment(name="train", cron="0 4 * * 0"),
     )

@@ -35,6 +35,10 @@ class ZonePrediction(BaseModel):
     y_1h: float
     y_24h: float
     y_72h: float
+    temperature: float | None
+    precipitation: float | None
+    wind_speed: float | None
+    cloud_cover: float | None
 
 
 class HistoryPoint(BaseModel):
@@ -64,7 +68,12 @@ def get_predictions(zone: str | None = None):
     df = latest_features(zone=zone)
     if df.empty:
         raise HTTPException(status_code=404, detail=f"No data for zone '{zone}'")
-    return predict(df, models).to_dict(orient="records")
+
+    weather_cols = ["time", "zone", "temperature", "precipitation", "wind_speed", "cloud_cover"]
+    preds = predict(df, models).merge(df[weather_cols], on=["time", "zone"], how="left")
+    for col in weather_cols[2:]:
+        preds[col] = preds[col].astype(object).where(preds[col].notna(), None)
+    return preds.to_dict(orient="records")
 
 
 @app.get("/history", response_model=list[HistoryPoint])

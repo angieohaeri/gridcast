@@ -23,6 +23,36 @@ services:
     networks:
       - kafka-net
 
+  mlflow:
+    build: .
+    image: gridcast:latest
+    container_name: gridcast-mlflow
+    restart: unless-stopped
+    # Backend store (run/metric/param metadata) is the `mlflow` db on the shared
+    # timescaledb instance; artifact store (logged models) is a plain volume - no
+    # need for S3/GCS-style object storage at this scale.
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri postgresql://${TIMESCALEDB_USER}:${TIMESCALEDB_PASSWORD}@timescaledb:5432/mlflow
+      --default-artifact-root /app/mlflow-artifacts
+    env_file: .env
+    ports:
+      - "5000:5000"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    volumes:
+      - mlflow_artifacts:/app/mlflow-artifacts
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kafka-net
+
   kafka:
     image: apache/kafka:latest
     container_name: kafka-kraft
@@ -266,6 +296,7 @@ services:
       TIMESCALEDB_HOST: timescaledb
       TIMESCALEDB_PORT: "5432"
       PREFECT_API_URL: http://prefect-server:4200/api
+      MLFLOW_TRACKING_URI: http://mlflow:5000
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -273,10 +304,78 @@ services:
         condition: service_healthy
       prefect-server:
         condition: service_healthy
+      mlflow:
+        condition: service_healthy
     networks:
       - kafka-net
     volumes:
       - ./data/processed/pjm_weather_zones.csv:/app/data/processed/pjm_weather_zones.csv:ro
+      # db_backup deployment is disabled for now (see deployments.py) until
+      # RCLONE_REMOTE/rclone config are set up - re-enable alongside it
+      # - backup_data:/app/backups
+      # - ${HOME}/.config/rclone:/root/.config/rclone:ro
+
+  api:
+    build: .
+    image: gridcast:latest
+    container_name: gridcast-api
+    restart: unless-stopped
+    command: python src/api/main.py
+    env_file: .env
+    environment:
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      API_HOST: 0.0.0.0
+      API_PORT: "8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+    networks:
+      - kafka-net
+
+  dashboard:
+    build: .
+    image: gridcast:latest
+    container_name: gridcast-dashboard
+    restart: unless-stopped
+    # container-internal hostname, not localhost:8000 (API_URL default in app.py) -
+    # same host-vs-container split as TIMESCALEDB_HOST/KAFKA_BOOTSTRAP_SERVERS above
+    command: shiny run --host 0.0.0.0 --port 8080 src/dashboard/app.py
+    env_file: .env
+    environment:
+      API_URL: http://api:8000
+    ports:
+      # host 8081, not 8080 - kafka-ui already claims 8080:8080 above; container-side
+      # stays 8080 to match the shiny run --port arg and the Makefile's local `app` target
+      - "8081:8080"
+    depends_on:
+      - api
+    networks:
+      - kafka-net
+    volumes:
+      - ./data/external/pjm_zones.geojson:/app/data/external/pjm_zones.geojson:ro
+      - ./data/processed/pjm_eia930_subregions.csv:/app/data/processed/pjm_eia930_subregions.csv:ro
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - dashboard
+      - api
+    # Public routes (dashboard, and api if it's exposed as its own hostname) are
+    # configured on the Cloudflare side against these two container names/ports -
+    # same flat network as everything else, no separate tunnel-only network.
+    networks:
+      - kafka-net
 
 
 networks:
@@ -286,3 +385,5 @@ volumes:
   timescaledb_data:
   kafka_data:
   prefect_data:
+  backup_data:  # unused while db_backup is disabled (see prefect-deployments/deployments.py)
+  mlflow_artifacts:

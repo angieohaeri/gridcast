@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 
@@ -97,6 +98,80 @@ def to_eastern(series: pd.Series) -> pd.Series:
 def eastern_label(ts: pd.Timestamp) -> str:
     return f"{ts:%m-%d %-I:%M%p}"
 
+
+def c_to_f(value_c: float) -> float:
+    return value_c * 9 / 5 + 32
+
+
+def kmh_to_mph(value_kmh: float) -> float:
+    return value_kmh * 0.621371
+
+
+# Open-Meteo's `current` payload isn't pulled with a weather code in this schema
+# (temperature/precipitation/wind_speed/cloud_cover only - src/consumers/schema.sql),
+# so the icon/condition is inferred from precipitation + cloud_cover rather than read
+# directly. 0.1mm floor on precipitation filters sensor noise on a dry reading.
+def weather_condition(temp_c: float, precipitation_mm: float, cloud_cover_pct: float) -> str:
+    if precipitation_mm > 0.1:
+        return "snow" if temp_c <= 0 else "rain"
+    if cloud_cover_pct >= 85:
+        return "cloudy"
+    if cloud_cover_pct >= 40:
+        return "partly_cloudy"
+    return "clear"
+
+
+WEATHER_CONDITION_LABELS = {
+    "clear": "Clear",
+    "partly_cloudy": "Partly cloudy",
+    "cloudy": "Cloudy",
+    "rain": "Rain",
+    "snow": "Snow",
+}
+
+# icons built from primitive shapes (circles/rect/lines), not a copied icon-set path,
+# composed per condition below - cloud drawn last in "partly_cloudy" so it sits in
+# front of (partially covers) the small sun behind it
+_CLOUD_ICON = (
+    '<circle cx="9" cy="13.5" r="3.1"/><circle cx="13.6" cy="10.8" r="4"/>'
+    '<rect x="6" y="13.5" width="12.4" height="5" rx="2.5"/>'
+)
+_SUN_ICON = (
+    '<circle cx="12" cy="12" r="4"/>'
+    '<line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/>'
+    '<line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/>'
+    '<line x1="4.9" y1="4.9" x2="6.6" y2="6.6"/><line x1="17.4" y1="17.4" x2="19.1" y2="19.1"/>'
+    '<line x1="4.9" y1="19.1" x2="6.6" y2="17.4"/><line x1="17.4" y1="6.6" x2="19.1" y2="4.9"/>'
+)
+_SMALL_SUN_ICON = (
+    '<circle cx="8" cy="8" r="2.6"/>'
+    '<line x1="8" y1="2.5" x2="8" y2="4.2"/><line x1="2.5" y1="8" x2="4.2" y2="8"/>'
+    '<line x1="4.1" y1="4.1" x2="5.3" y2="5.3"/>'
+)
+_RAIN_DROPS_ICON = (
+    '<line x1="8" y1="19.3" x2="7" y2="21.8"/><line x1="12" y1="19.3" x2="11" y2="21.8"/>'
+    '<line x1="16" y1="19.3" x2="15" y2="21.8"/>'
+)
+_SNOW_FLAKES_ICON = (
+    '<circle cx="8" cy="20.2" r="0.9" fill="currentColor" stroke="none"/>'
+    '<circle cx="12" cy="21.2" r="0.9" fill="currentColor" stroke="none"/>'
+    '<circle cx="16" cy="20.2" r="0.9" fill="currentColor" stroke="none"/>'
+)
+WEATHER_ICON_INNER = {
+    "clear": _SUN_ICON,
+    "partly_cloudy": _SMALL_SUN_ICON + _CLOUD_ICON,
+    "cloudy": _CLOUD_ICON,
+    "rain": _CLOUD_ICON + _RAIN_DROPS_ICON,
+    "snow": _CLOUD_ICON + _SNOW_FLAKES_ICON,
+}
+
+
+def weather_icon_svg(condition: str) -> ui.HTML:
+    return ui.HTML(
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" '
+        f'stroke-linecap="round" stroke-linejoin="round">{WEATHER_ICON_INNER[condition]}</svg>'
+    )
+
 # Injected into the deck.gl iframe: pydeck's static to_html() export has no built-in
 # way to bridge a click back to Python, but @deck.gl/jupyter-widget's createDeck()
 # accepts a `handleEvent(eventName, info)` callback (used for its Jupyter comm
@@ -123,6 +198,7 @@ CSS = """
   --gridline: #e1e0d9;
   --border: rgba(11,11,11,.10);
   --accent: #ed7a4c;
+  --accent-yellow: #e8cf6b;
   --status-live: #0ca30c;
   --line-actual: #3987e5;
   --line-predicted: #ed7a4c;
@@ -137,6 +213,7 @@ CSS = """
     --gridline: #2c2c2a;
     --border: rgba(255,255,255,.10);
     --accent: #de6d40;
+    --accent-yellow: #cbb254;
     --line-actual: #3987e5;
     --line-predicted: #de6d40;
   }
@@ -185,15 +262,27 @@ body {
 .stat-label { color: var(--ink-muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
 .stat-value { font-size: 1.4rem; font-weight: 600; margin-top: 2px; }
 .stat-sub { color: var(--ink-secondary); font-size: .8rem; margin-top: 2px; }
-.main-row { display: flex; gap: 20px; align-items: flex-start; }
+.main-row { display: flex; gap: 20px; align-items: stretch; }
 .main-row .card { margin: 0; }
 .map-card { flex: 2; min-width: 0; }
-.table-card { flex: 1; min-width: 0; }
+.right-column { display: flex; flex-direction: column; gap: 20px; flex: 1; min-width: 0; }
+.table-card { min-width: 0; }
+.weather-card { display: flex; flex-direction: column; flex: 1; }
+.weather-card h4 { margin: 0 0 10px; flex: 0 0 auto; }
+.weather-body {
+  flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.weather-main { display: flex; align-items: center; gap: 14px; }
+.weather-icon { color: var(--accent); flex: 0 0 auto; line-height: 0; }
+.weather-icon svg { display: block; width: 46px; height: 46px; }
+.weather-temp { font-size: 1.7rem; font-weight: 600; }
+.weather-condition { color: var(--ink-secondary); font-size: .85rem; margin-top: 2px; }
+.weather-stats { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex: 0 0 auto; }
 .map-header h4 { margin: 0 0 2px; }
 .map-toolbar { margin-bottom: 8px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .map-frame { position: relative; }
 .map-label {
-  position: absolute; top: 12px; left: 12px; z-index: 5; pointer-events: none;
+  position: absolute; top: 12px; left: 12px; z-index: 5;
   background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
   padding: 6px 12px; font-size: .85rem; font-weight: 600; color: var(--ink);
   box-shadow: 0 1px 4px rgba(0,0,0,.15);
@@ -207,6 +296,16 @@ body {
   background: var(--bg); border: 1px solid var(--border); border-radius: 999px;
   padding: 3px 10px; font-size: .8rem; color: var(--ink-secondary);
 }
+.info-card { border-top: 3px solid var(--accent-yellow); }
+.info-card h4 { margin: 0 0 12px; }
+.info-row-list { display: flex; flex-direction: column; gap: 12px; }
+.info-row { display: flex; align-items: flex-start; gap: 10px; }
+.info-dot {
+  flex: 0 0 auto; width: 8px; height: 8px; margin-top: 6px; border-radius: 50%;
+  background: var(--accent-yellow);
+}
+.info-title { font-weight: 600; font-size: .85rem; }
+.info-desc { color: var(--ink-secondary); font-size: .8rem; margin-top: 2px; }
 """
 
 
@@ -238,6 +337,19 @@ app_ui = ui.page_fluid(
         ui.tags.style(CSS),
         ui.tags.script(
             """
+            // Bootstrap ships a full [data-bs-theme="dark"] palette (and sets
+            // color-scheme: dark, which is what themes native scrollbars/form
+            // chrome) but only applies it once that attribute is set - it doesn't
+            // follow prefers-color-scheme on its own. Mirrors the page's own
+            // @media (prefers-color-scheme: dark) switch onto <html> so Shiny's
+            // native widgets (select, switch, data grid) track the same theme.
+            function gridcastApplyBsTheme(dark) {
+              document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
+            }
+            var gridcastBsMql = window.matchMedia('(prefers-color-scheme: dark)');
+            gridcastApplyBsTheme(gridcastBsMql.matches);
+            gridcastBsMql.addEventListener('change', function(e) { gridcastApplyBsTheme(e.matches); });
+
             window.addEventListener('message', function(event) {
               if (event.data && event.data.source === 'gridcast-map-click') {
                 Shiny.setInputValue('map_click_zone', event.data.zone, {priority: 'event'});
@@ -269,6 +381,50 @@ app_ui = ui.page_fluid(
                 class_="topbar-controls",
             ),
             class_="topbar card",
+        ),
+        ui.div(
+            ui.h5("Project info"),
+            ui.div(
+                ui.div(
+                    ui.div(class_="info-dot"),
+                    ui.div(
+                        ui.div("Data sources", class_="info-title"),
+                        ui.div(
+                            "EIA-930 hourly demand, PJM Data Miner 2 real-time LMP, and "
+                            "Open-Meteo weather, ingested through Kafka into TimescaleDB.",
+                            class_="info-desc",
+                        ),
+                    ),
+                    class_="info-row",
+                ),
+                ui.div(
+                    ui.div(class_="info-dot"),
+                    ui.div(
+                        ui.div("Model", class_="info-title"),
+                        ui.div(
+                            "A single LightGBM model trained across all 20 PJM zones (zone as "
+                            "a categorical feature), forecasting demand 1h, 24h, and 72h ahead.",
+                            class_="info-desc",
+                        ),
+                    ),
+                    class_="info-row",
+                ),
+                ui.div(
+                    ui.div(class_="info-dot"),
+                    ui.div(
+                        ui.div("Update cadence", class_="info-title"),
+                        ui.div(
+                            "This dashboard refreshes every 5 minutes. PJM's zonal feed itself "
+                            "settles roughly 2-3 days behind by design, so \"live\" here means "
+                            "the pipeline is keeping pace with that lag, not true real-time.",
+                            class_="info-desc",
+                        ),
+                    ),
+                    class_="info-row",
+                ),
+                class_="info-row-list",
+            ),
+            class_="card info-card",
         ),
         ui.output_ui("accuracy_panel"),
         ui.div(
@@ -313,23 +469,37 @@ app_ui = ui.page_fluid(
                 class_="card map-card",
             ),
             ui.div(
-                ui.h4("Zones", style="margin-top:0"),
-                ui.p("Select a zone to see a breakdown view.", class_="hint"),
-                ui.output_data_frame("table"),
-                class_="card table-card",
+                ui.div(
+                    ui.h4("Zones", style="margin-top:0"),
+                    ui.p("Select a zone to see a breakdown view.", class_="hint"),
+                    ui.output_data_frame("table"),
+                    class_="card table-card",
+                ),
+                ui.output_ui("weather_card"),
+                class_="right-column",
             ),
             class_="main-row",
         ),
         ui.div(ui.output_ui("drilldown"), class_="card drilldown-card"),
         ui.div(
-            "Created by ",
+            "Created by Angie Ohaeri • ",
             ui.tags.a(
-                "Angie Ohaeri",
+                "GitHub",
                 href="https://github.com/angieohaeri/bikeshare",
                 target="_blank",
                 rel="noopener noreferrer",
                 class_="app-credit",
             ),
+            " • ",
+            ui.tags.a(
+                "LinkedIn",
+                href='www.linkedin.com/in/angie-ohaeri-ba076b276',
+                target='_blank',
+                rel='noopener noreferrer',
+                class_='app-credit',
+            ), 
+            f" • Published: {datetime.datetime(year=2026, month=8, day=14).date()}",
+            f" • Republished: {datetime.datetime.now()}",
             class_="app-footer",
         ),
         class_="app-shell",
@@ -432,26 +602,42 @@ def server(input, output, session):
         return zone if zone is not None else PJM_ZONE
 
     @reactive.calc
+    def weather_for_zone() -> dict | None:
+        zone = drilldown_zone()
+        cols = ["temperature", "precipitation", "wind_speed", "cloud_cover"]
+        df = predictions()
+        if zone == PJM_ZONE:
+            # no single-zone reading for the system-wide default - average across
+            # the 20 zones (unlike demand, which sums; weather isn't additive)
+            row = df[cols].mean()
+        else:
+            match = df[df["zone"] == zone]
+            if match.empty:
+                return None
+            row = match.iloc[0][cols]
+        if row.isna().any():
+            return None
+        return row.to_dict()
+
+    @reactive.calc
     def zone_history() -> pd.DataFrame:
-        reactive.invalidate_later(300)
         zone = drilldown_zone()
         empty = pd.DataFrame(columns=["time", "zone", "horizon_h", "actual_mw", "predicted_mw"])
         if zone is None:
             return empty
         h = int(input.horizon().removesuffix("h"))
-        # same reasoning as system_history: fetch enough lookback that the
-        # displayed 48h window has an actual to compare against at every point,
-        # for whichever horizon is selected
+        # same reasoning as system_history: keep enough lookback that the displayed
+        # 48h window has an actual to compare against at every point, for whichever
+        # horizon is selected. system_history()'s own window (ACCURACY_WINDOW_HOURS +
+        # max(HORIZONS) = 144h) is always >= this one (max 120h), so filtering its
+        # already-fetched frame here avoids a second /history round trip per zone/
+        # horizon change.
         hours = DRILLDOWN_LOOKBACK_HOURS + h
+        cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=hours)
+        df = system_history()
+        df = df[df["time"] >= cutoff]
         if zone == PJM_ZONE:
-            # no zone filter -> all 20 real zones; summed into a system-wide total below
-            response = requests.get(f"{API_URL}/history", params={"hours": hours}, timeout=10)
-        else:
-            response = requests.get(f"{API_URL}/history", params={"zone": zone, "hours": hours}, timeout=10)
-        response.raise_for_status()
-        df = pd.DataFrame(response.json())
-        df["time"] = pd.to_datetime(df["time"], utc=True)
-        if zone == PJM_ZONE:
+            # no zone filter -> all 20 real zones; summed into a system-wide total.
             # sum(min_count=1): an hour where every zone's actual is still missing
             # (the forecast tail) stays null rather than summing to a fake 0 MW
             df = df.groupby(["time", "horizon_h"], as_index=False).agg(
@@ -459,6 +645,8 @@ def server(input, output, session):
                 predicted_mw=("predicted_mw", "sum"),
             )
             df["zone"] = PJM_ZONE
+        else:
+            df = df[df["zone"] == zone]
         return df
 
     @reactive.calc
@@ -590,7 +778,10 @@ def server(input, output, session):
             showlegend=False,
             margin=dict(l=50, r=15, t=10, b=40),
             xaxis=dict(
-                tickformat="%m-%d %I:%M%p", gridcolor=GRIDLINE_LIGHT, linecolor=GRIDLINE_LIGHT
+                tickformat="%m-%d %I:%M%p",
+                tickangle=-30,
+                gridcolor=GRIDLINE_LIGHT,
+                linecolor=GRIDLINE_LIGHT,
             ),
             yaxis=dict(title="MW", gridcolor=GRIDLINE_LIGHT, linecolor=GRIDLINE_LIGHT),
             hovermode="closest",
@@ -723,7 +914,18 @@ def server(input, output, session):
                 )
             )
             selected_mw_label = selected_zone_gdf["predicted_mw_label"].iloc[0]
-            label = ui.div(f"{highlight} — {selected_mw_label} MW", class_="map-label")
+            # clicking the label mirrors clicking the highlighted polygon again -
+            # both route through map_click_zone, whose handler already treats a
+            # repeat click on the current selection as "deselect"
+            label = ui.div(
+                f"{highlight} — {selected_mw_label} MW",
+                class_="map-label",
+                style="cursor:pointer",
+                onclick=(
+                    f"Shiny.setInputValue('map_click_zone', '{highlight}', "
+                    "{priority: 'event'})"
+                ),
+            )
 
         deck = pdk.Deck(
             map_provider="carto",
@@ -771,6 +973,43 @@ def server(input, output, session):
         display = table_data().assign(predicted_mw=lambda d: d["predicted_mw"].apply(fmt_mw))
         display = display.rename(columns={"zone": "Zone", "predicted_mw": "Predicted MW"})
         return render.DataGrid(display, selection_mode="row")
+
+    @render.ui
+    def weather_card():
+        zone = drilldown_zone()
+        data = weather_for_zone()
+        if data is None:
+            return ui.div(
+                ui.h4("Weather", style="margin-top:0"),
+                ui.p("No weather data yet.", class_="hint"),
+                class_="card weather-card",
+            )
+
+        condition = weather_condition(data["temperature"], data["precipitation"], data["cloud_cover"])
+        temp_f = c_to_f(data["temperature"])
+        wind_mph = kmh_to_mph(data["wind_speed"])
+
+        return ui.div(
+            ui.h4(f"Weather — {zone}"),
+            ui.div(
+                ui.div(
+                    ui.div(weather_icon_svg(condition), class_="weather-icon"),
+                    ui.div(
+                        ui.div(f"{temp_f:.0f}°F", class_="weather-temp"),
+                        ui.div(WEATHER_CONDITION_LABELS[condition], class_="weather-condition"),
+                    ),
+                    class_="weather-main",
+                ),
+                ui.div(
+                    ui.span(f"Wind {wind_mph:.0f} mph", class_="badge"),
+                    ui.span(f"Precip {data['precipitation']:.1f} mm", class_="badge"),
+                    ui.span(f"Cloud cover {data['cloud_cover']:.0f}%", class_="badge"),
+                    class_="weather-stats",
+                ),
+                class_="weather-body",
+            ),
+            class_="card weather-card",
+        )
 
     @reactive.effect
     @reactive.event(input.map_click_zone)
