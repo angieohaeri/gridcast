@@ -345,12 +345,15 @@ services:
       MLFLOW_TRACKING_URI: http://mlflow:5000
       API_HOST: 0.0.0.0
       API_PORT: "8000"
+      PREFECT_API_URL: http://prefect-server:4200/api
     ports:
       - "8000:8000"
     depends_on:
       timescaledb:
         condition: service_healthy
       mlflow:
+        condition: service_healthy
+      prefect-server:
         condition: service_healthy
     networks:
       - kafka-net
