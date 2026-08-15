@@ -28,7 +28,7 @@ Deeper reference docs live in [`references/`](references/):
 | [`data-flow.md`](references/data-flow.md) | Diagrams tracing every byte from source API to serving (see snapshot below) |
 | [`data-dictionary.md`](references/data-dictionary.md) | Power-industry glossary + raw column reference for every source |
 | [`schema.md`](references/schema.md) | TimescaleDB table definitions |
-| [`best-practices.md`](references/best-practices.md) / [`ccds-practices.md`](references/ccds-practices.md) | Per-tool quality checklist and repo conventions |
+| [`best-practices.md`](references/best-practices.md) | Per-tool quality checklist and repo conventions |
 
 <!--**Ingestion data flow** (from `data-flow.md` — sources → Kafka → TimescaleDB, everything below is running today):-->
 <!-- ![data flow: sources through storage](references/images/data_flow_ingestion.png)-->
