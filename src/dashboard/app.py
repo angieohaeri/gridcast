@@ -292,6 +292,19 @@ body {
 .drilldown-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .drilldown-header h4 { margin: 0; }
 .hint { color: var(--ink-muted); font-size: .8rem; margin: 0 0 8px; }
+.info-tip {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; margin-left: 6px; border-radius: 50%; vertical-align: middle; top: -2px;
+  background: var(--bg); border: 1px solid var(--border); color: var(--ink-muted);
+  font-size: .68rem; font-weight: 600; cursor: help;
+}
+.info-tip .tip-text {
+  visibility: hidden; opacity: 0; position: absolute; bottom: 130%; left: 50%;
+  transform: translateX(-50%); background: var(--ink); color: var(--surface);
+  font-size: .75rem; font-weight: 400; text-align: left; white-space: nowrap;
+  padding: 6px 10px; border-radius: 6px; z-index: 10; transition: opacity .15s;
+}
+.info-tip:hover .tip-text { visibility: visible; opacity: 1; }
 .badge {
   background: var(--bg); border: 1px solid var(--border); border-radius: 999px;
   padding: 3px 10px; font-size: .8rem; color: var(--ink-secondary);
@@ -391,8 +404,8 @@ app_ui = ui.page_fluid(
                     ui.div(
                         ui.div("Data sources", class_="info-title"),
                         ui.div(
-                            "EIA-930 hourly demand, PJM Data Miner 2 real-time LMP, and "
-                            "Open-Meteo weather, ingested through Kafka into TimescaleDB.",
+                            "PJM is a regional organization that manages the movement of electricity."
+                            " Live energy metrics and weather data from 20 zones in the PJM are ingested through Apache Kafka into TimescaleDB.",
                             class_="info-desc",
                         ),
                     ),
@@ -403,8 +416,8 @@ app_ui = ui.page_fluid(
                     ui.div(
                         ui.div("Model", class_="info-title"),
                         ui.div(
-                            "A single LightGBM model trained across all 20 PJM zones (zone as "
-                            "a categorical feature), forecasting demand 1h, 24h, and 72h ahead.",
+                            "A single LightGBM model is continously trained across all 20 PJM zones"
+                            ", forecasting power demand 1h, 24h, and 72h ahead.",
                             class_="info-desc",
                         ),
                     ),
@@ -991,7 +1004,19 @@ def server(input, output, session):
         wind_mph = kmh_to_mph(data["wind_speed"])
 
         return ui.div(
-            ui.h4(f"Weather — {zone}"),
+            ui.h4(
+                f"Weather — {zone}",
+                ui.span(
+                    "?",
+                    ui.span(
+                        "Averaged across representative cities within the zone.",
+                        class_="tip-text",
+                    ),
+                    class_="info-tip",
+                ),
+
+            ),
+            ui.p("Weather is a model feature used to predict demand.", class_="hint"),
             ui.div(
                 ui.div(
                     ui.div(weather_icon_svg(condition), class_="weather-icon"),
@@ -1009,6 +1034,7 @@ def server(input, output, session):
                 ),
                 class_="weather-body",
             ),
+
             class_="card weather-card",
         )
 
