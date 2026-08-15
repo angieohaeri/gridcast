@@ -51,7 +51,7 @@ services:
       --backend-store-uri postgresql://${TIMESCALEDB_USER}:${TIMESCALEDB_PASSWORD}@timescaledb:5432/mlflow
       --default-artifact-root /app/mlflow-artifacts
       # ADD YOUR LOCAL NETWORK IP RANGE OR A BLANKET WILDCARD "*" TO ALLOWED HOSTS:
-      --allowed-hosts "localhost:*,127.0.0.1:*,mlflow:*,${KAFKA_TAILSCALE_HOST}:*,*"
+      --allowed-hosts "localhost:*,127.0.0.1:*,mlflow:*,100.*,*.ts.net"
     env_file: .env
     ports:
       - "5000:5000"
