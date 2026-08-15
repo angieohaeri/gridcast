@@ -327,6 +327,7 @@ services:
       - kafka-net
     volumes:
       - ./data/processed/pjm_weather_zones.csv:/app/data/processed/pjm_weather_zones.csv:ro
+      - mlflow_artifacts:/app/mlflow-artifacts
       # db_backup deployment is disabled for now (see deployments.py) until
       # RCLONE_REMOTE/rclone config are set up - re-enable alongside it
       # - backup_data:/app/backups
@@ -357,6 +358,8 @@ services:
         condition: service_healthy
     networks:
       - kafka-net
+    volumes:
+      - mlflow_artifacts:/app/mlflow-artifacts
 
   dashboard:
     build: .
