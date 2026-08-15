@@ -12,23 +12,21 @@ from shiny import App, reactive, render, ui
 from gridcast.config import EXTERNAL_DATA_DIR, PROCESSED_DATA_DIR
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
-# PJM's zonal feed settles ~2-3 days behind by design (references/pjm_eia_data_gotchas
-# memory) - this threshold means "the consumer is keeping pace with that lag", not
-# "this is real-time data".
+# PJM's zonal feed settles ~2-3 days behind by design - this means "keeping pace with
+# that lag", not "real-time".
 FRESHNESS_THRESHOLD_HOURS = 96
 HORIZONS = (1, 24, 72)
 DRILLDOWN_LOOKBACK_HOURS = 48
 ACCURACY_WINDOW_HOURS = 72
 ZONE_LINES_DEFAULT_VISIBLE = 5
 EASTERN_TZ = "America/New_York"
-# sentinel "zone" for the system-wide row (sum of all real zones) - not a real
-# zone_id, so it never collides with a real zone code and is never a candidate
-# for map highlighting (no polygon represents it)
+# sentinel "zone" for the system-wide row - not a real zone_id, so it never collides
+# or gets picked for map highlighting (no polygon represents it)
 PJM_ZONE = "PJM"
 
-# sequential blue ramp, light->mid->high (references/palette.md in the dataviz skill,
-# steps 100/400/700) - the 400 step is also the fixed "actual load" line color below,
-# so the drill-down chart's blue literally is what "50% of peak" looks like on the map.
+# sequential blue ramp, light->mid->high (palette.md steps 100/400/700) - the 400 step
+# is also the "actual load" line color below, so the drill-down chart's blue is
+# literally what "50% of peak" looks like on the map.
 HEAT_LOW = (0xCD, 0xE2, 0xFB)
 HEAT_MID = (0x39, 0x87, 0xE5)
 HEAT_HIGH = (0x0D, 0x36, 0x6B)
@@ -39,36 +37,31 @@ UNSELECTED_GREY = [190, 190, 190, 140]
 HIGHLIGHT_OUTLINE = [255, 255, 255, 220]
 HIGHLIGHT_HALO = [0, 0, 0, 255]
 
-# actual/predicted colors reused across the drill-down chart, CSS (--line-actual /
-# --line-predicted) and the map: actual = the heat ramp's 50%-of-peak stop (HEAT_MID),
-# predicted = the same orange as the page accent / stat-tile top border.
+# actual/predicted colors, reused across the drill-down chart, CSS, and the map:
+# actual = heat ramp's 50%-of-peak stop (HEAT_MID), predicted = page accent color.
 LINE_ACTUAL_HEX = "#3987e5"
 LINE_PREDICTED_LIGHT_HEX = "#ed7a4c"
 LINE_PREDICTED_DARK_HEX = "#de6d40"
 
-# chart chrome, light/dark - mirrors the CSS custom properties below so the plotly
-# iframes (which can't see page CSS) still track the client's OS theme via their own
-# small prefers-color-scheme bridge script.
+# chart chrome, light/dark - mirrors the CSS custom properties below so plotly iframes
+# (can't see page CSS) track OS theme via their own prefers-color-scheme bridge script.
 SURFACE_LIGHT, SURFACE_DARK = "#fcfcfb", "#1a1a19"
 INK_LIGHT, INK_DARK = "#0b0b0b", "#ffffff"
 INK_SECONDARY_LIGHT, INK_SECONDARY_DARK = "#52514e", "#c3c2b7"
 GRIDLINE_LIGHT, GRIDLINE_DARK = "#e1e0d9", "#2c2c2a"
 
-# zone identity -> full name, for the per-zone chart's legend (canonical mapping, not
-# derived from the geojson which only carries zone_id)
+# zone identity -> full name, for the per-zone chart's legend (geojson only has zone_id)
 ZONE_NAMES = (
     pd.read_csv(PROCESSED_DATA_DIR / "pjm_eia930_subregions.csv", usecols=["id", "name"])
     .set_index("id")["name"]
     .to_dict()
 )
-# fixed identity order (alphabetical) for color assignment - color follows the zone,
-# never its current MW rank, so a zone's line color doesn't repaint every refresh
+# fixed alphabetical order for color assignment - color follows the zone, not its
+# current MW rank, so a line's color doesn't repaint every refresh
 ZONE_ORDER = sorted(ZONE_NAMES)
-# pastel steps of validated categorical slots 3-8 (dataviz skill palette.md) - slots 1
-# (blue) and 2 (orange) are reserved for the actual/predicted lines above, so a zone
-# line is never confused with either. Only 6 unique hues for 20 zones, so hue repeats
-# every 6th zone in ZONE_ORDER - a dash-style cycle (solid/dash/dot/dashdot) on top of
-# the hue cycle disambiguates repeats; legend text is the ultimate identity source.
+# palette slots 3-8 (slots 1/2 = blue/orange, reserved for actual/predicted above).
+# Only 6 hues for 20 zones, so hue repeats every 6th zone in ZONE_ORDER - a dash cycle
+# (solid/dash/dot/dashdot) disambiguates repeats; legend text is the real identity source.
 ZONE_LINE_HUES = ["#3dbb8e", "#eea914", "#eb8fb2", "#269626", "#6558b4", "#e76463"]
 ZONE_LINE_DASHES = ["solid", "dash", "dot", "dashdot"]
 
@@ -107,10 +100,8 @@ def kmh_to_mph(value_kmh: float) -> float:
     return value_kmh * 0.621371
 
 
-# Open-Meteo's `current` payload isn't pulled with a weather code in this schema
-# (temperature/precipitation/wind_speed/cloud_cover only - src/consumers/schema.sql),
-# so the icon/condition is inferred from precipitation + cloud_cover rather than read
-# directly. 0.1mm floor on precipitation filters sensor noise on a dry reading.
+# No weather code in this schema (temp/precipitation/wind/cloud only), so condition is
+# inferred from precipitation + cloud_cover. 0.1mm floor filters sensor noise on dry readings.
 def weather_condition(temp_c: float, precipitation_mm: float, cloud_cover_pct: float) -> str:
     if precipitation_mm > 0.1:
         return "snow" if temp_c <= 0 else "rain"
@@ -129,9 +120,8 @@ WEATHER_CONDITION_LABELS = {
     "snow": "Snow",
 }
 
-# icons built from primitive shapes (circles/rect/lines), not a copied icon-set path,
-# composed per condition below - cloud drawn last in "partly_cloudy" so it sits in
-# front of (partially covers) the small sun behind it
+# icons built from primitive shapes, not a copied icon-set - cloud drawn last in
+# "partly_cloudy" so it covers the small sun behind it
 _CLOUD_ICON = (
     '<circle cx="9" cy="13.5" r="3.1"/><circle cx="13.6" cy="10.8" r="4"/>'
     '<rect x="6" y="13.5" width="12.4" height="5" rx="2.5"/>'
@@ -172,11 +162,9 @@ def weather_icon_svg(condition: str) -> ui.HTML:
         f'stroke-linecap="round" stroke-linejoin="round">{WEATHER_ICON_INNER[condition]}</svg>'
     )
 
-# Injected into the deck.gl iframe: pydeck's static to_html() export has no built-in
-# way to bridge a click back to Python, but @deck.gl/jupyter-widget's createDeck()
-# accepts a `handleEvent(eventName, info)` callback (used for its Jupyter comm
-# channel) - passing our own routes onClick through it instead, no comm channel
-# needed since we just postMessage to the parent page.
+# Injected into the deck.gl iframe: pydeck's static to_html() has no built-in click
+# bridge to Python, but @deck.gl/jupyter-widget's createDeck() accepts a handleEvent()
+# callback - reused here to postMessage onClick to the parent page instead.
 MAP_CLICK_BRIDGE_JS = """
 function gridcastHandleMapEvent(eventName, info) {
   if (eventName === 'deck-click-event' && info && info.object && info.object.properties) {
@@ -640,12 +628,9 @@ def server(input, output, session):
         if zone is None:
             return empty
         h = int(input.horizon().removesuffix("h"))
-        # same reasoning as system_history: keep enough lookback that the displayed
-        # 48h window has an actual to compare against at every point, for whichever
-        # horizon is selected. system_history()'s own window (ACCURACY_WINDOW_HOURS +
-        # max(HORIZONS) = 144h) is always >= this one (max 120h), so filtering its
-        # already-fetched frame here avoids a second /history round trip per zone/
-        # horizon change.
+        # same reasoning as system_history: enough lookback that the 48h window has an
+        # actual to compare at every point. Always <= system_history()'s own 144h window,
+        # so filtering its already-fetched frame avoids a second /history round trip.
         hours = DRILLDOWN_LOOKBACK_HOURS + h
         cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=hours)
         df = system_history()
@@ -711,11 +696,10 @@ def server(input, output, session):
         return ui.div(*tiles, class_="accuracy-row-inner card")
 
     def _theme_bridge_js(div_id: str, light: dict, dark: dict) -> str:
-        # plotly's static to_html() has no way to see the page's CSS custom
-        # properties from inside its own iframe, so this mirrors the CSS
-        # prefers-color-scheme switch directly against the figure via Plotly.restyle
-        # / Plotly.relayout - same "iframe can't see the parent page" workaround the
-        # map's MAP_CLICK_BRIDGE_JS above already uses, just for theme instead of clicks.
+        # plotly's static to_html() can't see the page's CSS custom properties from
+        # inside its own iframe, so this mirrors prefers-color-scheme against the
+        # figure directly via Plotly.restyle/relayout - same workaround as
+        # MAP_CLICK_BRIDGE_JS above, for theme instead of clicks.
         return f"""
         function gridcastApplyTheme(dark) {{
           var vals = dark ? {json.dumps(dark)} : {json.dumps(light)};
@@ -742,11 +726,9 @@ def server(input, output, session):
             div_id=div_id,
             config={"displayModeBar": False, "responsive": True},
         )
-        # to_html()'s body/div wrapper is height:100% of its parent, but the parent
-        # <html>/<body> have no explicit height of their own (auto), so that 100%
-        # resolves against nothing and the plot falls back to a taller default size
-        # than the iframe - which then shows its own scrollbar. Force the chain down
-        # to the iframe's actual fixed pixel height instead.
+        # to_html()'s wrapper is height:100% of a parent <html>/<body> with no explicit
+        # height (auto), so the plot falls back to a taller default and the iframe
+        # scrolls. Force the chain down to the iframe's fixed pixel height instead.
         fixed_sizing = "<style>html,body{margin:0;height:100%;overflow:hidden}</style>"
         html = html.replace("<head>", f"<head>{fixed_sizing}")
         html = html.replace("</body>", f"<script>{theme_js}</script></body>")
@@ -895,12 +877,10 @@ def server(input, output, session):
         label = None
         if highlight is not None:
             selected_zone_gdf = zones[zones["zone"] == highlight]
-            # dark halo behind the white outline below - without it, a pale/near-white
-            # fill_color (light end of the ramp) makes the outline invisible.
-            # line_joint_rounded=True matters here: the zone boundaries are dense,
-            # jagged real-world polygons (HIFLD utility territories, not smoothed), and
-            # deck.gl's default miter joins blow up into huge spikes at tight angles on
-            # a stroke this wide - rounded joins cap that.
+            # dark halo behind the white outline - a pale fill_color (light end of the
+            # ramp) would otherwise make the outline invisible. line_joint_rounded=True
+            # caps the spikes deck.gl's default miter joins produce on this wide a
+            # stroke over dense, jagged real-world polygons.
             layers.append(
                 pdk.Layer(
                     "GeoJsonLayer",

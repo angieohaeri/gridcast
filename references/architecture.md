@@ -4,10 +4,10 @@
 
 End-to-end ML portfolio project. Predicts short-term zonal electricity load on the
 **PJM Interconnection** using EIA-930 hourly demand data, PJM real-time LMP data, and
-weather data, with a streaming infrastructure built around Apache Kafka and TimescaleDB.
+weather data, on a streaming pipeline built around Kafka and TimescaleDB.
 
 **Goal:** practice end-to-end ML engineering (ingestion → storage → feature engineering →
-modeling → serving → deployment), build a public-facing portfolio project.
+modeling → serving → deployment); public-facing portfolio project.
 
 **Hardware:** Intel Mac Mini running Ubuntu 24.04 Server, self-hosted.
 
@@ -38,18 +38,12 @@ modeling → serving → deployment), build a public-facing portfolio project.
 
 ### Open-Meteo API
 - URL: https://open-meteo.com/ — free, no API key required
-- Provides: current conditions + hourly forecast (temp, precipitation, wind, cloud cover)
-- Historical data available (useful for training set, aligns with EIA-930 history)
-- Covers all 20 in-scope PJM zones via 30 representative stations; seven zones spanning
-  more than one climate average 2-3 stations into a single reading. Started at 3-4 zones
-  under a "start small, scale up if needed" call, scaled up August 12th — see
-  `decisions.md` for how the stations were chosen
+- Current conditions + hourly forecast (temp, precipitation, wind, cloud cover); historical data available for training
+- Covers all 20 in-scope PJM zones via 30 representative stations; seven multi-climate zones average 2-3 stations into one reading. Started at 3-4 zones, scaled up August 12th — see `decisions.md` for how stations were chosen
 - Poll every 5–10 minutes
 
 ### On frequency mismatch
-EIA-930 is hourly; PJM LMPs are 5- or 15-minute. Handle this explicitly rather than
-resampling silently: raw data for each lands in its own hypertable at native
-resolution, and any join across the two happens in a named, documented dbt model.
+EIA-930 is hourly; PJM LMPs are 5- or 15-minute. Never resampled silently — each lands in its own hypertable at native resolution, joined in a named, documented dbt model.
 
 ---
 
@@ -79,8 +73,7 @@ resolution, and any join across the two happens in a named, documented dbt model
 ### Modeling
 - **MLflow** for experiment tracking and model registry
 - **LightGBM** as primary model (tabular spatiotemporal data, fast iteration)
-- Optional extension: Temporal Fusion Transformer (multivariate time series with known
-  future inputs — weather forecast — good for interview discussion)
+- Optional extension: Temporal Fusion Transformer (multivariate time series with known future inputs — weather forecast)
 - FastAPI serving layer loads production model directly from MLflow registry
 
 ### Serving
@@ -102,33 +95,20 @@ resolution, and any join across the two happens in a named, documented dbt model
 ## ML Details
 
 ### Prediction Target
-Zonal `load_mw`, N hours ahead (regression). Hourly grain matches EIA-930, so v1
-avoids the frequency-mismatch problem entirely. LMP forecasting is a stretch extension
-once the load model and the LMP-alignment pattern are proven.
+Zonal `load_mw`, N hours ahead (regression). Hourly grain matches EIA-930, avoiding the frequency-mismatch problem for v1. LMP forecasting is a stretch extension once the load model and LMP-alignment pattern are proven.
 
 ### Features
 
-**Temporal:**
-- Hour of day, day of week, is_weekend, is_holiday (holidays matter more for grid load than bikeshare)
-- Time since midnight (cyclical encoding — sin/cos transforms)
-- Lag features: `load_mw` at t-1h, t-3h, t-24h, t-168h (same time last week)
-- Rolling means: 6hr, 24hr, 7d
+**Temporal:** hour of day, day of week, is_weekend, is_holiday; cyclical (sin/cos) time-of-day encoding; lags at t-1h/t-3h/t-24h/t-168h; rolling means at 6hr/24hr/7d
 
-**Zonal:**
-- Zone/BA identifier as a categorical feature (global model, mirrors "station as feature" from the bikeshare version)
-- Zone-level historical load profile stats (e.g. typical peak hour, weekday/weekend spread)
+**Zonal:** zone/BA as a categorical feature (global model); zone-level historical load profile stats (typical peak hour, weekday/weekend spread)
 
-**Weather:**
-- Current: temperature, precipitation rate, wind speed, cloud cover, per zone (composite zones averaged across their stations before publishing)
-- Forecast: same fields N hours ahead
-- Including forecast (not just current conditions) is a meaningful differentiator
+**Weather:** current + forecast temp/precipitation/wind/cloud cover per zone (composite zones averaged across stations before publishing). Including forecast, not just current conditions, is a meaningful differentiator
 
 ### Model Notes
-- LightGBM is the right starting point — strong baseline, handles missing values, fast
-- Temporal Fusion Transformer is worth adding later: designed exactly for multivariate
-  time series with known future inputs (i.e., weather forecast is a "known future covariate")
-- Train per-zone models vs. a single global model with zone as a feature — try both,
-  but start with the global model given the small initial zone count
+- LightGBM is the starting point — strong baseline, handles missing values, fast
+- TFT is worth adding later — designed for multivariate series with known future covariates (weather forecast)
+- Global model with zone as a feature to start, given the small initial zone count; per-zone models worth trying later
 
 ---
 
@@ -153,91 +133,6 @@ sudo usermod -aG docker $USER
 
 ---
 
-## Suggested Project Structure
+## Build Sequence (completed)
 
-```
-gridcast/
-├── docker-compose.yml
-├── .env                    # secrets, not committed
-├── src/
-  ├── producers/              # Kafka producer scripts (EIA-930, PJM LMP, weather)
-  ├── consumers/              # Kafka consumer scripts (→ TimescaleDB)
-  ├── dbt/                    # Feature engineering models
-  ├── prefect/                # Orchestration flows
-  ├── training/               # MLflow training scripts
-  ├── api/                    # FastAPI prediction service
-  ├── dashboard/              # Shiny app
-  ├── notebooks/              # EDA, model exploration
-  └── infra/                  # Cloudflare config, nginx, etc.
-```
-
----
-
-## Starting Point (in order)
-
-1. Install Ubuntu 24.04 Server on Mac Mini; install Docker + Compose; disable sleep
-2. Write a single Python producer that polls EIA-930 hourly demand (via `gridstatus` or
-   the EIA API directly) and prints to stdout
-3. Wire producer to Kafka (single topic, no consumers yet) — verify messages flowing
-4. Add consumer that writes raw snapshots to TimescaleDB
-5. Backfill TimescaleDB with EIA-930 historical extracts for training data
-6. Add the PJM LMP producer/consumer as a second, separately-resolved feed
-7. Build dbt models for lag + rolling features, including the explicit LMP alignment model
-8. Train LightGBM baseline with MLflow tracking
-9. Wrap model in FastAPI; build Shiny map dashboard
-10. Wire up Cloudflare Tunnel for public access
-
----
-
-## Project Organization
-
-```
-├── LICENSE            <- Open-source license if one is chosen
-├── Makefile           <- Makefile with convenience commands like `make data` or `make train`
-├── README.md          <- The top-level README for developers using this project.
-├── data
-│   ├── external       <- Data from third party sources.
-│   ├── interim        <- Intermediate data that has been transformed.
-│   ├── processed      <- The final, canonical data sets for modeling.
-│   └── raw            <- The original, immutable data dump.
-│
-├── docs               <- A default mkdocs project; see www.mkdocs.org for details
-│
-├── models             <- Trained and serialized models, model predictions, or model summaries
-│
-├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-│                         the creator's initials, and a short `-` delimited description, e.g.
-│                         `1.0-jqp-initial-data-exploration`.
-│
-├── pyproject.toml     <- Project configuration file with package metadata for 
-│                         gridcast and configuration for tools like black
-│
-├── references         <- Data dictionaries, manuals, and all other explanatory materials.
-│
-├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
-│   └── figures        <- Generated graphics and figures to be used in reporting
-│
-├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-│                         generated with `pip freeze > requirements.txt`
-│
-├── setup.cfg          <- Configuration file for flake8
-│
-└── gridcast   <- Source code for use in this project.
-    │
-    ├── __init__.py             <- Makes gridcast a Python module
-    │
-    ├── config.py               <- Store useful variables and configuration
-    │
-    ├── dataset.py              <- Scripts to download or generate data
-    │
-    ├── features.py             <- Code to create features for modeling
-    │
-    ├── modeling                
-    │   ├── __init__.py 
-    │   ├── predict.py          <- Code to run model inference with trained models          
-    │   └── train.py            <- Code to train models
-    │
-    └── plots.py                <- Code to create visualizations
-```
-
---------
+Producer → Kafka → consumer → TimescaleDB → backfill → LMP feed → dbt features → LightGBM/MLflow → FastAPI → Shiny → Cloudflare Tunnel, in that order. Current repo layout is CLAUDE.md's "Repo Layout"; CCDS directory conventions are in `ccds-practices.md`.

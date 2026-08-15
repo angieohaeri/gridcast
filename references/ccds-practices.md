@@ -84,30 +84,15 @@ Notebooks are for exploration, not production. Never import from a notebook.
 
 ## Logging, Not Printing
 
-Set up logging once in `gridcast/__init__.py`:
+Loguru, configured once via `gridcast.config.setup_logging()` (called at the top of each entry-point script):
 
 ```python
-# gridcast/__init__.py
-import logging
+from loguru import logger
+from gridcast.config import setup_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-```
-
-Use a module-scoped logger in every package file:
-
-```python
-# gridcast/dataset.py
-import logging
-
-logger = logging.getLogger(__name__)
-
-def load_zonal_load(...):
-    logger.info("Loading load data for %d zones", len(zone_ids))
-    ...
-    logger.warning("No data found for zone %s", zone_id)
+setup_logging()
+logger.info("Loading load data for {} zones", len(zone_ids))
+logger.warning("No data found for zone {}", zone_id)
 ```
 
 - No `print()` in package code — it can't be silenced, filtered by level, or redirected
@@ -164,10 +149,11 @@ Each module has a single responsibility. Don't let logic bleed between them.
 
 ```
 gridcast/
-├── __init__.py        # logging setup only
-├── config.py          # path constants
+├── __init__.py        # imports config
+├── config.py          # path constants, setup_logging(), DB connection
 ├── dataset.py         # data loading and access (reads from data/ or TimescaleDB)
 ├── features.py        # feature engineering functions (Python-side transforms)
+├── plots.py           # visualization helpers
 └── modeling/
     ├── train.py       # reads processed features → trains → logs to MLflow
     └── predict.py     # loads from MLflow registry → exposes predict()

@@ -5,7 +5,7 @@
 **Date:** August 10, 2026 **Time:** 9:10pm
 **Revised:** August 11, 2026 8:36am — split the single diagram into ingestion / downstream, dropped the inline legend
 
-Traces every byte from external API to TimescaleDB, then the not-yet-built modeling path. Colors group nodes by role: <b>blue = data</b>, <b>purple = pipeline infra</b>, <b>amber = modeling</b>, <b>green = serving</b>. Endpoint and cadence detail lives in the table at the bottom rather than on the edges.
+Traces every byte from external API to TimescaleDB, then the not-yet-built modeling path. Colors: <b>blue = data</b>, <b>purple = pipeline infra</b>, <b>amber = modeling</b>, <b>green = serving</b>. Endpoint/cadence detail is in the table at the bottom, not on the edges.
 
 ---
 
@@ -80,7 +80,7 @@ flowchart TB
     class LOADP,LMPP,WXP,BACKFILL,TLOAD,TLMP,TWX,DLQ,LOADC,LMPC,WXC infraNode;
 ```
 
-Producers publish JSON keyed by zone with `acks=all` and idempotence on. Consumers commit offsets one message at a time; anything unparseable or rejected by the database goes to that source's DLQ topic and is committed past.
+Producers publish JSON keyed by zone with `acks=all` and idempotence on. Consumers commit offsets one message at a time; anything unparseable or DB-rejected goes to that source's DLQ topic and is committed past.
 
 ---
 
@@ -124,7 +124,7 @@ flowchart LR
 
 ## Orchestration and control plane
 
-Prefect drives every producer and consumer as a scheduled flow. It carries no grid data itself — only run state — and it stores that in a **separate `prefect` database on the same Postgres instance**, never in the hypertables.
+Prefect drives every producer/consumer as a scheduled flow. It carries no grid data — only run state — stored in a **separate `prefect` database on the same Postgres instance**, never the hypertables.
 
 ```mermaid
 flowchart LR
@@ -151,7 +151,7 @@ flowchart LR
     class PDB,GDB dataNode;
 ```
 
-The 5-minute producer→consumer offset is deliberate: producers publish at :10, so consumers at :15 find a drained-and-settled topic rather than racing the write.
+The 5-minute producer→consumer offset is deliberate: producers publish at :10 so consumers at :15 find a settled topic rather than racing the write.
 
 ---
 
@@ -165,6 +165,6 @@ The 5-minute producer→consumer offset is deliberate: producers publish at :10,
 | Open-Meteo Forecast | `/v1/forecast`, `current=` | every 20 min | `weather` → `weather` | append-only |
 | Open-Meteo Archive | `/v1/archive`, `hourly=` | manual, one-off | *(none)* → `weather` | direct insert, de-duped against existing hours |
 
-**Why the trailing 7-day window matters:** PJM revises a given hour from unverified to verified over ~3 days, and EIA revises over ~1 day. Re-polling the past week and upserting means those revisions land automatically — the same `(time, zone, source)` row gets overwritten with the corrected number instead of accumulating duplicates. Weather has no revision concept, so it is append-only.
+**Why the trailing 7-day window matters:** PJM revises a given hour unverified→verified over ~3 days, EIA over ~1 day. Re-polling the past week and upserting lets those revisions land automatically — same `(time, zone, source)` row gets overwritten, not duplicated. Weather has no revision concept, so it's append-only.
 
-**Frequency alignment:** load and LMP are both hourly here and stamped on **interval end** ("hour ending"), which is what makes them joinable. Weather is sampled on a 20-minute poll clock and is *not* pre-aggregated at ingestion — the resample to hourly happens explicitly in dbt, never silently in a producer.
+**Frequency alignment:** load and LMP are both hourly, stamped on **interval end** ("hour ending"), which makes them joinable. Weather is sampled on a 20-minute poll clock and is *not* pre-aggregated at ingestion — the resample to hourly happens explicitly in dbt, never silently in a producer.
