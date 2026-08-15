@@ -86,8 +86,6 @@ Producers publish JSON keyed by zone with `acks=all` and idempotence on. Consume
 
 ## Downstream — storage to serving
 
-None of this is built yet.
-
 ```mermaid
 flowchart LR
     subgraph TSDB["TimescaleDB"]
@@ -151,7 +149,6 @@ flowchart LR
     class PDB,GDB dataNode;
 ```
 
-The 5-minute producer→consumer offset is deliberate: producers publish at :10 so consumers at :15 find a settled topic rather than racing the write.
 
 ---
 

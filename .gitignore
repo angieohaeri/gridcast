@@ -149,6 +149,9 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
+# local mlflow tracking db (superseded by the Postgres-backed mlflow service)
+mlflow.db
+
 # Environments
 .env
 .venv
@@ -195,3 +198,9 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 /data
+
+# reference docs
+references/dashboard-design.md
+references/ccds-practices.md
+references/decisions.md
+references/decisions.md

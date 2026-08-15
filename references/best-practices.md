@@ -82,11 +82,11 @@
 
 ## Shiny for Python
 
-- [ ] `@reactive.calc` on every function that calls FastAPI or queries the DB — memoizes until an input it depends on invalidates, instead of refetching on every reactive tick
+- [x] `@reactive.calc` on every function that calls FastAPI or queries the DB — memoizes until an input it depends on invalidates, instead of refetching on every reactive tick
 - [ ] Handle FastAPI unavailability explicitly — show a clear error state, not a Python traceback
-- [ ] Keep data fetching in a separate `data.py` module; server functions import from it — don't mix API calls with rendering logic
-- [ ] Use `reactive.value` for anything that should persist across reactive updates (selected zone, time horizon)
-- [ ] Set a reasonable auto-refresh interval via `reactive.invalidate_later()` (60–120 seconds is enough) — avoid hammering the API
+- [x] Keep data fetching in a separate `data.py` module; server functions import from it — don't mix API calls with rendering logic
+- [x] Use `reactive.value` for anything that should persist across reactive updates (selected zone, time horizon)
+- [x] Set a reasonable auto-refresh interval via `reactive.invalidate_later()` (60–120 seconds is enough) — avoid hammering the API
 
 ---
 
@@ -95,6 +95,6 @@
 - [ ] Health checks on every service — currently only `timescaledb`, `mlflow`, `prefect-server` (used via `condition: service_healthy` in dependents); most services still lack one
 - [x] `restart: unless-stopped` on all services — everything comes back after a Mac Mini reboot
 - [x] Named volumes for TimescaleDB and MLflow artifact storage — anonymous volumes are deleted on `docker compose down`
-- [ ] Set memory limits on Kafka and TimescaleDB — without them one service can starve the others
+- [x] Set memory limits on Kafka and TimescaleDB — without them one service can starve the others
 - [x] Use a `.env` file for all config (ports, passwords, topic names) and reference with `${VAR}` in compose — no hardcoded values
 - [ ] Separate `docker-compose.override.yml` for local dev settings (e.g. exposed ports, debug flags) that you don't want in the production compose file
