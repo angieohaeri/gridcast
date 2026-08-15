@@ -9,7 +9,12 @@ WORKDIR /app
 
 COPY pyproject.toml uv.lock README.md ./
 COPY gridcast/ gridcast/
-RUN uv sync --frozen --no-dev
+# --compile-bytecode: bakes .pyc files into this layer at build time. Without it,
+# every container recreate (fresh writable layer, nothing persists) recompiles
+# pandas/mlflow's many submodules from scratch on first import - normally a minor
+# one-time cost, but under disk I/O contention from the rest of the stack on this
+# host it stretched into minutes and looked identical to a startup deadlock.
+RUN uv sync --frozen --no-dev --compile-bytecode
 
 ENV PATH="/app/.venv/bin:$PATH"
 

@@ -36,19 +36,13 @@ services:
     # the cause of the startup hang below (still hung with 1 worker), kept anyway
     # since it's still the right call resource-wise.
     #
-    # Startup hangs indefinitely on this host - main thread parked in futex_wait_queue,
-    # 8 threads, 0% CPU (true deadlock, not slowness/resource starvation - ruled that
-    # out via `docker stats`). Ruled out so far: DB/network (psycopg2 connects fine,
-    # nothing blocking in pg_stat_activity), --workers (still hangs at 1), security
-    # middleware (still hangs with --disable-security-middleware), uvloop (not even
-    # installed - bare uvicorn, no [standard] extras). Identical command/version
-    # against a real Postgres backend starts clean in ~2s outside this container, so
-    # it's something about this specific Linux/Docker environment.
-    # TEMP DIAGNOSTIC: cap_add SYS_PTRACE so py-spy can attach to PID 1 and show which
-    # line each thread is actually stuck on. Remove once root-caused - ptrace access is
-    # unnecessary attack surface otherwise.
-    cap_add:
-      - SYS_PTRACE
+    # Startup used to take minutes (looked like a deadlock, wasn't one) - py-spy
+    # caught the main thread mid-`import pandas`, stuck in the .pyc bytecode-cache
+    # step. Every container recreate lost the previous container's compiled bytecode
+    # (writable layer, not persisted), forcing a from-scratch recompile of pandas +
+    # mlflow's many submodules under this host's disk I/O contention from ~10 other
+    # containers. Real fix is in the Dockerfile (--compile-bytecode, bakes .pyc into
+    # the image layer instead) - see references/decisions.md for the full timeline.
     command: >
       mlflow server
       --host 0.0.0.0
@@ -56,7 +50,7 @@ services:
       --workers 1
       --backend-store-uri postgresql://${TIMESCALEDB_USER}:${TIMESCALEDB_PASSWORD}@timescaledb:5432/mlflow
       --default-artifact-root /app/mlflow-artifacts
-      --disable-security-middleware
+      --allowed-hosts "localhost:*,127.0.0.1:*,mlflow:*,${KAFKA_TAILSCALE_HOST}:*"
     env_file: .env
     ports:
       - "5000:5000"
