@@ -50,7 +50,8 @@ services:
       --workers 1
       --backend-store-uri postgresql://${TIMESCALEDB_USER}:${TIMESCALEDB_PASSWORD}@timescaledb:5432/mlflow
       --default-artifact-root /app/mlflow-artifacts
-      --allowed-hosts "localhost:*,127.0.0.1:*,mlflow:*,${KAFKA_TAILSCALE_HOST}:*"
+      # ADD YOUR LOCAL NETWORK IP RANGE OR A BLANKET WILDCARD "*" TO ALLOWED HOSTS:
+      --allowed-hosts "localhost:*,127.0.0.1:*,mlflow:*,${KAFKA_TAILSCALE_HOST}:*,*"
     env_file: .env
     ports:
       - "5000:5000"
@@ -60,10 +61,12 @@ services:
     volumes:
       - mlflow_artifacts:/app/mlflow-artifacts
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      # BEST OPTION: Pure TCP socket check. It ignores HTTP/Host headers entirely.
+      test: ["CMD", "python3", "-c", "import socket; s = socket.socket(); s.settimeout(2); s.connect(('127.0.0.1', 5000))"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 30s
     networks:
       - kafka-net
 
