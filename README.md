@@ -30,9 +30,8 @@ Deeper reference docs live in [`references/`](references/):
 | [`schema.md`](references/schema.md) | TimescaleDB table definitions |
 | [`best-practices.md`](references/best-practices.md) / [`ccds-practices.md`](references/ccds-practices.md) | Per-tool quality checklist and repo conventions |
 
-// **Ingestion data flow** (from `data-flow.md` — sources → Kafka → TimescaleDB, everything below is running today):
-
-// ![data flow: sources through storage](references/images/data_flow_ingestion.png)
+<!--**Ingestion data flow** (from `data-flow.md` — sources → Kafka → TimescaleDB, everything below is running today):-->
+<!-- ![data flow: sources through storage](references/images/data_flow_ingestion.png)-->
 
 
 ---
