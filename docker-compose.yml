@@ -31,10 +31,14 @@ services:
     # Backend store (run/metric/param metadata) is the `mlflow` db on the shared
     # timescaledb instance; artifact store (logged models) is a plain volume - no
     # need for S3/GCS-style object storage at this scale.
+    # --workers 1: default is 4 - forking that many uvicorn workers stalled the
+    # container indefinitely on this box (~4GB RAM shared across ~10 containers,
+    # same constraint as KAFKA_HEAP_OPTS below). One worker is plenty at this scale.
     command: >
       mlflow server
       --host 0.0.0.0
       --port 5000
+      --workers 1
       --backend-store-uri postgresql://${TIMESCALEDB_USER}:${TIMESCALEDB_PASSWORD}@timescaledb:5432/mlflow
       --default-artifact-root /app/mlflow-artifacts
       --allowed-hosts "localhost:*,127.0.0.1:*,mlflow:*,${KAFKA_TAILSCALE_HOST}:*"
