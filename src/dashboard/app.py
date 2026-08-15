@@ -334,6 +334,7 @@ def accuracy_stats(history: pd.DataFrame) -> pd.DataFrame:
 
 app_ui = ui.page_fluid(
     ui.head_content(
+        ui.tags.link(rel="icon", type="image/svg+xml", href="favicon.svg"),
         ui.tags.style(CSS),
         ui.tags.script(
             """
