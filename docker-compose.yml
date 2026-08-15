@@ -31,9 +31,18 @@ services:
     # Backend store (run/metric/param metadata) is the `mlflow` db on the shared
     # timescaledb instance; artifact store (logged models) is a plain volume - no
     # need for S3/GCS-style object storage at this scale.
-    # --workers 1: default is 4 - forking that many uvicorn workers stalled the
-    # container indefinitely on this box (~4GB RAM shared across ~10 containers,
-    # same constraint as KAFKA_HEAP_OPTS below). One worker is plenty at this scale.
+    # --workers 1: default is 4, one is plenty at this scale (~4GB RAM shared across
+    # ~10 containers, same constraint as KAFKA_HEAP_OPTS below) - NOTE: ruled out as
+    # the cause of the startup hang below (still hung with 1 worker), kept anyway
+    # since it's still the right call resource-wise.
+    #
+    # TEMP DIAGNOSTIC: --allowed-hosts swapped for --disable-security-middleware to
+    # confirm whether mlflow's Host-header security middleware itself is what's
+    # deadlocking startup (main thread parked in futex_wait_queue, 8 threads, no
+    # DB/network involvement - matches known startup hangs tied to this middleware).
+    # DANGEROUS long-term (no Host/CORS validation) - if this resolves it, put
+    # --allowed-hosts back once the underlying mlflow issue is understood, don't
+    # leave this in place.
     command: >
       mlflow server
       --host 0.0.0.0
@@ -41,7 +50,7 @@ services:
       --workers 1
       --backend-store-uri postgresql://${TIMESCALEDB_USER}:${TIMESCALEDB_PASSWORD}@timescaledb:5432/mlflow
       --default-artifact-root /app/mlflow-artifacts
-      --allowed-hosts "localhost:*,127.0.0.1:*,mlflow:*,${KAFKA_TAILSCALE_HOST}:*"
+      --disable-security-middleware
     env_file: .env
     ports:
       - "5000:5000"
