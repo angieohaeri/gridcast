@@ -107,7 +107,9 @@ def promote_if_better(client: MlflowClient, registered_name: str, version: str, 
             )
             return
 
-    client.transition_model_version_stage(name=registered_name, version=version, stage="Production")
+    client.transition_model_version_stage(
+        name=registered_name, version=version, stage="Production", archive_existing_versions=True
+    )
     logger.success(f"{registered_name} v{version} promoted to Production (RMSE={new_rmse:.1f})")
 
 
