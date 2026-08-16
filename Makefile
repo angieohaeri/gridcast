@@ -19,7 +19,7 @@ requirements:
 ## start shiny app
 .PHONY: app
 app:
-   shiny run --port 8080 --reload --launch-browser src/dashboard/app.py
+	shiny run --port 8080 --reload --launch-browser src/dashboard/app.py
 
 
 ## Delete all compiled Python files
@@ -32,7 +32,6 @@ clean:
 ## Lint using ruff (use `make format` to do formatting)
 .PHONY: lint
 lint:
-	ruff format --check
 	ruff check
 
 ## Format source code with ruff

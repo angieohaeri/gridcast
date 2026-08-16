@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+from zoneinfo import ZoneInfo
 
 import geopandas as gpd
 import pandas as pd
@@ -10,6 +11,8 @@ import requests
 from shiny import App, reactive, render, ui
 
 from gridcast.config import EXTERNAL_DATA_DIR, PROCESSED_DATA_DIR
+
+EASTERN = ZoneInfo("US/Eastern")
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 # PJM's zonal feed settles ~2-3 days behind by design - this means "keeping pace with
@@ -500,8 +503,8 @@ app_ui = ui.page_fluid(
                 rel='noopener noreferrer',
                 class_='app-credit',
             ), 
-            f" • Published: {datetime.datetime(year=2026, month=8, day=14).date()}",
-            f" • Republished: {datetime.datetime.now()}",
+            f" • Published: {datetime.datetime(year=2026, month=8, day=14, tzinfo=EASTERN).date()}",
+            f" • Republished: {datetime.datetime.now(EASTERN)}",
             class_="app-footer",
         ),
         class_="app-shell",
@@ -718,7 +721,7 @@ def server(input, output, session):
             autosize=True,
             paper_bgcolor=SURFACE_LIGHT,
             plot_bgcolor=SURFACE_LIGHT,
-            font=dict(color=INK_SECONDARY_LIGHT, family="Inter, -apple-system, sans-serif"),
+            font={"color": INK_SECONDARY_LIGHT, "family": "Inter, -apple-system, sans-serif"},
         )
         html = fig.to_html(
             full_html=True,
@@ -765,27 +768,27 @@ def server(input, output, session):
                     x=zsub["time_et"],
                     y=zsub["predicted_mw"],
                     mode="lines",
-                    line=dict(color=hue, width=2, dash=dash),
+                    line={"color": hue, "width": 2, "dash": dash},
                     hovertext=hover_text,
                     hoverinfo="text",
                 )
             )
         fig.update_layout(
             showlegend=False,
-            margin=dict(l=50, r=15, t=10, b=40),
-            xaxis=dict(
-                tickformat="%m-%d %I:%M%p",
-                tickangle=-30,
-                gridcolor=GRIDLINE_LIGHT,
-                linecolor=GRIDLINE_LIGHT,
-            ),
-            yaxis=dict(title="MW", gridcolor=GRIDLINE_LIGHT, linecolor=GRIDLINE_LIGHT),
+            margin={"l": 50, "r": 15, "t": 10, "b": 40},
+            xaxis={
+                "tickformat": "%m-%d %I:%M%p",
+                "tickangle": -30,
+                "gridcolor": GRIDLINE_LIGHT,
+                "linecolor": GRIDLINE_LIGHT,
+            },
+            yaxis={"title": "MW", "gridcolor": GRIDLINE_LIGHT, "linecolor": GRIDLINE_LIGHT},
             hovermode="closest",
         )
         theme_js = _theme_bridge_js(
             "zone-lines-chart",
-            light=dict(
-                layout={
+            light={
+                "layout": {
                     "paper_bgcolor": SURFACE_LIGHT,
                     "plot_bgcolor": SURFACE_LIGHT,
                     "font.color": INK_SECONDARY_LIGHT,
@@ -794,9 +797,9 @@ def server(input, output, session):
                     "yaxis.gridcolor": GRIDLINE_LIGHT,
                     "yaxis.linecolor": GRIDLINE_LIGHT,
                 }
-            ),
-            dark=dict(
-                layout={
+            },
+            dark={
+                "layout": {
                     "paper_bgcolor": SURFACE_DARK,
                     "plot_bgcolor": SURFACE_DARK,
                     "font.color": INK_SECONDARY_DARK,
@@ -805,7 +808,7 @@ def server(input, output, session):
                     "yaxis.gridcolor": GRIDLINE_DARK,
                     "yaxis.linecolor": GRIDLINE_DARK,
                 }
-            ),
+            },
         )
         return _plotly_iframe(fig, "zone-lines-chart", height_px=460, theme_js=theme_js)
 
@@ -1078,7 +1081,7 @@ def server(input, output, session):
                 y=actual["actual_mw"],
                 mode="lines",
                 name="Actual",
-                line=dict(color=LINE_ACTUAL_HEX, width=2),
+                line={"color": LINE_ACTUAL_HEX, "width": 2},
                 hovertext=hover(sub["actual_mw"]),
                 hoverinfo="text",
             )
@@ -1089,24 +1092,24 @@ def server(input, output, session):
                 y=sub["predicted_mw"],
                 mode="lines",
                 name="Predicted",
-                line=dict(color=LINE_PREDICTED_LIGHT_HEX, width=2, dash="dash"),
+                line={"color": LINE_PREDICTED_LIGHT_HEX, "width": 2, "dash": "dash"},
                 hovertext=hover(sub["predicted_mw"]),
                 hoverinfo="text",
             )
         )
         fig.update_layout(
-            margin=dict(l=50, r=10, t=35, b=40),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-            xaxis=dict(
-                tickformat="%m-%d %I:%M%p", gridcolor=GRIDLINE_LIGHT, linecolor=GRIDLINE_LIGHT
-            ),
-            yaxis=dict(title="MW", gridcolor=GRIDLINE_LIGHT, linecolor=GRIDLINE_LIGHT),
+            margin={"l": 50, "r": 10, "t": 35, "b": 40},
+            legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},
+            xaxis={
+                "tickformat": "%m-%d %I:%M%p", "gridcolor": GRIDLINE_LIGHT, "linecolor": GRIDLINE_LIGHT
+            },
+            yaxis={"title": "MW", "gridcolor": GRIDLINE_LIGHT, "linecolor": GRIDLINE_LIGHT},
             hovermode="closest",
         )
         theme_js = _theme_bridge_js(
             "drilldown-chart",
-            light=dict(
-                layout={
+            light={
+                "layout": {
                     "paper_bgcolor": SURFACE_LIGHT,
                     "plot_bgcolor": SURFACE_LIGHT,
                     "font.color": INK_SECONDARY_LIGHT,
@@ -1116,10 +1119,10 @@ def server(input, output, session):
                     "yaxis.gridcolor": GRIDLINE_LIGHT,
                     "yaxis.linecolor": GRIDLINE_LIGHT,
                 },
-                traces={"props": {"line.color": [LINE_ACTUAL_HEX, LINE_PREDICTED_LIGHT_HEX]}, "indices": [0, 1]},
-            ),
-            dark=dict(
-                layout={
+                "traces": {"props": {"line.color": [LINE_ACTUAL_HEX, LINE_PREDICTED_LIGHT_HEX]}, "indices": [0, 1]},
+            },
+            dark={
+                "layout": {
                     "paper_bgcolor": SURFACE_DARK,
                     "plot_bgcolor": SURFACE_DARK,
                     "font.color": INK_SECONDARY_DARK,
@@ -1129,8 +1132,8 @@ def server(input, output, session):
                     "yaxis.gridcolor": GRIDLINE_DARK,
                     "yaxis.linecolor": GRIDLINE_DARK,
                 },
-                traces={"props": {"line.color": [LINE_ACTUAL_HEX, LINE_PREDICTED_DARK_HEX]}, "indices": [0, 1]},
-            ),
+                "traces": {"props": {"line.color": [LINE_ACTUAL_HEX, LINE_PREDICTED_DARK_HEX]}, "indices": [0, 1]},
+            },
         )
         return _plotly_iframe(fig, "drilldown-chart", height_px=340, theme_js=theme_js)
 

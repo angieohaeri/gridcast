@@ -59,6 +59,8 @@ dev = [
 line-length = 99
 src = ["gridcast", "src"]
 include = ["pyproject.toml", "gridcast/**/*.py", "src/**/*.py"]
+exclude = ["_archive"]
+force-exclude = true
 
 [tool.ruff.lint]
 extend-select = ["I"]

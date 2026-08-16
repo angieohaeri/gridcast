@@ -11,14 +11,14 @@ SRC = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SRC / "producers"))
 sys.path.insert(0, str(SRC / "consumers"))
 
-# from db_backup import main as db_backup_flow  # noqa: E402  # disabled until RCLONE_REMOTE/backup setup is done
-from dbt_build import main as dbt_build_flow  # noqa: E402
-from lmp_consumer import main as lmp_consumer_flow  # noqa: E402
-from lmp_producer import main as lmp_producer_flow  # noqa: E402
-from load_consumer import main as load_consumer_flow  # noqa: E402
-from load_producer import main as load_producer_flow  # noqa: E402
-from weather_consumer import main as weather_consumer_flow  # noqa: E402
-from weather_producer import main as weather_producer_flow  # noqa: E402
+# from db_backup import main as db_backup_flow  # disabled until RCLONE_REMOTE/backup setup is done
+from dbt_build import main as dbt_build_flow
+from lmp_consumer import main as lmp_consumer_flow
+from lmp_producer import main as lmp_producer_flow
+from load_consumer import main as load_consumer_flow
+from load_producer import main as load_producer_flow
+from weather_consumer import main as weather_consumer_flow
+from weather_producer import main as weather_producer_flow
 
 if __name__ == "__main__":
     serve(
