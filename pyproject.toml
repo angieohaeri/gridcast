@@ -42,6 +42,7 @@ dependencies = [
     "pydeck",
     "geopandas>=1.1.4",
     "shapely>=2.1.2",
+    "cachetools",
 ]
 
 [project.optional-dependencies]
