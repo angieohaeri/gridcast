@@ -27,6 +27,15 @@ def fake_predict(df, models):
 def client(monkeypatch):
     monkeypatch.setattr(api_main, "load_models", lambda: {h: MagicMock() for h in HORIZONS})
     monkeypatch.setattr(api_main, "predict", fake_predict)
+    # module-level TTLCaches persist across tests otherwise, so one test's cached
+    # response leaks into the next test's assertions for the same endpoint/params
+    for cache in (
+        api_main._predict_cache,
+        api_main._history_cache,
+        api_main._peak_cache,
+        api_main._freshness_cache,
+    ):
+        cache.clear()
     with TestClient(api_main.app) as c:
         yield c
 
@@ -140,3 +149,44 @@ def test_freshness_none(client, monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["latest_load_time"] is None
+
+
+def test_predict_second_call_uses_cache_not_a_fresh_query(client, monkeypatch):
+    calls = []
+
+    def counting_latest_features(zone=None):
+        calls.append(zone)
+        return pd.DataFrame({
+            "time": pd.to_datetime(["2026-01-01 00:00"], utc=True),
+            "zone": ["AEP"],
+            "temperature": [10.0],
+            "precipitation": [0.0],
+            "wind_speed": [5.0],
+            "cloud_cover": [80.0],
+        })
+
+    monkeypatch.setattr(api_main, "latest_features", counting_latest_features)
+
+    first = client.get("/predict", params={"zone": "AEP"})
+    second = client.get("/predict", params={"zone": "AEP"})
+
+    assert first.status_code == second.status_code == 200
+    assert first.json() == second.json()
+    assert calls == ["AEP"]  # second request served from cache, no second DB hit
+
+
+def test_freshness_second_call_uses_cache_not_a_fresh_query(client, monkeypatch):
+    calls = []
+    ts = pd.Timestamp("2026-08-16 12:00", tz="UTC")
+
+    def counting_latest_load_time():
+        calls.append(1)
+        return ts
+
+    monkeypatch.setattr(api_main, "latest_load_time", counting_latest_load_time)
+
+    first = client.get("/freshness")
+    second = client.get("/freshness")
+
+    assert first.json() == second.json()
+    assert len(calls) == 1
