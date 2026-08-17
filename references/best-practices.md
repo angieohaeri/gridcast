@@ -60,41 +60,41 @@
 
 ## MLflow
 
-- [ ] Log the DVC data hash or training date range as a run tag on every experiment — reproducibility requires knowing exactly what data was used
+- [x] Tag runs with `row_count` + `source_table` instead of a DVC hash — `dataset()` pulls live from `analytics.features`, which isn't DVC-tracked (see `decisions.md`)
 - [x] Log model signatures on every logged model: `mlflow.models.infer_signature(X_train, y_pred)` — serving layer needs the expected input schema
-- [x] Use the model registry with explicit stage transitions: Staging → Production
-- [ ] Load models in FastAPI by stage (`models:/gridcast-lgbm/Production`), not by run ID — promotes without code changes
-- [ ] Log per-zone error metrics (MAE per zone), not just aggregate RMSE — a poor-performing zone model is not production-ready regardless of overall score
-- [ ] Tag runs with feature set version so you can compare feature experiments cleanly
+- [x] Use the model registry with explicit stage transitions: Staging → Production (`promote_if_better()` in `train.py`)
+- [x] Load models in FastAPI by stage (`models:/gridcast-lgbm-{h}h/Production`), not by run ID — promotes without code changes
+- [x] Log per-zone error metrics (MAE per zone) via `mlflow.log_table(..., artifact_file="per_zone_metrics.json")`, not just aggregate RMSE
+- [x] Tag runs with `featureset` version so feature experiments compare cleanly
 
 ---
 
 ## FastAPI
 
-- [ ] Pydantic models for every request and response — FastAPI validates automatically
-- [ ] `/health` endpoint returning model version, stage, and last prediction timestamp — used for Docker health checks and dashboard status display
-- [ ] Structured JSON logging (`structlog` or `python-json-logger`) — makes logs grep-able in production
-- [ ] Test with `httpx.AsyncClient` + pytest for async routes — not FastAPI's sync TestClient
-- [ ] Handle model loading errors explicitly at startup — fail loudly rather than serve wrong predictions
+- [x] Pydantic `response_model` on every route (`ZonePrediction`, `HistoryPoint`, `ZonePeak`, `Freshness`)
+- [x] `/health` endpoint — currently returns `status` + loaded horizons only, not model version/stage/last-prediction timestamp
+- [ ] Structured JSON logging (`structlog` or `python-json-logger`) — currently loguru's default format
+- [ ] Test with `httpx.AsyncClient` + pytest for async routes — no API tests yet (`tests/` only covers `dataset.py`)
+- [x] Models load in the `lifespan` startup hook with no try/except — any load failure fails startup loudly rather than serving wrong predictions
 - [ ] Rate limit the `/predict` endpoint if exposed publicly (`slowapi` is straightforward with FastAPI)
 
 ---
 
 ## Shiny for Python
 
-- [ ] `@reactive.calc` on every function that calls FastAPI or queries the DB — memoizes until an input it depends on invalidates, instead of refetching on every reactive tick
+- [x] `@reactive.calc` on every function that calls FastAPI or queries the DB — memoizes until an input it depends on invalidates, instead of refetching on every reactive tick
 - [ ] Handle FastAPI unavailability explicitly — show a clear error state, not a Python traceback
-- [ ] Keep data fetching in a separate `data.py` module; server functions import from it — don't mix API calls with rendering logic
-- [ ] Use `reactive.value` for anything that should persist across reactive updates (selected zone, time horizon)
-- [ ] Set a reasonable auto-refresh interval via `reactive.invalidate_later()` (60–120 seconds is enough) — avoid hammering the API
+- [x] Keep data fetching in a separate `data.py` module; server functions import from it — don't mix API calls with rendering logic
+- [x] Use `reactive.value` for anything that should persist across reactive updates (selected zone, time horizon)
+- [x] Set a reasonable auto-refresh interval via `reactive.invalidate_later()` (60–120 seconds is enough) — avoid hammering the API
 
 ---
 
 ## Docker Compose
 
-- [ ] Health checks on every service; use `condition: service_healthy` in `depends_on` — prevents race conditions on startup
+- [ ] Health checks on every service — currently only `timescaledb`, `mlflow`, `prefect-server` (used via `condition: service_healthy` in dependents); most services still lack one
 - [x] `restart: unless-stopped` on all services — everything comes back after a Mac Mini reboot
 - [x] Named volumes for TimescaleDB and MLflow artifact storage — anonymous volumes are deleted on `docker compose down`
-- [ ] Set memory limits on Kafka and TimescaleDB — without them one service can starve the others
+- [x] Set memory limits on Kafka and TimescaleDB — without them one service can starve the others
 - [x] Use a `.env` file for all config (ports, passwords, topic names) and reference with `${VAR}` in compose — no hardcoded values
 - [ ] Separate `docker-compose.override.yml` for local dev settings (e.g. exposed ports, debug flags) that you don't want in the production compose file

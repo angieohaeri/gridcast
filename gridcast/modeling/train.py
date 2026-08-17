@@ -19,9 +19,8 @@ app = typer.Typer()
 
 featureset = "v1"
 
-# val/test are fixed-size windows relative to the most recent row in the data
-# (not wall-clock now - load settles 2-3 days late, see references/decisions.md).
-# train is everything older than that, so it grows as more data is ingested.
+# val/test are fixed-size windows relative to the most recent row (not wall-clock now
+# - load settles 2-3 days late). train is everything older, so it grows over time.
 test_months = 7
 val_months = 12
 

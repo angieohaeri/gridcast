@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
 import os
+from threading import Lock
 
+from cachetools import TTLCache, cached
 from fastapi import FastAPI, HTTPException
 import lightgbm as lgb
 from loguru import logger
@@ -15,6 +17,15 @@ from gridcast.modeling.predict import load_models, predict
 setup_logging()
 
 models: dict[int, lgb.LGBMRegressor] = {}
+
+# Shared across every dashboard session/device hitting these endpoints, so a burst of
+# concurrent page loads pays for one DB query + inference pass, not one each. TTLs match
+# the dashboard's own reactive.invalidate_later intervals, so caching adds no extra staleness.
+_cache_lock = Lock()
+_predict_cache: TTLCache = TTLCache(maxsize=32, ttl=300)
+_history_cache: TTLCache = TTLCache(maxsize=32, ttl=300)
+_peak_cache: TTLCache = TTLCache(maxsize=32, ttl=3600)
+_freshness_cache: TTLCache = TTLCache(maxsize=1, ttl=300)
 
 
 @asynccontextmanager
@@ -63,11 +74,11 @@ def health():
     return {"status": "ok", "horizons": list(models.keys())}
 
 
-@app.get("/predict", response_model=list[ZonePrediction])
-def get_predictions(zone: str | None = None):
+@cached(cache=_predict_cache, lock=_cache_lock)
+def _predictions_cached(zone: str | None) -> list[dict]:
     df = latest_features(zone=zone)
     if df.empty:
-        raise HTTPException(status_code=404, detail=f"No data for zone '{zone}'")
+        return []
 
     weather_cols = ["time", "zone", "temperature", "precipitation", "wind_speed", "cloud_cover"]
     preds = predict(df, models).merge(df[weather_cols], on=["time", "zone"], how="left")
@@ -76,11 +87,19 @@ def get_predictions(zone: str | None = None):
     return preds.to_dict(orient="records")
 
 
-@app.get("/history", response_model=list[HistoryPoint])
-def get_history(zone: str | None = None, hours: int = 48):
+@app.get("/predict", response_model=list[ZonePrediction])
+def get_predictions(zone: str | None = None):
+    records = _predictions_cached(zone)
+    if not records:
+        raise HTTPException(status_code=404, detail=f"No data for zone '{zone}'")
+    return records
+
+
+@cached(cache=_history_cache, lock=_cache_lock)
+def _history_cached(zone: str | None, hours: int) -> list[dict]:
     df = features_window(hours=hours, zone=zone)
     if df.empty:
-        raise HTTPException(status_code=404, detail=f"No data for zone '{zone}'")
+        return []
 
     preds = predict(df, models)
     actual = df[["time", "zone", "demand_mw"]]
@@ -98,17 +117,36 @@ def get_history(zone: str | None = None, hours: int = 48):
     return result.to_dict(orient="records")
 
 
+@app.get("/history", response_model=list[HistoryPoint])
+def get_history(zone: str | None = None, hours: int = 48):
+    records = _history_cached(zone, hours)
+    if not records:
+        raise HTTPException(status_code=404, detail=f"No data for zone '{zone}'")
+    return records
+
+
+@cached(cache=_peak_cache, lock=_cache_lock)
+def _recent_peak_cached(zone: str | None, days: int) -> list[dict]:
+    df = recent_peak(days=days, zone=zone)
+    return df.to_dict(orient="records")
+
+
 @app.get("/peak", response_model=list[ZonePeak])
 def get_recent_peak(zone: str | None = None, days: int = 30):
-    df = recent_peak(days=days, zone=zone)
-    if df.empty:
+    records = _recent_peak_cached(zone, days)
+    if not records:
         raise HTTPException(status_code=404, detail=f"No data for zone '{zone}'")
-    return df.to_dict(orient="records")
+    return records
+
+
+@cached(cache=_freshness_cache, lock=_cache_lock)
+def _latest_load_time_cached() -> pd.Timestamp | None:
+    return latest_load_time()
 
 
 @app.get("/freshness", response_model=Freshness)
 def get_freshness():
-    return {"latest_load_time": latest_load_time()}
+    return {"latest_load_time": _latest_load_time_cached()}
 
 
 if __name__ == "__main__":

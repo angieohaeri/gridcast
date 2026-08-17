@@ -8,12 +8,33 @@ weather data.
 LightGBM → FastAPI → Shiny, self-hosted on a Mac Mini via Docker Compose and
 Cloudflare Tunnel.
 
+### Access the live dashboard [here](https://dashboard.gridcast.info)
+
 ## Architecture
 
 ![architecture](/references/images/gridcast_system_architecture.svg)
 
-See `references/architecture.md` for the full architecture, data sources, ML details,
-and starting point. See `CLAUDE.md` for repo conventions.
+See [`references/architecture.md`](references/architecture.md) for the full
+architecture, data sources, ML details, and build sequence. See `CLAUDE.md` for repo
+conventions.
+
+---
+
+## Documentation
+
+Deeper reference docs live in [`references/`](references/):
+
+| Doc | What's in it |
+|---|---|
+| [`architecture.md`](references/architecture.md) | Full stack, data sources, ML details |
+| [`data-flow.md`](references/data-flow.md) | Diagrams tracing every byte from source API to serving (see snapshot below) |
+| [`data-dictionary.md`](references/data-dictionary.md) | Power-industry glossary + raw column reference for every source |
+| [`schema.md`](references/schema.md) | TimescaleDB table definitions |
+| [`best-practices.md`](references/best-practices.md) | Per-tool quality checklist and repo conventions |
+
+<!--**Ingestion data flow** (from `data-flow.md` — sources → Kafka → TimescaleDB, everything below is running today):-->
+<!-- ![data flow: sources through storage](references/images/data_flow_ingestion.png)-->
+
 
 ---
 

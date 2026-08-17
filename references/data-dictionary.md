@@ -6,10 +6,7 @@ Title: Documented get_dataset("electricity/rto/region-data") as the RTO-level EI
 method for live/producer polling (get_grid_monitor can't filter by date, so it's
 backfill-only), Author: Angie Ohaeri, Date: August 9th Time: (session)
 
-Reference doc for someone new to the electricity industry. Two parts: (1) the
-vocabulary needed to read PJM/EIA data without guessing, (2) every raw column that
-actually comes back from this project's three data sources, so acronyms don't have
-to be memorized from scratch each time.
+Reference for someone new to the electricity industry: (1) vocabulary needed to read PJM/EIA data without guessing, (2) every raw column that comes back from this project's three data sources.
 
 ---
 
@@ -108,12 +105,7 @@ source and (for PJM) a live test pull.
 
 ### EIA-930 — RTO-level, historical backfill only (`gridstatus.EIA().get_grid_monitor(area_id="PJM")`)
 
-One row per hour, whole-PJM only (no zone breakdown). Source: EIA's published grid
-monitor Excel file per BA. **Cannot filter by date — always fetches full available
-history.** This is what `notebooks/0.01-pjm-eia-explore.ipynb` actually used for the
-one-time historical backfill (fine there, since a backfill wants full history
-anyway), and is why the `load` table's `source='eia'` rows exist. Do **not** use this
-for a live/recurring poll — see the `get_dataset` method below for that.
+One row per hour, whole-PJM only (no zone breakdown), from EIA's published grid monitor Excel file per BA. **Cannot filter by date — always fetches full history.** Used once for the historical backfill (why `load`'s `source='eia'` rows exist). Do **not** use for a live/recurring poll — see `get_dataset` below.
 
 | column | meaning |
 |---|---|
@@ -130,11 +122,7 @@ for a live/recurring poll — see the `get_dataset` method below for that.
 
 ### EIA-930 — RTO-level, live/producer polling (`gridstatus.EIA().get_dataset("electricity/rto/region-data", start=, end=, facets={"respondent": "PJM"})`)
 
-One row per hour, whole-PJM only — same underlying quantities as `get_grid_monitor`
-above, but via the EIA v2 REST API's generic dataset endpoint, which **does support
-real `start`/`end` date filtering**. This is the method the `load` producer should
-actually poll with. Verified live (2026-08-09): a 1-day window returned exactly these
-8 columns.
+One row per hour, whole-PJM only — same quantities as `get_grid_monitor` but via the EIA v2 REST API's generic dataset endpoint, which **does support real `start`/`end` filtering**. This is what the `load` producer polls with. Verified live (2026-08-09): a 1-day window returned exactly these 8 columns.
 
 | column | meaning |
 |---|---|
@@ -145,9 +133,7 @@ actually poll with. Verified live (2026-08-09): a 1-day window returned exactly 
 | `Net Generation` → `net_generation_mw` | RTO-wide generation, MW |
 | `Total Interchange` → `total_interchange_mw` | Net power exported (positive) or imported (negative), MW |
 
-No fuel-mix or emissions breakdown here — those only come from `get_grid_monitor` (or
-the separate `electricity/rto/fuel-type-data` dataset, not currently used by this
-project).
+No fuel-mix or emissions breakdown here — only from `get_grid_monitor` or the separate `electricity/rto/fuel-type-data` dataset (unused).
 
 ### EIA-930 — zone-level (`gridstatus.EIA().get_dataset("electricity/rto/region-sub-ba-data")`)
 
@@ -191,18 +177,11 @@ One row per interval per pricing node. Stretch-goal data, not yet pulled.
 | `Congestion` | Transmission-bottleneck component of LMP |
 | `Loss` | Marginal line-loss component of LMP |
 
-**Gotcha:** PJM's API only allows filtering by location for recent data — within 731
-days (~2 years) for hourly markets, 186 days (~6 months) for the 5-minute market.
-Querying further back returns *all* ~10,000+ pnodes for that date range; you filter
-down to your locations client-side afterward. A full Jan-2023-forward LMP pull will
-hit this path.
+**Gotcha:** PJM only allows filtering by location for recent data — 731 days (~2yr) for hourly markets, 186 days (~6mo) for 5-minute. Older queries return *all* ~10,000+ pnodes; filter to your locations client-side. A full Jan-2023-forward LMP pull will hit this.
 
 ### Open-Meteo — historical weather (`historical-forecast-api.open-meteo.com`, hourly)
 
-One row per hour per station. Units are Open-Meteo's metric defaults (no unit
-override params are set in this project's fetch). Stations are requested in batches —
-Open-Meteo accepts comma-joined `latitude`/`longitude` and returns one response per
-location in request order, so 30 stations cost one call rather than 30.
+One row per hour per station. Units are Open-Meteo's metric defaults (no override params set). Stations are requested in batches — comma-joined `latitude`/`longitude` returns one response per location in order, so 30 stations cost one call.
 
 | column | meaning | unit |
 |---|---|---|
@@ -211,11 +190,7 @@ location in request order, so 30 stations cost one call rather than 30.
 | `wind_speed_10m` → `wind_speed` | Wind speed at 10m height | km/h |
 | `cloud_cover` | Cloud cover | % |
 
-Deliberately pulled from the **historical-forecast** API (what the forecast model
-*said* at each past hour) rather than the archive/reanalysis API (what actually
-happened, per ERA5). This matters for a forecasting model: at inference time you'll
-only ever have forecast weather, never ground-truth reanalysis, so training on
-forecast-quality data avoids a train/serve mismatch.
+Deliberately pulled from the **historical-forecast** API (what the model *said* at each past hour) rather than archive/reanalysis (what actually happened, per ERA5) — inference time only ever has forecast weather, so training on forecast-quality data avoids a train/serve mismatch.
 
 ---
 
@@ -240,35 +215,10 @@ forecast-quality data avoids a train/serve mismatch.
 
 ## Part 5: Things worth knowing that don't fit a table
 
-- **Same 20 zone codes, two independent sources.** EIA-930 (`region-sub-ba-data`) and
-  PJM Data Miner (`hrl_load_metered`) both report zone-level load using the identical
-  code set. That's a genuine opportunity to validate one against the other before
-  trusting either as ground truth — they're independently collected and published.
-- **Frequency mismatch is real, not an edge case.** EIA-930 is hourly. PJM LMPs come
-  in 5-minute and hourly flavors. Per `architecture.md`, these are never silently
-  resampled — each lands in its own hypertable at native resolution and gets joined
-  in a named dbt model.
-- **Timezones differ by source.** PJM's raw API timestamps are Eastern Prevailing
-  Time (`_ept` fields exist alongside UTC ones); this project's weather pull
-  explicitly requests UTC; `schema.md`'s `time` columns are all `timestamptz`. Doesn't
-  matter what timezone data arrives in as long as it's tz-aware before it's written —
-  Postgres `timestamptz` normalizes to UTC internally regardless.
-- **"Verified" data changes after the fact.** Recent PJM load rows can have
-  `Is Verified = False` and be revised later. If a backfill and a later re-pull
-  disagree slightly for recent dates, this is almost certainly why, not a bug.
-- **`is_verified` is not a usable quality filter.** *(Author: Angie Ohaeri, Date: August
-  12th Time: 11:05am)* Measured across the full 2023→2026 backfill: PJM never marks
-  `DAY`, `RTO`, `RECO` or `PL` verified — 31,631 of 31,631 rows each — and `DUQ` is
-  verified for only 24 hours in 3.5 years. `DEOK` (10,799), `AE` (9,193), `DPL` (6,913),
-  `PEP` (5,640) and `EKPC` (2,520) carry large unverified blocks too. Every other zone
-  shows only the expected few-hundred-row settlement tail. Nothing in the pipeline
-  filters on this column today; adding `where is_verified` as a quality gate would
-  silently drop four zones entirely.
-- **RTO total ≠ sum of the zones you're using.** RTO is the sum of *all 21* zones
-  including `OVEC`, which is deliberately out of scope. Don't expect the 20 in
-  `pjm_weather_zones.csv` to reconcile against the `RTO` row.
-- **Two RTO totals, from two different EIA methods, only one of which is pollable.**
-  `get_grid_monitor` and `get_dataset("electricity/rto/region-data")` report the same
-  underlying quantities but `get_grid_monitor` can't filter by date at all (full
-  history every call) while `get_dataset` can. Backfill used the former; the producer
-  must use the latter, or it'll refetch and reprocess years of data on every poll.
+- **Same 20 zone codes, two independent sources.** EIA-930 (`region-sub-ba-data`) and PJM Data Miner (`hrl_load_metered`) both report zone-level load on the identical code set — a genuine opportunity to cross-validate before trusting either as ground truth.
+- **Frequency mismatch is real, not an edge case.** EIA-930 is hourly; PJM LMPs are 5-minute and hourly. Never silently resampled — each lands in its own hypertable at native resolution, joined in a named dbt model.
+- **Timezones differ by source** (PJM raw is Eastern, weather pull requests UTC), but doesn't matter as long as data is tz-aware before writing — Postgres `timestamptz` normalizes to UTC regardless.
+- **"Verified" data changes after the fact.** Recent PJM load rows can have `Is Verified = False` and get revised later — likely explanation if a backfill and a later re-pull disagree for recent dates.
+- **`is_verified` is not a usable quality filter.** *(Aug 12th)* Across the full 2023→2026 backfill, PJM never marks `DAY`, `RTO`, `RECO`, or `PL` verified (31,631/31,631 rows each), and `DUQ` is verified only 24 hours in 3.5 years. `DEOK`, `AE`, `DPL`, `PEP`, `EKPC` also carry large unverified blocks. Adding `where is_verified` as a quality gate would silently drop four zones entirely.
+- **RTO total ≠ sum of the zones you're using.** RTO sums *all 21* zones including out-of-scope `OVEC` — don't expect the 20 in `pjm_weather_zones.csv` to reconcile against it.
+- **Two RTO totals, two EIA methods, only one pollable.** `get_grid_monitor` and `get_dataset("electricity/rto/region-data")` report the same quantities, but only `get_dataset` supports date filtering. Backfill used the former; the producer must use the latter or it'll refetch years of data every poll.
