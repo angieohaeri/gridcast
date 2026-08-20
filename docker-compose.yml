@@ -43,6 +43,15 @@ services:
     # mlflow's many submodules under this host's disk I/O contention from ~10 other
     # containers. Real fix is in the Dockerfile (--compile-bytecode, bakes .pyc into
     # the image layer instead) - see references/decisions.md for the full timeline.
+    #
+    # Second, separate hang found 2026-08-20 (py-spy again): mlflow's telemetry
+    # thread does a blocking requests.get() to an external config endpoint during
+    # startup, and urllib3's hface backend lazily imports a submodule mid-connect -
+    # while holding Python's import lock. If that network call can't complete (e.g.
+    # this host's route out was still settling right after a reboot), the main
+    # thread deadlocks waiting on the same import lock to finish unrelated imports.
+    # MLFLOW_DISABLE_TELEMETRY below removes the network call entirely - also just
+    # correct for a self-hosted instance with no reason to phone home.
     command: >
       mlflow server
       --host 0.0.0.0
@@ -53,6 +62,8 @@ services:
       --allowed-hosts "*"
       --cors-allowed-origins "*"
     env_file: .env
+    environment:
+      MLFLOW_DISABLE_TELEMETRY: "true"
     ports:
       - "5000:5000"
     depends_on:
@@ -315,6 +326,9 @@ services:
       PREFECT_API_URL: http://prefect-server:4200/api
       MLFLOW_TRACKING_URI: http://mlflow:5000
       API_URL: http://api:8000
+      # see the mlflow service's comment - the client library can hit the same
+      # telemetry-thread startup deadlock, not just `mlflow server` itself
+      MLFLOW_DISABLE_TELEMETRY: "true"
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -348,6 +362,9 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: "8000"
       PREFECT_API_URL: http://prefect-server:4200/api
+      # see the mlflow service's comment - the client library can hit the same
+      # telemetry-thread startup deadlock, not just `mlflow server` itself
+      MLFLOW_DISABLE_TELEMETRY: "true"
     ports:
       - "8000:8000"
     depends_on:
