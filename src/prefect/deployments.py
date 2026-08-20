@@ -11,6 +11,8 @@ SRC = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SRC / "producers"))
 sys.path.insert(0, str(SRC / "consumers"))
 
+from api_ping import main as api_ping_flow
+
 # from db_backup import main as db_backup_flow  # disabled until RCLONE_REMOTE/backup setup is done
 from dbt_build import main as dbt_build_flow
 from lmp_consumer import main as lmp_consumer_flow
@@ -32,4 +34,8 @@ if __name__ == "__main__":
         # db_backup_flow.to_deployment(name="db_backup", cron="0 3 * * *"),  # disabled until RCLONE_REMOTE/backup setup is done
         # weekly retrain - adjust cadence once there's a sense of actual weekly drift
         train_flow.to_deployment(name="train", cron="0 4 * * 0"),
+        # keeps the api's DB/model working set resident between dashboard visits on
+        # the memory-constrained host, instead of it getting swapped out and paged
+        # back in slowly on the next real request - see references/decisions.md
+        api_ping_flow.to_deployment(name="api_ping", interval=timedelta(minutes=4)),
     )
