@@ -94,6 +94,28 @@ Index: `(zone, time DESC)` for per-zone lookups.
 
 ---
 
+### `instantaneous_load`
+
+**Title:** Added instantaneous_load hypertable + one-off backfill, **Author:** Angie Ohaeri (assisted), **Date: August 22nd Time: 12:07pm**
+
+Raw landing table for PJM Data Miner 2's `inst_load` feed (Kafka topic: TBD, `src/producers/inst_load_producer.py` in progress). Point-in-time telemetry at ~5-minute native resolution, distinct from `load`'s settled hourly-integrated `demand_mw` — kept as its own table rather than a new `source` value in `load`, since `load`'s `is_verified` semantics assume settlement and this feed has none. See `references/decisions.md` for why this is being added (near-term demand lags `load` can't support due to settlement lag).
+
+**`inst_load` only retains a trailing ~30 days** (confirmed empirically 2026-08-22: 29 days back returns data, 31+ raises `NoDataFoundException`) — unlike `hrl_load_metered`/`rt_hrl_lmps`, there's no multi-year history available for this feed. The one-off backfill (`_archive/scripts/backfill_instantaneous_load.py`) pulled whatever was left of that window at run time, not a fixed start date.
+
+`zone` uses this project's zone_id codes; `inst_load`'s own labels differ for 3 zones (`APS`→`AP`, `COMED`→`CE`, `DAYTON`→`DAY`), mapped at ingestion. `'RTO'` is kept (mirrors `load`'s ingested-but-unmodelled `RTO` row) from `inst_load`'s `PJM RTO` column; its 3 other regional aggregates (`PJM MID ATLANTIC REGION`/`PJM SOUTHERN REGION`/`PJM WESTERN REGION`) and `'UG'` (not a zone — an "underground asset" category) are dropped at ingestion.
+
+DDL: `src/consumers/schema.sql`
+
+| column | type | notes |
+|---|---|---|
+| `time` | timestamptz, not null | UTC, native ~5-minute posting interval — not Hour Ending (that convention is for settled hourly quantities, not point-in-time telemetry); hypertable partitioning column |
+| `zone` | text, not null | PJM zone, or `RTO` for the system-wide total |
+| `instantaneous_load_mw` | double precision, not null | raw telemetry snapshot, not settled/verified energy |
+
+Unique constraint: `(time, zone)`. Index: `(zone, time DESC)` for per-zone lookups.
+
+---
+
 ### `datacenters`
 
 **Title:** Added datacenters reference table, **Author:** Angie Ohaeri, **Date: August 21st Time: (session)**

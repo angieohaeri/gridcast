@@ -47,3 +47,20 @@ models:
               field: zone_id
       - name: temperature
         tests: [not_null]
+
+  - name: stg_inst_load
+    description: >
+      Cleaned inst_load rows at native 5-minute grain, unfiltered (RTO included).
+      Grain: one row per (time, zone).
+    columns:
+      - name: time
+        tests: [not_null]
+      - name: zone
+        tests:
+          - not_null
+          - accepted_values:
+              # stg_inst_load is unfiltered: 20 in-scope zones plus RTO
+              values: ['AE', 'AEP', 'AP', 'ATSI', 'BC', 'CE', 'DAY', 'DEOK', 'DOM', 'DPL',
+                       'DUQ', 'EKPC', 'JC', 'ME', 'PE', 'PEP', 'PL', 'PN', 'PS', 'RECO', 'RTO']
+      - name: instantaneous_load_mw
+        tests: [not_null]

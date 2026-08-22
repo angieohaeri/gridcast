@@ -45,9 +45,24 @@ models:
           arguments:
             combination_of_columns: [time, zone]
 
+  - name: inst_load_features
+    description: >
+      inst_load collapsed to hourly (Hour Ending, matching weather_features), with
+      1h/3h/24h lags - a demand-proxy feature, never the target. Grain: one row per
+      (time, zone).
+    columns:
+      - name: time
+        tests: [not_null]
+      - name: zone
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, zone]
+
   - name: features
     description: >
-      Join of load, lmp, and weather features. Grain: one row per (time, zone).
+      Join of load, lmp, weather, and inst_load features. Grain: one row per (time, zone).
     columns:
       - name: time
         tests: [not_null]
