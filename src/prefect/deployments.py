@@ -2,6 +2,8 @@ from datetime import timedelta
 from pathlib import Path
 import sys
 
+from prefect.schedules import Cron
+
 from gridcast.modeling.train import main as train_flow
 from prefect import serve
 
@@ -27,13 +29,15 @@ from weather_producer import main as weather_producer_flow
 if __name__ == "__main__":
     serve(
 
-        load_producer_flow.to_deployment(name="load_producer", cron="0 9 * * *"),
-        lmp_producer_flow.to_deployment(name="lmp_producer", cron="0 9 * * *"),
+
+        load_producer_flow.to_deployment(name="load_producer", schedule=Cron("45 5 * * *", timezone="America/New_York")),
+        lmp_producer_flow.to_deployment(name="lmp_producer", schedule=Cron("30 12 * * *", timezone="America/New_York")),
         weather_producer_flow.to_deployment(name="weather_producer", interval=timedelta(minutes=20)),
-        load_consumer_flow.to_deployment(name="load_consumer", cron="10 9 * * *"),
-        lmp_consumer_flow.to_deployment(name="lmp_consumer", cron="10 9 * * *"),
+        load_consumer_flow.to_deployment(name="load_consumer", schedule=Cron("55 5 * * *", timezone="America/New_York")),
+        lmp_consumer_flow.to_deployment(name="lmp_consumer", schedule=Cron("40 12 * * *", timezone="America/New_York")),
         weather_consumer_flow.to_deployment(name="weather_consumer", interval=timedelta(minutes=20)),
-        dbt_build_flow.to_deployment(name="dbt_build", cron="25 9 * * *"),
+        # runs after lmp_consumer, the later of the two dependency pipelines
+        dbt_build_flow.to_deployment(name="dbt_build", schedule=Cron("55 12 * * *", timezone="America/New_York")),
         data_center_sync_flow.to_deployment(name="data_center_sync", cron="0 5 * * *"),
         # db_backup_flow.to_deployment(name="db_backup", cron="0 3 * * *"),  # disabled until RCLONE_REMOTE/backup setup is done
         # weekly retrain - adjust cadence once there's a sense of actual weekly drift
