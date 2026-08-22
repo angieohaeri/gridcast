@@ -26,3 +26,8 @@ models:
       +materialized: view
     features:
       +materialized: table
+    lmp_features:
+      # isolated from the load model's `analytics.features` - lands in `analytics_lmp`
+      # (dbt's default schema-naming, <target_schema>_<custom>, no override macro exists)
+      +schema: lmp
+      +materialized: table
