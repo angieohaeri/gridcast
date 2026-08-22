@@ -134,7 +134,7 @@ services:
         until /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka-kraft:9095 > /dev/null 2>&1; do
           echo waiting for kafka-kraft:9095...; sleep 2;
         done
-        for topic in load lmp weather load_dlq lmp_dlq weather_dlq; do
+        for topic in load lmp weather inst_load load_dlq lmp_dlq weather_dlq inst_load_dlq; do
           /opt/kafka/bin/kafka-topics.sh --create --if-not-exists --bootstrap-server kafka-kraft:9095 --topic $$topic --partitions 1 --replication-factor 1
         done
 
@@ -252,6 +252,26 @@ services:
     volumes:
       - ./data/processed/pjm_weather_zones.csv:/app/data/processed/pjm_weather_zones.csv:ro
 
+  inst-load-producer:
+    build: .
+    image: gridcast:latest
+    container_name: gridcast-inst-load-producer
+    restart: "no"
+    command: python src/producers/inst_load_producer.py
+    env_file: .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
+      PREFECT_API_URL: http://prefect-server:4200/api
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - kafka-net
+    volumes:
+      - ./data/processed/pjm_weather_zones.csv:/app/data/processed/pjm_weather_zones.csv:ro
+
   load-consumer:
     build: .
     image: gridcast:latest
@@ -298,6 +318,26 @@ services:
     container_name: gridcast-weather-consumer
     restart: "no"
     command: python src/consumers/weather_consumer.py
+    env_file: .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
+      PREFECT_API_URL: http://prefect-server:4200/api
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      timescaledb:
+        condition: service_healthy
+    networks:
+      - kafka-net
+
+  inst-load-consumer:
+    build: .
+    image: gridcast:latest
+    container_name: gridcast-inst-load-consumer
+    restart: "no"
+    command: python src/consumers/inst_load_consumer.py
     env_file: .env
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka-kraft:9095

@@ -69,6 +69,28 @@ SELECT create_hypertable('weather', by_range('time'), if_not_exists => TRUE);
 CREATE INDEX IF NOT EXISTS weather_zone_time_idx
     ON weather (zone, time DESC);
 
+-- PJM Data Miner 2 inst_load feed: raw 5-minute point-in-time telemetry, not the
+-- settled hourly-integrated demand_mw in `load` - deliberately its own table rather
+-- than a new `source` value there, since `load`'s is_verified semantics assume
+-- settlement and this feed has none. zone uses this project's zone_id codes; inst_load's
+-- own labels differ for 3 zones (APS->AP, COMED->CE, DAYTON->DAY), mapped at ingestion.
+-- 'RTO' is kept (mirrors `load`'s ingested-but-unmodelled RTO row) from inst_load's "PJM
+-- RTO" column; its 3 other regional aggregates (MID ATLANTIC/SOUTHERN/WESTERN REGION)
+-- and 'UG' (not a zone - an "underground asset" category) are dropped at ingestion.
+CREATE TABLE IF NOT EXISTS instantaneous_load (
+    time                    TIMESTAMPTZ NOT NULL,
+    zone                    TEXT NOT NULL,
+    instantaneous_load_mw   DOUBLE PRECISION NOT NULL
+);
+
+SELECT create_hypertable('instantaneous_load', by_range('time'), if_not_exists => TRUE);
+
+CREATE UNIQUE INDEX IF NOT EXISTS instantaneous_load_time_zone_uidx
+    ON instantaneous_load (time, zone);
+
+CREATE INDEX IF NOT EXISTS instantaneous_load_zone_time_idx
+    ON instantaneous_load (zone, time DESC);
+
 -- FracTracker Alliance data center tracker (built/planned/proposed), synced daily
 -- from a public Google Sheet (src/prefect/data_center_sync.py). Plain table, not a
 -- hypertable - synced_at is ingestion time, not an event time. Append-only: each

@@ -15,8 +15,7 @@ clean-targets:
   - "dbt_packages"
 
 vars:
-  # every PJM zone except OVEC (54 MW avg, absent from EIA's subba list). RTO is the
-  # footprint total - different grain, not modelled.
+  # every PJM zone except OVEC 
   in_scope_zones: ['AE', 'AEP', 'AP', 'ATSI', 'BC', 'CE', 'DAY', 'DEOK', 'DOM', 'DPL',
                    'DUQ', 'EKPC', 'JC', 'ME', 'PE', 'PEP', 'PL', 'PN', 'PS', 'RECO']
 
