@@ -326,6 +326,7 @@ services:
       PREFECT_API_URL: http://prefect-server:4200/api
       MLFLOW_TRACKING_URI: http://mlflow:5000
       API_URL: http://api:8000
+      DASHBOARD_URL: http://dashboard:8080
       # see the mlflow service's comment - the client library can hit the same
       # telemetry-thread startup deadlock, not just `mlflow server` itself
       MLFLOW_DISABLE_TELEMETRY: "true"

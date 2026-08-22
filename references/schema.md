@@ -91,3 +91,31 @@ DDL: `src/consumers/schema.sql`
 | `cloud_cover` | double precision, not null | |
 
 Index: `(zone, time DESC)` for per-zone lookups.
+
+---
+
+### `datacenters`
+
+**Title:** Added datacenters reference table, **Author:** Angie Ohaeri, **Date: August 21st Time: (session)**
+
+**Title:** Switched from truncate-and-reload to append-only daily snapshots, **Author:** Angie Ohaeri, **Date: August 21st Time: (session)**
+
+Reference table of built/planned/proposed U.S. data centers, synced daily from FracTracker Alliance's public tracker (a Google Sheet, `src/prefect/data_center_sync.py`) - candidate treatment/control data for a diff-in-diff analysis of data center buildout on PJM zonal load and LMPs. Not a hypertable; `synced_at` is ingestion time, not an event time. Each sync appends a full snapshot rather than truncating, so a facility's `status`/`mw`/etc over time is recoverable - the sheet itself carries no per-field history, only a single `date_updated`. No upsert key: the sheet has no stable per-facility id and `facility_name` isn't unique (e.g. "DC Blox" appears at multiple addresses). FracTracker's terms require citing them as the source in any public-facing use and restrict redistribution of the raw compilation - don't commit their raw export to the repo, pull it live via the flow.
+
+DDL: `src/consumers/schema.sql`
+
+| column | type | notes |
+|---|---|---|
+| `facility_name` | text, not null | |
+| `address`, `city`, `state`, `zip`, `county` | text | for mapping to PJM zone |
+| `lat`, `long` | double precision | for mapping to PJM zone/pnode |
+| `location_confidence` | text | High/Medium/Low - many rows are approximate |
+| `status` | text | Proposed/Operating/Cancelled/etc - the treatment variable |
+| `expected_date_online` | text | treatment timing, but free text ("Full buildout by 2037", "2027-28"), not a clean year |
+| `mw` | text | treatment intensity; sometimes a range ("100-200"), not always numeric |
+| `sizerank` | text | categorical treatment intensity fallback when `mw` is blank |
+| `operator_name` | text | |
+| `facility_size_sqft`, `property_size_acres`, `project_cost` | text | kept on hand, not for the DiD itself; inconsistent formats ("1.43 Million", "$14.5 billion") |
+| `date_created`, `date_updated` | date | FracTracker's own record timestamps, not a status-change history |
+
+Appended, not truncated, on each daily sync - see the switch note above. Indexes: `(synced_at DESC)` for pulling the latest full snapshot, `(facility_name, synced_at DESC)` for a given facility's history over time.
