@@ -2,7 +2,7 @@
 
 Uses each line's own endpoint geometry as the node identity - not SUB_1/SUB_2 name-joins
 against the separate substations file, which validated at only ~25% name-match even at
-~0m distance (see references/lmp-pricing-model.md, "Validated 2026-08-22"). Endpoints
+~0m distance (see references/lmp-pricing-model/lmp-pricing-model.md, "Validated 2026-08-22"). Endpoints
 within COORD_SNAP_M of each other are treated as the same node (shared substation).
 
 Filtered to lines intersecting the PJM footprint (12,434 of 94,619 nationally, ~13%) -

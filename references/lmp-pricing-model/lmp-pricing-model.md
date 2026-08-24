@@ -2,29 +2,37 @@
 
 **Title: Initial draft + target-grain decision, Author: Angie Ohaeri, Date: August 22nd Time: (session)**
 
-Stretch extension to the load-forecasting project (see `architecture.md`).
+**Title: Backfilled Generation by Fuel Type, Day-Ahead Transmission Constraints, and
+Day-Ahead Hourly LMPs, Author: Angie Ohaeri (assisted), Date: August 23rd Time: 3:31pm**
 
-**Status: in progress.** Branch, `raw_lmp` schema, dbt scaffolding, and two raw tables exist.
-No ingestion, features, or model built yet.
+Three more Tier 1 sources backfilled into `raw_lmp` — all via gridstatus, no raw Data
+Miner 2 API calls needed. See `schema.md` for table structure/row counts and
+`decisions.md` ("Data source scope") for what's deferred and why.
+
+**Title: Split into `lmp-pricing-model.md` / `decisions.md` / `schema.md`, Author: Angie Ohaeri (assisted), Date: August 23rd Time: (session)**
+
+This file now covers approach/methodology only. Dated decision entries live in
+`decisions.md`; `raw_lmp` table definitions live in `schema.md`.
+
+Stretch extension to the load-forecasting project (see `../architecture.md`).
+
+**Status: in progress.** Branch, `raw_lmp` schema, dbt scaffolding, and five raw tables
+exist (two ingested — Real-Time/Day-Ahead Marginal Value — plus three newly backfilled).
+No ingestion pipeline, features, or model built yet for the three new tables.
 
 ---
 
 ## Isolation
 
-- Branch: `lmp-pricing-model` (created).
-- Raw tables → schema `raw_lmp` (created), never `public`. Droppable via `DROP SCHEMA ... CASCADE`.
-- dbt: `models/lmp_features/` → `+schema: lmp` → lands in `analytics_lmp`, separate from
-  `analytics.features` (scaffolded in `dbt_project.yml`).
-- MLflow: new experiment/model names — never `gridcast-lgbm-{h}h` or its `Production` stage.
-- Prefect: new deployments, `paused=True` until validated.
-- Kafka: skip it for daily-batch feeds (most of these) — use the `data_center_sync.py`
-  direct-upsert pattern instead. Reserve Kafka for genuinely streaming data.
+Isolated from the working load-forecasting stack at every layer (branch, schema, dbt
+target, MLflow naming, Prefect deployments, Kafka usage) — see `decisions.md`.
 
 ---
 
 ## Targets — two, not one mixed grain
 
-Matches how PJM's markets actually clear:
+Matches how PJM's markets actually clear (full rationale + the unverified/verified
+reconciliation decision: `decisions.md`):
 
 - **Day-ahead LMP**: hourly.
   DA only clears hourly. Reuses existing hourly lag/rolling/join architecture almost as-is.
@@ -39,12 +47,6 @@ Matches how PJM's markets actually clear:
     memory) become load-bearing feature sources here, not just nice-to-haves.
   - 5-min spikes are sharper and noisier than hourly averages — exactly where congestion-state
     features matter most (see mechanism below).
-  - **Unverified → verified reconciliation** (decided 2026-08-22): ingest Real-Time Unverified
-    Five Minute LMPs continuously for freshness (updates ~every 5 min, vs. the verified feed's
-    once-daily batch post — same `is_verified`-style upsert pattern `load` already uses).
-    Serve live predictions from unverified data — there's no choice, verified data for "now"
-    doesn't exist yet — but **train/backtest against the verified value once it lands**, not
-    the unverified value the model saw at inference time, since unverified values can revise.
 
 ---
 
@@ -86,23 +88,32 @@ Caveat: 2013, toy sim, ignores losses, 6-8hr horizon only. Directionally right, 
 
 **Already ingested**: `load`, `lmp` (hourly `rt_hrl_lmps`), `weather`.
 
+Table structure, row counts, and date ranges for every backfilled `raw_lmp` table:
+`schema.md`. Deferred-source rationale: `decisions.md` ("Data source scope").
+
 | Tier | Source | Status | Contributes |
 |---|---|---|---|
-| 1 — LMP decomposition | Real-Time Marginal Value (`raw_lmp.marginal_value_rt`) | backfilled — 755,530 rows, 2023-01-02 to 2026-08-21, 1,048 facilities | shadow price µ per binding constraint (`Monitored Facility`/`Contingency Facility`, not pnode/zone) — the congestion term. 5-min native since 2018, posts daily 11am-12pm ET |
-| 1 | Day-Ahead Marginal Value (`raw_lmp.marginal_value_da`) | backfilled — 278,986 rows, 2023-01-01 to present | same congestion term, for the day-ahead target — no penalty factor/limit control fields (RT-only) |
-| 1 | Forecasted Generation Outages | table built, backfilled — 120,666 rows, 2023-01-02 to present +90d | daily, 90-day horizon, RTO/West/Other only (not zonal) — weaker than hoped, still useful |
-| 1 | Operator Initiated Commitments | checked, promising | zonal(!) out-of-merit unit commitments with a `Reason` field — "Constraint Management" reason ties directly to congestion. Monthly, updated the 20th. Narrow: only reliability-driven commitments, not general economic unit commitment |
-| 1 | Scheduled Generation | checked, secondary | self-scheduled generation (runs regardless of price — must-run/contractual, not operator-directed) distorts normal dispatch, causes uplift charges. Weaker than Operator Initiated Commitments though: RTO-wide only (2 aggregate MW numbers, no zone field), so it can only inform λ, not the congestion term — same bucket as fuel mix/gas cost, not a second zonal signal. Daily 5pm |
-| 1 | Generation by Fuel Type | planned | what fuel's on the margin; informs λ, RTO-wide by design (see mechanism above, not a limitation) |
-| 1 | EIA natural gas fuel cost (`eia.gov/electricity/data.php`, monthly, by state) | planned | how expensive that margin is; pairs with fuel type to approximate λ (the "spark spread" signal) |
-| 1 | Day-Ahead Transmission Constraints | planned | the congestion pattern set |
-| 1 | Day-Ahead Hourly LMPs | planned | enables a DA-RT basis feature |
-| 1 | Generation and Extra High Voltage Losses | planned, lowest priority | the losses term, smallest of the three components |
+| 1 — LMP decomposition | Real-Time Marginal Value (`raw_lmp.marginal_value_rt`) | backfilled | shadow price µ per binding constraint (`Monitored Facility`/`Contingency Facility`, not pnode/zone) — the congestion term. 5-min native since 2018, posts daily 11am-12pm ET |
+| 1 | Day-Ahead Marginal Value (`raw_lmp.marginal_value_da`) | backfilled | same congestion term, for the day-ahead target — no penalty factor/limit control fields (RT-only) |
+| 1 | Forecasted Generation Outages (`raw_lmp.forecasted_generation_outages`) | backfilled | daily, 90-day horizon, RTO/West/Other only (not zonal) — weaker than hoped, still useful |
+| 1 | Operator Initiated Commitments | checked, promising, deferred | zonal(!) out-of-merit unit commitments with a `Reason` field — "Constraint Management" reason ties directly to congestion. Monthly, updated the 20th. Narrow: only reliability-driven commitments, not general economic unit commitment |
+| 1 | Scheduled Generation | checked, secondary, deferred | self-scheduled generation (runs regardless of price — must-run/contractual, not operator-directed) distorts normal dispatch, causes uplift charges. Weaker than Operator Initiated Commitments though: RTO-wide only (2 aggregate MW numbers, no zone field), so it can only inform λ, not the congestion term — same bucket as fuel mix/gas cost, not a second zonal signal. Daily 5pm |
+| 1 | Generation by Fuel Type (`raw_lmp.generation_by_fuel`) | backfilled | what fuel's on the margin; informs λ, RTO-wide by design (see mechanism above, not a limitation) |
+| 1 | EIA natural gas fuel cost (`eia.gov/electricity/data.php`, monthly, by state) | planned, deferred | how expensive that margin is; pairs with fuel type to approximate λ (the "spark spread" signal). Not a PJM source — separate EIA API pull |
+| 1 | Day-Ahead Transmission Constraints (`raw_lmp.transmission_constraints_da`) | backfilled | the congestion pattern set — which facility/contingency pairs bound and for how long (duration, no price magnitude; pairs with `marginal_value_da`'s shadow price for the same facility) |
+| 1 | Day-Ahead Hourly LMPs (`raw_lmp.lmp_da_hourly`) | backfilled | enables a DA-RT basis feature (same zone×hour grain as `public.lmp`, DA market instead of RT) |
+| 1 | Generation and Extra High Voltage Losses | planned, lowest priority, deferred | the losses term, smallest of the three components |
 | 2 — renewable variability | Five Minute Solar/Wind Generation + forecasts | planned | duck-curve dynamics |
 | 3 — investigate first | Energy Market Generation Offers | not a live feature — 4-month posting delay (PJM's stated policy) | not useless though: genuinely rich bid-curve data (masked generator ID, MW/BID pairs, start costs, ECOMAX/ECOMIN). Heat rate is a slow-changing physical property, not something that needs to be fresh — use this (even 4mo stale) to back-calculate typical heat rate/markup per unit or fuel type (the primer's "effective heat rate"), then apply that calibration to **live** fuel cost to estimate a live marginal-cost curve. Freshness requirement moves from the bid (stale) to the heat rate (doesn't need to be fresh) |
 | 3 | Daily Cleared INCs, DECs, UTCs | checked, weak — posts daily 4am but only 1 row/day of RTO-wide MW totals (no price/location) | at best a blunt proxy for anticipated DA-RT congestion via UTC volume; low priority |
 | 3 | Transfer Interface Information / Transmission Limits | not started | likely redundant with Marginal Value |
 | 3 | Off-Cost Operations | checked | out-of-merit ops for voltage/reactive support, not congestion — `Facility`/`Contingency` fields match Marginal Value's structure. Monthly, updated the 4th. Correlates with congestion but isn't the same mechanism |
+| skip | Real-Time Default Marginal Value Override | checked | operational fallback-price flag (what PJM substitutes when the normal RT calc doesn't produce one), not a price driver |
+| skip | Balancing Transmission Congestion Preliminary Billing Data | checked | settlement/accounting — allocates congestion cost to who pays whom after the fact, not predictive |
+| 3 | Day-Ahead Ratings | not started | facility thermal/emergency headroom; needs the same facility-name-to-substation parsing already open for Marginal Value — defer until that's solved |
+| 3 | Up-To-Congestion Bid Screening | not started | financial arbitrage bid data, closest thing to revealed trader expectations of congestion; check if published live vs. delayed/aggregated before committing |
+| 3 | Operating Reserve Rates Preliminary | not started | separate co-optimized ancillary market; reserve-price spikes can proxy system stress but it's a new mechanism to model, not congestion itself |
+| 2 | Instantaneous Dispatch Rates | not started | zonal(!), 15-second native — being zone-keyed skips the facility-name attribution problem entirely (zonal analog to Generation by Fuel Type). Don't point-sample hourly (a single 15s snapshot misses ramps/spikes); batch-pull the time series per date range and aggregate to hourly (mean/max/std/range) in dbt instead, if Data Miner supports a window query for this report — unverified, check first |
 
 ### Zone attribution / shift-factor proxy (reference data, not streaming)
 
@@ -121,8 +132,7 @@ Caveat: 2013, toy sim, ignores losses, 6-8hr horizon only. Directionally right, 
   Caveat bigger than expected: `INFERRED = Y` on 62% of rows nationally — most edges are
   inferred, not confirmed. Weight or filter by this before trusting the graph.
 
-  **Build the graph from each line's own endpoint coordinates directly, not by name-joining
-  `SUB_1`/`SUB_2` against the substations file.**
+  Graph-construction and zone-attribution-fallback decisions: `decisions.md`.
 
 
 **Shift factor**: πᵢ = λ + ΣₖAᵢₖµₖ. A isn't public and can't be legitimately derived. Two proxies:
@@ -135,9 +145,12 @@ Caveat: 2013, toy sim, ignores losses, 6-8hr horizon only. Directionally right, 
 
 ## Next steps
 
-- Build producer/loader + dbt models for the two tables that already exist (Real-Time Marginal
-  Value, Forecasted Generation Outages).
-- Then: Generation by Fuel Type, Day-Ahead Transmission Constraints.
+- Build producer/loader + dbt models for the raw tables that already exist (Real-Time Marginal
+  Value, Forecasted Generation Outages, Generation by Fuel Type, Day-Ahead Transmission
+  Constraints, Day-Ahead Hourly LMPs).
+- Then decide on Operator Initiated Commitments / Scheduled Generation / EHV Losses — needs a
+  new direct Data Miner 2 API pattern (no gridstatus support), and EIA natural gas fuel cost
+  (separate EIA API pull).
 - Substation graph + zone attribution is built (`raw_lmp.transmission_nodes`/`transmission_edges`)
   — next is matching Marginal Value's `Monitored Facility` to a graph node and computing
   shortest-path distance to each zone, to actually use it per-zone.
