@@ -55,6 +55,18 @@ reliable source of truth for node identity.
 Only 8.6% coverage, and it mis-assigns EKPC (Kentucky) substations to AEP via name
 collisions. Nearest-zone stays the fallback instead.
 
+**Title: Structural shift-factor proxy deprioritized — CEII caps it at ~24%; empirical regression is now primary, Author: Angie Ohaeri (assisted), Date: August 23rd Time: (session)**
+
+`raw_lmp.facilities` geocodes monitored/contingency facilities (schema.md), but only
+23.8% of constraint-hours land real coordinates, errors concentrated in the
+highest-frequency facilities. PJM's system map would fill the gap but is CEII-restricted
+by PJM's own published policy — confirmed via web search, not distributable.
+
+**Decision:** empirical regression (zone `congestion_price` on facility shadow prices)
+is now primary, not fallback — no coordinates needed, and it's the exact relationship
+(`πᵢ = λ + ΣₖAᵢₖµₖ`), not just a proxy. Watch for: dimensionality (needs Lasso/Ridge),
+long-tail sparsity, topology drift (rolling refit), leakage (walk-forward only).
+
 ## Data source scope
 
 **Title: Backfilled Generation by Fuel Type, Day-Ahead Transmission Constraints, and Day-Ahead Hourly LMPs via gridstatus only; deferred the rest of Tier 1, Author: Angie Ohaeri (assisted), Date: August 23rd Time: 3:31pm**
@@ -66,10 +78,53 @@ into `raw_lmp` in this pass (see `schema.md` for row counts/date ranges).
 
 Deferred:
 - **Operator Initiated Commitments, Scheduled Generation, Generation and EHV Losses** —
-  no gridstatus method for any of these. Every source ingested so far (including
-  `inst_load`) has gone through gridstatus; pulling these would require a new direct
-  PJM Data Miner 2 REST-API pattern this repo hasn't built yet. Held until that's worth
-  building.
+  no gridstatus method for any of these. Held until it's worth building a new direct
+  PJM Data Miner 2 REST-API pattern. *(Superseded same-day — see the entry below: a new
+  pattern turned out unnecessary.)*
 - **EIA natural gas fuel cost** — not a PJM source at all (EIA API, monthly by state,
   different auth/pull mechanism entirely). Deliberately held out of this PJM-focused
-  backfill pass.
+  backfill pass. Still deferred.
+
+**Title: Backfilled the 3 remaining Tier 1 sources via gridstatus's private `_get_pjm_json`, not new raw-API plumbing, Author: Angie Ohaeri (assisted), Date: August 23rd Time: 4:51pm**
+
+The "new direct Data Miner 2 REST-API pattern" flagged as needed above turned out
+unnecessary. `gridstatus.PJM._get_pjm_json()` — the internal method every public
+gridstatus PJM wrapper method already calls — takes an arbitrary Data Miner 2 feed name
+and handles auth headers, rate-limit retries, and pagination generically. Calling it
+directly with a feed name gridstatus hasn't wrapped in a public method works exactly
+like the wrapped feeds, so there was no need to write a new HTTP client.
+
+The missing piece was the internal feed names (Data Miner 2's UI shows human names like
+"Operator Initiated Commitments", not the snake_case identifier the API expects). Found
+via web search against PJM's public feed-definition pages
+(`dataminer2.pjm.com/feed/<name>/definition`) — those pages are JS SPAs that don't
+render their field lists to a fetch, so the actual columns were confirmed empirically
+instead (a live pull with no `fields` filter, inspecting what came back), same as every
+other source in this project. Feed names: `ops_init_commit`, `rt_and_self_ecomax`,
+`gen_ehv_losses`.
+
+This completes every Tier 1 source identified in this project except EIA natural gas
+fuel cost (still deferred — not a PJM source).
+
+**Title: Backfilled EIA natural gas fuel cost, also via a private client method rather than new plumbing, Author: Angie Ohaeri (assisted), Date: August 23rd Time: 5:59pm**
+
+The last deferred Tier 1 source. Same shape of problem as the 3 PJM sources above:
+`gridstatus.EIA.get_dataset()` only supports 5 hardcoded EIA v2 routes (all under
+`electricity/rto/*` plus Henry Hub spot prices) — not `electric-power-operational-data`,
+the route with the `cost-per-btu` metric this needed. Its `data` parameter is also
+hardcoded to `["value"]`, which is wrong for this route (the metric name itself,
+`cost-per-btu`, has to go in `data`). Rather than write a new HTTP client, called
+`EIA._fetch_page()` directly — the actual paginated-GET helper every `get_dataset` call
+already goes through — with a manually built `params`/`headers` pair matching what
+`get_dataset` would have built for a supported route.
+
+Discovered the route/facets by walking gridstatus's `EIA.list_routes()` /
+`list_facets()` helpers interactively (`electricity` → `electric-power-operational-data`
+→ facets `location`/`sectorid`/`fueltypeid`), not by reading EIA API docs externally —
+those helpers hit EIA's own metadata endpoints, so they're authoritative and don't go
+stale. `fueltypeid=NG` (natural gas, not `NGO` "natural gas & other gases"),
+`sectorid=98` (Electric Power sector, broader than "1" Electric Utility — covers
+independent power producers too, matching PJM's competitive generation mix).
+
+This completes **every** Tier 1 source identified in this project, including the one
+explicitly out-of-scope PJM source.

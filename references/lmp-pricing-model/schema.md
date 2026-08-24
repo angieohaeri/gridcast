@@ -7,6 +7,15 @@ DDL: `src/consumers/lmp_model_schema.sql`, applied manually (not on container in
 Extracted from `lmp-pricing-model.md`, **Author:** Angie Ohaeri (assisted), **Date:**
 August 23rd Time: 3:31pm.
 
+**Title: Added `operator_initiated_commitments`, `scheduled_generation`, `generation_ehv_losses`, Author: Angie Ohaeri (assisted), Date: August 23rd Time: 4:51pm**
+
+These 3 are sourced differently from every other table here: no gridstatus wrapper
+method exists for their Data Miner 2 feeds, so they're pulled by calling gridstatus's
+`PJM._get_pjm_json()` directly against the raw feed name (`ops_init_commit`,
+`rt_and_self_ecomax`, `gen_ehv_losses`) instead of a public `get_*` method — see
+`decisions.md` ("Backfilled the 3 remaining Tier 1 sources...") for why that was
+sufficient and how the feed names were found.
+
 ---
 
 ### `marginal_value_rt`
@@ -176,3 +185,135 @@ Script: `_archive/scripts/build_transmission_graph.py`. 9,445 nodes, 12,434 edge
 | `volt_class` | text | |
 | `inferred` | text | `INFERRED = Y` on 62% of rows nationally — most edges are inferred, not confirmed; weight/filter before trusting the graph |
 | `length_m` | numeric | |
+
+---
+
+### `facilities`
+
+**Title: Facility-name-to-location lookup for Marginal Value's monitored_facility/contingency_facility, Author: Angie Ohaeri (assisted), Date: August 23rd Time: (session)**
+
+Resolves `monitored_facility`/`contingency_facility` (4,551 distinct, pooled — the two
+columns never share an exact string, but the same substation code appears in both) to a
+name and, where available, coordinates. Matched by truncated substation-code
+prefix/substring against PJM's pnode list, HIFLD substations (PJM-footprint filtered),
+and `lmp-aggregate-definitions.xlsx` — only HIFLD carries coordinates.
+(`_archive/scripts/build_facilities_table.py`)
+
+3,940/4,551 (86.6%) matched by name, but only **23.8% of actual constraint-hours** have
+real coordinates once frequency-weighted — errors concentrate in the highest-frequency
+facilities (same-name collisions within the PJM footprint, e.g. Greentown OH vs. IN).
+Real coordinate data beyond this is CEII-restricted by PJM — `decisions.md`. Treat this
+table as a partial, lower-confidence lookup, not a complete crosswalk.
+
+Reference table, rebuilt wholesale (`DROP`/recreate), not incrementally updated.
+
+| column | type | notes |
+|---|---|---|
+| `facility` | text, primary key | raw string, from either `monitored_facility` or `contingency_facility` |
+| `matched_name` | text | `null` if nothing matched (611 of 4,551) |
+| `pnode_id` | bigint | `null` if only a name/HIFLD match, no pnode |
+| `lat` / `lon` | double precision | HIFLD only; `null` otherwise |
+| `voltage_match` | boolean | `null` = unchecked, not disagreement |
+| `source` | text | `'pnode'` \| `'hifld_substation'` \| `'aggregate_def'` |
+
+---
+
+### `operator_initiated_commitments`
+
+`ops_init_commit` (via `PJM._get_pjm_json()` directly — no gridstatus wrapper): zonal(!)
+out-of-merit unit commitments with a `reason` field — "Constraint Management" ties
+directly to congestion. Irregular event-level timestamps (sub-minute granularity, not a
+regular hourly/monthly grid). No stable per-row id in the raw feed — duplicates on the
+full natural key collapse on upsert (`ON CONFLICT ... DO NOTHING`), confirmed
+empirically that rows sharing `(time, zone, reason, economic_max_mw)` are re-posts of
+the same event, not distinct simultaneous commitments (those differ in
+`economic_max_mw`). `zone` uses this project's zone_id codes via the same mapping as
+`public.lmp`'s producer; `OVEC` (out of scope) dropped at ingestion. Backfilled
+2026-08-23: 14,674 rows, 2023-01-02 → 2026-07-31, 19 zones (RECO had no commitments in
+the window).
+
+DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,backfill}_operator_initiated_commitments.py`.
+
+| column | type | notes |
+|---|---|---|
+| `datetime_beginning_utc` | timestamptz, not null | hypertable partitioning column; irregular event timestamps |
+| `zone` | text, not null | project zone_id code |
+| `economic_max_mw` | numeric | |
+| `reason` | text | e.g. "System Wide Capacity", "Constraint Management", "Voltage Support" |
+
+Unique constraint: `(datetime_beginning_utc, zone, reason, economic_max_mw)`.
+Index: `(zone, datetime_beginning_utc DESC)`.
+
+---
+
+### `scheduled_generation`
+
+`rt_and_self_ecomax` (via `PJM._get_pjm_json()` directly — no gridstatus wrapper):
+hourly, RTO-wide self-scheduled generation (`self_ecomax`) — runs regardless of price
+(must-run/contractual, not operator-directed), distorts normal dispatch, causes uplift
+charges. No zone field, so it can only inform λ, not the congestion term. `rt_ecomax` is
+null whenever PJM applies confidentiality suppression (~55% of rows) — a real flag from
+the source, not missing data; kept as-is rather than imputed. The raw feed's
+`conf_disclaimer` field (the static explanatory text for that suppression) is dropped —
+not a data column. Backfilled 2026-08-23: 31,727 rows, 2023-01-01 → 2026-08-23.
+
+DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,backfill}_scheduled_generation.py`.
+
+| column | type | notes |
+|---|---|---|
+| `time` | timestamptz, not null | hypertable partitioning column |
+| `rt_ecomax` | numeric | null under PJM confidentiality suppression (~55% of rows) |
+| `self_ecomax` | numeric | |
+
+Unique constraint: `(time)`.
+
+---
+
+### `generation_ehv_losses`
+
+`gen_ehv_losses` (via `PJM._get_pjm_json()` directly — no gridstatus wrapper): hourly,
+RTO-wide — the losses term of `πᵢ = λ + ΣₖAᵢₖµₖ`, smallest of the three LMP components
+and, until this backfill, unsourced. Backfilled 2026-08-23: 31,919 rows,
+2023-01-01 → 2026-08-23.
+
+DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,backfill}_generation_ehv_losses.py`.
+
+| column | type | notes |
+|---|---|---|
+| `time` | timestamptz, not null | hypertable partitioning column |
+| `total_gen` | numeric | RTO-wide total generation, MW |
+| `total_losses` | numeric | RTO-wide EHV losses, MW |
+
+Unique constraint: `(time)`.
+
+---
+
+### `natural_gas_fuel_cost`
+
+`electricity/electric-power-operational-data`, `cost-per-btu` metric, `fueltypeid=NG`,
+`sectorid=98` (Electric Power) — **EIA, not PJM.** Monthly average natural gas cost per
+BTU by state; pairs with `generation_by_fuel` to approximate λ (the "spark spread"
+signal). No gridstatus wrapper — `gridstatus.EIA.get_dataset()` only supports 5
+hardcoded EIA routes, none of which is this one — pulled by calling `EIA._fetch_page()`
+directly with a manually built request instead of a new HTTP client (reuses its
+auth/pagination handling, same pattern as the PJM `_get_pjm_json()` sources above).
+Census-region/national/territory rows (`ENC`, `PCC`, `US`, `PR`, etc.) are dropped,
+keeping only real states — DC and HI never appear in this facet combination (negligible
+NG-fired generation). Null cost means no NG generation was reported for that
+state/month, not suppressed/missing data. **Reporting lag**: EIA's Form EIA-923 monthly
+data lags ~3 months behind real time (unlike the PJM feeds, which are near-real-time or
+next-day) — as of this backfill, data only reaches 2026-05 despite pulling through
+2026-08. Backfilled 2026-08-23: 2,009 rows, 2023-01-01 → 2026-05-01, 49 states.
+
+**Not a hypertable** — ~2,500 rows total (49 states × ~40 months), same low-volume
+reasoning as `forecasted_generation_outages`.
+
+DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,backfill}_natural_gas_fuel_cost.py`.
+
+| column | type | notes |
+|---|---|---|
+| `period` | date, not null | first of month |
+| `location` | text, not null | 2-letter state postal code |
+| `cost_per_mmbtu` | numeric | dollars per million BTU (fixed unit — EIA's `cost-per-btu-units` field, always this value, dropped); null = no NG generation reported |
+
+Unique constraint: `(period, location)`.
