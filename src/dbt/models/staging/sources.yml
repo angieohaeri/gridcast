@@ -25,3 +25,13 @@ sources:
         freshness:
           warn_after: {count: 2, period: hour}
           error_after: {count: 6, period: hour}
+
+      - name: instantaneous_load
+        description: >
+          PJM Data Miner 2 inst_load - raw 5-minute point-in-time telemetry, polled
+          every 10 minutes. Distinct from load's settled demand_mw; retains only a
+          trailing ~30 days at the source.
+        loaded_at_field: time
+        freshness:
+          warn_after: {count: 1, period: hour}
+          error_after: {count: 3, period: hour}

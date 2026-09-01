@@ -1,12 +1,15 @@
 import datetime
 import json
 import os
+from pathlib import Path
+import re
 from zoneinfo import ZoneInfo
 
 import geopandas as gpd
 import pandas as pd
 import plotly.graph_objects as go
 import pydeck as pdk
+from pydeck.io.html import CDN_URL as DECKGL_WIDGET_CDN_URL
 import requests
 from shiny import App, reactive, render, ui
 
@@ -164,6 +167,11 @@ def weather_icon_svg(condition: str) -> ui.HTML:
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" '
         f'stroke-linecap="round" stroke-linejoin="round">{WEATHER_ICON_INNER[condition]}</svg>'
     )
+
+# pydeck's to_html() hardcodes this CDN script src into every map's HTML (not exposed as
+# a URL param) - matched here so it can be swapped for the self-hosted copy below
+# regardless of which mapbox-gl-js version the installed pydeck's template points at.
+MAPBOX_GL_CDN_PATTERN = re.compile(r"https://api\.tiles\.mapbox\.com/mapbox-gl-js/[^\"']+/mapbox-gl\.js")
 
 # Injected into the deck.gl iframe: pydeck's static to_html() has no built-in click
 # bridge to Python, but @deck.gl/jupyter-widget's createDeck() accepts a handleEvent()
@@ -725,7 +733,10 @@ def server(input, output, session):
         )
         html = fig.to_html(
             full_html=True,
-            include_plotlyjs="cdn",
+            # self-hosted (see Dockerfile), not "cdn" - srcdoc iframes resolve relative
+            # URLs against the parent page's origin, so both chart iframes (and every
+            # later session) share one cached fetch instead of each hitting cdn.plot.ly
+            include_plotlyjs="plotly.min.js",
             div_id=div_id,
             config={"displayModeBar": False, "responsive": True},
         )
@@ -938,6 +949,11 @@ def server(input, output, session):
             tooltip={"text": "{zone}\n{predicted_mw_label} MW"},
         )
         deck_html = deck.to_html(as_string=True, notebook_display=False)
+        # self-hosted (see Dockerfile) - these two are the largest of pydeck's CDN
+        # pulls (~5MB combined), so swap them for the local copies instead of every
+        # map render/session hitting jsdelivr + mapbox's CDN fresh.
+        deck_html = deck_html.replace(f"src='{DECKGL_WIDGET_CDN_URL}'", "src='deckgl-widget.js'")
+        deck_html = MAPBOX_GL_CDN_PATTERN.sub("mapbox-gl.js", deck_html)
         deck_html = deck_html.replace(
             "const deckInstance = createDeck({",
             MAP_CLICK_BRIDGE_JS + "\n    const deckInstance = createDeck({\n      handleEvent: gridcastHandleMapEvent,",
@@ -1138,4 +1154,6 @@ def server(input, output, session):
         return _plotly_iframe(fig, "drilldown-chart", height_px=340, theme_js=theme_js)
 
 
-app = App(app_ui, server)
+# classic App() (unlike Shiny Express) doesn't auto-mount a "www" dir next to the app
+# file - without this, favicon.svg and the self-hosted plotly.min.js both 404.
+app = App(app_ui, server, static_assets=Path(__file__).parent / "www")

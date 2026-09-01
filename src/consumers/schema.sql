@@ -1,3 +1,4 @@
+-- Active: 1786081545197@@100.119.203.105@5432@gridcast
 -- EIA-930 load, PJM real-time LMP, and Open-Meteo weather hypertables.
 -- Kept at native resolution per source (load: hourly, lmp: hourly from rt_hrl_lmps,
 -- weather: poll interval) — never resampled at ingestion; alignment happens in dbt.
@@ -67,3 +68,65 @@ SELECT create_hypertable('weather', by_range('time'), if_not_exists => TRUE);
 
 CREATE INDEX IF NOT EXISTS weather_zone_time_idx
     ON weather (zone, time DESC);
+
+-- PJM Data Miner 2 inst_load feed: raw 5-minute point-in-time telemetry, not the
+-- settled hourly-integrated demand_mw in `load` - deliberately its own table rather
+-- than a new `source` value there, since `load`'s is_verified semantics assume
+-- settlement and this feed has none. zone uses this project's zone_id codes; inst_load's
+-- own labels differ for 3 zones (APS->AP, COMED->CE, DAYTON->DAY), mapped at ingestion.
+-- 'RTO' is kept (mirrors `load`'s ingested-but-unmodelled RTO row) from inst_load's "PJM
+-- RTO" column; its 3 other regional aggregates (MID ATLANTIC/SOUTHERN/WESTERN REGION)
+-- and 'UG' (not a zone - an "underground asset" category) are dropped at ingestion.
+CREATE TABLE IF NOT EXISTS instantaneous_load (
+    time                    TIMESTAMPTZ NOT NULL,
+    zone                    TEXT NOT NULL,
+    instantaneous_load_mw   DOUBLE PRECISION NOT NULL
+);
+
+SELECT create_hypertable('instantaneous_load', by_range('time'), if_not_exists => TRUE);
+
+CREATE UNIQUE INDEX IF NOT EXISTS instantaneous_load_time_zone_uidx
+    ON instantaneous_load (time, zone);
+
+CREATE INDEX IF NOT EXISTS instantaneous_load_zone_time_idx
+    ON instantaneous_load (zone, time DESC);
+
+-- FracTracker Alliance data center tracker (built/planned/proposed), synced daily
+-- from a public Google Sheet (src/prefect/data_center_sync.py). Plain table, not a
+-- hypertable - synced_at is ingestion time, not an event time. Append-only: each
+-- sync inserts a full snapshot of the sheet as of that run rather than
+-- truncating, so a facility's status/mw/etc over time is recoverable (the sheet
+-- itself has no per-field change history, only a single date_updated). No upsert
+-- key - the sheet has no stable per-facility id, and facility_name isn't unique.
+-- mw, facility_size_sqft, property_size_acres, and project_cost are TEXT: the
+-- source sheet mixes plain numbers, ranges ("100-200"), and free text
+-- ("$14.5 billion", "1.43 Million"), so they're kept as-is rather than coerced
+-- at ingestion.
+CREATE TABLE IF NOT EXISTS datacenters (
+    facility_name           TEXT NOT NULL,
+    address                 TEXT,
+    city                    TEXT,
+    state                   TEXT,
+    zip                     TEXT,
+    county                  TEXT,
+    lat                     DOUBLE PRECISION,
+    long                    DOUBLE PRECISION,
+    location_confidence     TEXT,
+    status                  TEXT,
+    expected_date_online    TEXT,
+    mw                      TEXT,
+    sizerank                TEXT,
+    operator_name           TEXT,
+    facility_size_sqft      TEXT,
+    property_size_acres     TEXT,
+    project_cost            TEXT,
+    date_created            DATE,
+    date_updated            DATE,
+    synced_at               TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS datacenters_synced_at_idx
+    ON datacenters (synced_at DESC);
+
+CREATE INDEX IF NOT EXISTS datacenters_facility_name_idx
+    ON datacenters (facility_name, synced_at DESC);

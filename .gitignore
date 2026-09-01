@@ -152,6 +152,13 @@ celerybeat.pid
 # local mlflow tracking db (superseded by the Postgres-backed mlflow service)
 mlflow.db
 
+# generated at Docker build time (Dockerfile) from the installed plotly/pydeck packages,
+# not source - self-hosted so dashboard iframes don't pull them from cdn.plot.ly /
+# jsdelivr / mapbox on every session
+src/dashboard/www/plotly.min.js
+src/dashboard/www/deckgl-widget.js
+src/dashboard/www/mapbox-gl.js
+
 # Environments
 .env
 .venv

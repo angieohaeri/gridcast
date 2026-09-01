@@ -26,12 +26,17 @@ select
     w.precipitation,
     w.wind_speed,
     w.cloud_cover,
-    w.observation_count
+    w.observation_count,
+    i.inst_load_lag_1h,
+    i.inst_load_lag_3h,
+    i.inst_load_lag_24h
 from {{ ref('load_features') }} l
 left join {{ ref('lmp_features') }} m
     on m.time = l.time - interval '48 hours' and l.zone = m.zone
 left join {{ ref('weather_features') }} w
     on l.time = w.time and l.zone = w.zone
+left join {{ ref('inst_load_features') }} i
+    on l.time = i.time and l.zone = i.zone
 
 {% if is_incremental() %}
 where l.time >= (select max(time) - interval '3 days' from {{ this }})
