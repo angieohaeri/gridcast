@@ -6,6 +6,13 @@ services:
     # Postgres parallel workers hash-join in /dev/shm, which Docker defaults to 64MB. At
     # 20 zones the `features` join blows past it: "could not resize shared memory segment".
     shm_size: 1gb
+    # max_connections was left at the image's low default (25) - with mlflow, prefect-server,
+    # dbt (6 threads), producers/consumers, and api/dashboard all opening their own connections
+    # to the same instance, that ceiling was already being hit under normal load ("sorry, too
+    # many clients already"), which silently stalled the analytics.features model (see
+    # references/decisions.md). max_connections is PGC_POSTMASTER - only takes effect on a full
+    # postgres restart, not a reload, so this doesn't apply until timescaledb is next restarted.
+    command: -c max_connections=100
     environment:
       POSTGRES_DB: ${TIMESCALEDB_DB}
       POSTGRES_USER: ${TIMESCALEDB_USER}
@@ -64,6 +71,11 @@ services:
     env_file: .env
     environment:
       MLFLOW_DISABLE_TELEMETRY: "true"
+      # SQLAlchemy's QueuePool defaults (pool_size=5, max_overflow=10) let this one
+      # service hold up to 15 idle connections open against timescaledb's shared,
+      # low max_connections ceiling - capped to what a single-worker server needs.
+      MLFLOW_SQLALCHEMYSTORE_POOL_SIZE: "2"
+      MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW: "3"
     ports:
       - "5000:5000"
     depends_on:
@@ -180,6 +192,10 @@ services:
       # Tailscale hostname, not 127.0.0.1/localhost - a browser on the laptop
       # resolves "localhost" to itself, not the Mac Mini.
       PREFECT_UI_API_URL: 'http://${KAFKA_TAILSCALE_HOST}:4200/api'
+      # same reasoning as mlflow's pool cap above (default pool_size=5, max_overflow=10 -
+      # too many idle connections against timescaledb's shared max_connections ceiling)
+      PREFECT_SQLALCHEMY_POOL_SIZE: "2"
+      PREFECT_SQLALCHEMY_MAX_OVERFLOW: "3"
     ports:
       - "4200:4200"
     volumes:
