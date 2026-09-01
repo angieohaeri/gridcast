@@ -49,11 +49,16 @@ def features_window(hours: int, zone: str | None = None) -> pd.DataFrame:
     return data
 
 
-def latest_load_time() -> pd.Timestamp | None:
-    """Most recent hour in analytics.features."""
+def latest_inst_load_time() -> pd.Timestamp | None:
+    """Most recent reading in analytics.stg_inst_load.
+
+    Used for the dashboard's freshness indicator: inst_load carries no settlement
+    lag (unlike demand_mw's ~2-3 days), so it reflects whether the pipeline is
+    actually live rather than whether the settled feed is caught up.
+    """
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT max(time) FROM analytics.features;")
+    cur.execute("SELECT max(time) FROM analytics.stg_inst_load;")
     (result,) = cur.fetchone()
     return result
 

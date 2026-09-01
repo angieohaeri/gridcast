@@ -11,7 +11,7 @@ import pandas as pd
 from pydantic import BaseModel
 
 from gridcast.config import setup_logging
-from gridcast.dataset import features_window, latest_features, latest_load_time, recent_peak
+from gridcast.dataset import features_window, latest_features, latest_inst_load_time, recent_peak
 from gridcast.modeling.predict import load_models, predict
 
 setup_logging()
@@ -58,6 +58,7 @@ class HistoryPoint(BaseModel):
     horizon_h: int
     actual_mw: float | None
     predicted_mw: float
+    inst_load_mw: float | None
 
 
 class ZonePeak(BaseModel):
@@ -66,7 +67,7 @@ class ZonePeak(BaseModel):
 
 
 class Freshness(BaseModel):
-    latest_load_time: datetime | None
+    latest_inst_load_time: datetime | None
 
 
 @app.get("/health")
@@ -102,7 +103,7 @@ def _history_cached(zone: str | None, hours: int) -> list[dict]:
         return []
 
     preds = predict(df, models)
-    actual = df[["time", "zone", "demand_mw"]]
+    actual = df[["time", "zone", "demand_mw", "inst_load_mw"]]
 
     aligned = []
     for h in models:
@@ -113,7 +114,8 @@ def _history_cached(zone: str | None, hours: int) -> list[dict]:
         aligned.append(target.rename(columns={"demand_mw": "actual_mw"}))
 
     result = pd.concat(aligned, ignore_index=True)
-    result["actual_mw"] = result["actual_mw"].astype(object).where(result["actual_mw"].notna(), None)
+    for col in ["actual_mw", "inst_load_mw"]:
+        result[col] = result[col].astype(object).where(result[col].notna(), None)
     return result.to_dict(orient="records")
 
 
@@ -140,13 +142,13 @@ def get_recent_peak(zone: str | None = None, days: int = 30):
 
 
 @cached(cache=_freshness_cache, lock=_cache_lock)
-def _latest_load_time_cached() -> pd.Timestamp | None:
-    return latest_load_time()
+def _latest_inst_load_time_cached() -> pd.Timestamp | None:
+    return latest_inst_load_time()
 
 
 @app.get("/freshness", response_model=Freshness)
 def get_freshness():
-    return {"latest_load_time": _latest_load_time_cached()}
+    return {"latest_inst_load_time": _latest_inst_load_time_cached()}
 
 
 if __name__ == "__main__":

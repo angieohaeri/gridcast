@@ -18,9 +18,10 @@ from gridcast.config import EXTERNAL_DATA_DIR, PROCESSED_DATA_DIR
 EASTERN = ZoneInfo("US/Eastern")
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
-# PJM's zonal feed settles ~2-3 days behind by design - this means "keeping pace with
-# that lag", not "real-time".
-FRESHNESS_THRESHOLD_HOURS = 96
+# inst_load carries no settlement lag, so this threshold reflects actual pipeline
+# health rather than a settled feed's expected lag - matches sources.yml's warn_after
+# for the instantaneous_load source.
+FRESHNESS_THRESHOLD_HOURS = 1
 HORIZONS = (1, 24, 72)
 DRILLDOWN_LOOKBACK_HOURS = 48
 ACCURACY_WINDOW_HOURS = 72
@@ -48,6 +49,9 @@ HIGHLIGHT_HALO = [0, 0, 0, 255]
 LINE_ACTUAL_HEX = "#3987e5"
 LINE_PREDICTED_LIGHT_HEX = "#ed7a4c"
 LINE_PREDICTED_DARK_HEX = "#de6d40"
+# inst_load: a proxy series, not the headline actual/predicted pair - green reads as a
+# clearly third hue against the blue/orange above in both themes.
+LINE_INSTLOAD_HEX = "#3fa66b"
 
 # chart chrome, light/dark - mirrors the CSS custom properties below so plotly iframes
 # (can't see page CSS) track OS theme via their own prefers-color-scheme bridge script.
@@ -201,6 +205,7 @@ CSS = """
   --status-live: #0ca30c;
   --line-actual: #3987e5;
   --line-predicted: #ed7a4c;
+  --line-instload: #3fa66b;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -215,6 +220,7 @@ CSS = """
     --accent-yellow: #cbb254;
     --line-actual: #3987e5;
     --line-predicted: #de6d40;
+    --line-instload: #3fa66b;
   }
 }
 * { box-sizing: border-box; }
@@ -635,7 +641,9 @@ def server(input, output, session):
     @reactive.calc
     def zone_history() -> pd.DataFrame:
         zone = drilldown_zone()
-        empty = pd.DataFrame(columns=["time", "zone", "horizon_h", "actual_mw", "predicted_mw"])
+        empty = pd.DataFrame(
+            columns=["time", "zone", "horizon_h", "actual_mw", "predicted_mw", "inst_load_mw"]
+        )
         if zone is None:
             return empty
         h = int(input.horizon().removesuffix("h"))
@@ -653,6 +661,7 @@ def server(input, output, session):
             df = df.groupby(["time", "horizon_h"], as_index=False).agg(
                 actual_mw=("actual_mw", lambda s: s.sum(min_count=1)),
                 predicted_mw=("predicted_mw", "sum"),
+                inst_load_mw=("inst_load_mw", lambda s: s.sum(min_count=1)),
             )
             df["zone"] = PJM_ZONE
         else:
@@ -668,9 +677,9 @@ def server(input, output, session):
 
     @render.ui
     def freshness():
-        raw = freshness_data()["latest_load_time"]
+        raw = freshness_data()["latest_inst_load_time"]
         if raw is None:
-            return ui.div("No demand data yet", class_="freshness")
+            return ui.div("No inst_load data yet", class_="freshness")
         latest = pd.to_datetime(raw, utc=True)
         age_hours = (pd.Timestamp.now(tz="UTC") - latest).total_seconds() / 3600
         is_live = age_hours <= FRESHNESS_THRESHOLD_HOURS
@@ -1067,7 +1076,8 @@ def server(input, output, session):
             ),
             ui.p(
                 "Actual demand compared to what the model predicted at the selected horizon. "
-                "Hover over either line for exact values.",
+                "Instantaneous load (dotted) is near-real-time PJM telemetry, shown because "
+                "actual demand settles 2-3 days behind. Hover over any line for exact values.",
                 class_="hint",
             ),
             ui.output_ui("drilldown_chart"),
@@ -1113,6 +1123,18 @@ def server(input, output, session):
                 hoverinfo="text",
             )
         )
+        inst_load = sub.dropna(subset=["inst_load_mw"])
+        fig.add_trace(
+            go.Scatter(
+                x=inst_load["time_et"],
+                y=inst_load["inst_load_mw"],
+                mode="lines",
+                name="Instantaneous load",
+                line={"color": LINE_INSTLOAD_HEX, "width": 1.5, "dash": "dot"},
+                hovertext=hover(sub["inst_load_mw"]),
+                hoverinfo="text",
+            )
+        )
         fig.update_layout(
             margin={"l": 50, "r": 10, "t": 35, "b": 40},
             legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},
@@ -1135,7 +1157,10 @@ def server(input, output, session):
                     "yaxis.gridcolor": GRIDLINE_LIGHT,
                     "yaxis.linecolor": GRIDLINE_LIGHT,
                 },
-                "traces": {"props": {"line.color": [LINE_ACTUAL_HEX, LINE_PREDICTED_LIGHT_HEX]}, "indices": [0, 1]},
+                "traces": {
+                    "props": {"line.color": [LINE_ACTUAL_HEX, LINE_PREDICTED_LIGHT_HEX, LINE_INSTLOAD_HEX]},
+                    "indices": [0, 1, 2],
+                },
             },
             dark={
                 "layout": {
@@ -1148,7 +1173,10 @@ def server(input, output, session):
                     "yaxis.gridcolor": GRIDLINE_DARK,
                     "yaxis.linecolor": GRIDLINE_DARK,
                 },
-                "traces": {"props": {"line.color": [LINE_ACTUAL_HEX, LINE_PREDICTED_DARK_HEX]}, "indices": [0, 1]},
+                "traces": {
+                    "props": {"line.color": [LINE_ACTUAL_HEX, LINE_PREDICTED_DARK_HEX, LINE_INSTLOAD_HEX]},
+                    "indices": [0, 1, 2],
+                },
             },
         )
         return _plotly_iframe(fig, "drilldown-chart", height_px=340, theme_js=theme_js)

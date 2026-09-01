@@ -83,6 +83,7 @@ def test_history_aligns_predictions_to_future_actuals(client, monkeypatch):
         "time": pd.to_datetime(["2026-01-01 00:00", "2026-01-01 01:00"], utc=True),
         "zone": ["AEP", "AEP"],
         "demand_mw": [500.0, 600.0],
+        "inst_load_mw": [510.0, 590.0],
     })
     monkeypatch.setattr(api_main, "features_window", lambda hours=48, zone=None: df)
 
@@ -97,10 +98,12 @@ def test_history_aligns_predictions_to_future_actuals(client, monkeypatch):
     aligned = next(r for r in one_hour_rows if pd.Timestamp(r["time"]) == pd.Timestamp("2026-01-01 01:00", tz="UTC"))
     assert aligned["actual_mw"] == 600.0
     assert aligned["predicted_mw"] == 101.0
+    assert aligned["inst_load_mw"] == 590.0
 
     # predicted at 01:00 for the 1h horizon lands on 02:00, which has no actual
     unaligned = next(r for r in one_hour_rows if pd.Timestamp(r["time"]) == pd.Timestamp("2026-01-01 02:00", tz="UTC"))
     assert unaligned["actual_mw"] is None
+    assert unaligned["inst_load_mw"] is None
 
 
 def test_history_404_when_no_data(client, monkeypatch):
@@ -134,21 +137,21 @@ def test_peak_404_when_no_data(client, monkeypatch):
 
 def test_freshness(client, monkeypatch):
     ts = pd.Timestamp("2026-08-16 12:00", tz="UTC")
-    monkeypatch.setattr(api_main, "latest_load_time", lambda: ts)
+    monkeypatch.setattr(api_main, "latest_inst_load_time", lambda: ts)
 
     response = client.get("/freshness")
 
     assert response.status_code == 200
-    assert pd.Timestamp(response.json()["latest_load_time"]) == ts
+    assert pd.Timestamp(response.json()["latest_inst_load_time"]) == ts
 
 
 def test_freshness_none(client, monkeypatch):
-    monkeypatch.setattr(api_main, "latest_load_time", lambda: None)
+    monkeypatch.setattr(api_main, "latest_inst_load_time", lambda: None)
 
     response = client.get("/freshness")
 
     assert response.status_code == 200
-    assert response.json()["latest_load_time"] is None
+    assert response.json()["latest_inst_load_time"] is None
 
 
 def test_predict_second_call_uses_cache_not_a_fresh_query(client, monkeypatch):
@@ -179,11 +182,11 @@ def test_freshness_second_call_uses_cache_not_a_fresh_query(client, monkeypatch)
     calls = []
     ts = pd.Timestamp("2026-08-16 12:00", tz="UTC")
 
-    def counting_latest_load_time():
+    def counting_latest_inst_load_time():
         calls.append(1)
         return ts
 
-    monkeypatch.setattr(api_main, "latest_load_time", counting_latest_load_time)
+    monkeypatch.setattr(api_main, "latest_inst_load_time", counting_latest_inst_load_time)
 
     first = client.get("/freshness")
     second = client.get("/freshness")

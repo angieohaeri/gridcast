@@ -85,14 +85,14 @@ def test_features_window_with_zone(mock_get_connection):
     )
 
 
-def test_latest_load_time(mock_get_connection):
+def test_latest_inst_load_time(mock_get_connection):
     expected = pd.Timestamp("2026-08-16 12:00", tz="UTC")
     cur = make_cursor(["time"], fetchone_result=(expected,))
     mock_get_connection(cur)
 
-    result = dataset.latest_load_time()
+    result = dataset.latest_inst_load_time()
 
-    cur.execute.assert_called_once_with("SELECT max(time) FROM analytics.features;")
+    cur.execute.assert_called_once_with("SELECT max(time) FROM analytics.stg_inst_load;")
     assert result == expected
 
 

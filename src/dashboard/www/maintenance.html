@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gridcast — Down for maintenance</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+:root {
+  --bg: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-secondary: #52514e;
+  --ink-muted: #898781;
+  --gridline: #e1e0d9;
+  --border: rgba(11,11,11,.10);
+  --accent: #ed7a4c;
+  --accent-yellow: #e8cf6b;
+  --status-live: #0ca30c;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-secondary: #c3c2b7;
+    --ink-muted: #898781;
+    --gridline: #2c2c2a;
+    --border: rgba(255,255,255,.10);
+    --accent: #de6d40;
+    --accent-yellow: #cbb254;
+  }
+}
+* { box-sizing: border-box; }
+html, body {
+  height: 100%;
+  margin: 0;
+}
+body {
+  font-family: Inter, -apple-system, "system-ui", "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 40px 36px;
+  max-width: 440px;
+  width: 100%;
+  text-align: center;
+  border-top: 3px solid var(--accent);
+}
+.icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 20px;
+  border-radius: 12px;
+  background: #0d366b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon svg { width: 32px; height: 32px; }
+h1 {
+  margin: 0 0 8px;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+.status-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 18px;
+  font-size: .85rem;
+  color: var(--ink-secondary);
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-muted);
+  display: inline-block;
+}
+p.body {
+  color: var(--ink-secondary);
+  font-size: .92rem;
+  line-height: 1.5;
+  margin: 0 0 24px;
+}
+.badge {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: .8rem;
+  color: var(--ink-secondary);
+  display: inline-block;
+}
+.footer {
+  margin-top: 24px;
+  color: var(--ink-muted);
+  font-size: .78rem;
+}
+.footer a {
+  color: inherit;
+  text-decoration: underline;
+}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">
+      <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="#ed7a4c" stroke-width="1.6" stroke-linecap="round">
+          <line x1="8" y1="8" x2="16" y2="15"/>
+          <line x1="24" y1="9" x2="16" y2="15"/>
+          <line x1="16" y1="15" x2="9" y2="24"/>
+          <line x1="16" y1="15" x2="23" y2="23"/>
+        </g>
+        <g fill="#ed7a4c">
+          <circle cx="8" cy="8" r="2.4"/>
+          <circle cx="24" cy="9" r="2.4"/>
+          <circle cx="16" cy="15" r="2.6"/>
+          <circle cx="9" cy="24" r="2.4"/>
+          <circle cx="23" cy="23" r="2.4"/>
+        </g>
+      </svg>
+    </div>
+    <h1>gridcast is down for maintenance</h1>
+    <div class="status-row">
+      <span class="status-dot"></span>
+      <span>Offline — back shortly</span>
+    </div>
+    <p class="body">
+      I'm doing some work on the PJM zonal demand forecast dashboard.
+      It will be back up soon.
+    </p>
+    <span class="badge">Check back in a few minutes</span>
+    <div class="footer">
+      gridcast · by <a href="https://github.com/angieohaeri/bikeshare" target="_blank" rel="noopener noreferrer">Angie Ohaeri</a>
+    </div>
+  </div>
+</body>
+</html>
