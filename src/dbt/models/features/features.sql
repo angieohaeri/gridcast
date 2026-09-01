@@ -27,6 +27,7 @@ select
     w.wind_speed,
     w.cloud_cover,
     w.observation_count,
+    i.inst_load_mw,
     i.inst_load_lag_1h,
     i.inst_load_lag_3h,
     i.inst_load_lag_24h

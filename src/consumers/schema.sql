@@ -7,12 +7,6 @@ CREATE EXTENSION IF NOT EXISTS timescaledb;
 
 -- EIA-930 hourly demand and PJM zonal load (Kafka topic: load).
 -- Two independent sources land here: PJM's own metered zonal feed (source='pjm',
--- includes its own zone='RTO' system total) and EIA's grid monitor (source='eia',
--- RTO-level only, also zone='RTO' - the two are deliberately never merged into one
--- "RTO" row since they're different measurements of the same quantity; source is
--- what keeps them apart). is_verified only applies to source='pjm' rows - PJM
--- revises a given (time, zone) from unverified to verified over ~3 days after
--- publish; EIA does not expose an equivalent flag.
 CREATE TABLE IF NOT EXISTS load (
     time                    TIMESTAMPTZ NOT NULL DEFAULT now(),
     zone                    TEXT NOT NULL,
