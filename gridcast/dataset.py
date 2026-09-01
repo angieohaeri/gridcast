@@ -50,15 +50,18 @@ def features_window(hours: int, zone: str | None = None) -> pd.DataFrame:
 
 
 def latest_inst_load_time() -> pd.Timestamp | None:
-    """Most recent reading in analytics.stg_inst_load.
+    """Most recent reading in the raw public.instantaneous_load landing table.
 
     Used for the dashboard's freshness indicator: inst_load carries no settlement
     lag (unlike demand_mw's ~2-3 days), so it reflects whether the pipeline is
-    actually live rather than whether the settled feed is caught up.
+    actually live rather than whether the settled feed is caught up. Reads the raw
+    table rather than analytics.stg_inst_load - that model is materialized
+    incremental (not a view), so it's only as fresh as the last dbt build, which
+    defeats the purpose of a pipeline-health signal.
     """
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT max(time) FROM analytics.stg_inst_load;")
+    cur.execute("SELECT max(time) FROM public.instantaneous_load;")
     (result,) = cur.fetchone()
     return result
 
