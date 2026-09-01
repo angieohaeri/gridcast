@@ -92,7 +92,7 @@ def test_latest_inst_load_time(mock_get_connection):
 
     result = dataset.latest_inst_load_time()
 
-    cur.execute.assert_called_once_with("SELECT max(time) FROM analytics.stg_inst_load;")
+    cur.execute.assert_called_once_with("SELECT max(time) FROM public.instantaneous_load;")
     assert result == expected
 
 
