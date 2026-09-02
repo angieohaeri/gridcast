@@ -728,9 +728,12 @@ def server(input, output, session):
         latest = pd.to_datetime(raw, utc=True)
         age_hours = (pd.Timestamp.now(tz="UTC") - latest).total_seconds() / 3600
         is_live = age_hours <= FRESHNESS_THRESHOLD_HOURS
+        # ET, not a hardcoded EST/EDT label - America/New_York already tracks the
+        # DST switch, a fixed "EST" would read wrong for half the year
+        latest_et = latest.tz_convert(EASTERN_TZ)
         return ui.div(
             ui.span(class_=f"status-dot {'status-live' if is_live else 'status-stale'}"),
-            ui.span(f"{'Live' if is_live else 'Stale'} — data through {latest.strftime('%b %d, %H:%M UTC')}"),
+            ui.span(f"{'Live' if is_live else 'Stale'} — data through {latest_et.strftime('%b %d, %-I:%M%p')} ET"),
             class_="freshness",
         )
 
