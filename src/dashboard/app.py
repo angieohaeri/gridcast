@@ -661,11 +661,12 @@ def server(input, output, session):
         df = df[df["time"] >= cutoff]
         if zone == PJM_ZONE:
             # no zone filter -> all 20 real zones; summed into a system-wide total.
-            # sum(min_count=1): an hour where every zone's actual is still missing
-            # (the forecast tail) stays null rather than summing to a fake 0 MW
+            # sum(min_count=1) on both: an hour where every zone's value is missing
+            # (the forecast tail, or a genuine upstream gap) stays null rather than
+            # summing to a fake 0 MW
             df = df.groupby(["time", "horizon_h"], as_index=False).agg(
                 actual_mw=("actual_mw", lambda s: s.sum(min_count=1)),
-                predicted_mw=("predicted_mw", "sum"),
+                predicted_mw=("predicted_mw", lambda s: s.sum(min_count=1)),
             )
             df["zone"] = PJM_ZONE
         else:
