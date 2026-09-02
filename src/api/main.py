@@ -11,7 +11,13 @@ import pandas as pd
 from pydantic import BaseModel
 
 from gridcast.config import setup_logging
-from gridcast.dataset import features_window, latest_features, latest_inst_load_time, recent_peak
+from gridcast.dataset import (
+    features_window,
+    inst_load_window,
+    latest_features,
+    latest_inst_load_time,
+    recent_peak,
+)
 from gridcast.modeling.predict import load_models, predict
 
 setup_logging()
@@ -24,6 +30,7 @@ models: dict[int, lgb.LGBMRegressor] = {}
 _cache_lock = Lock()
 _predict_cache: TTLCache = TTLCache(maxsize=32, ttl=300)
 _history_cache: TTLCache = TTLCache(maxsize=32, ttl=300)
+_inst_load_cache: TTLCache = TTLCache(maxsize=32, ttl=300)
 _peak_cache: TTLCache = TTLCache(maxsize=32, ttl=3600)
 _freshness_cache: TTLCache = TTLCache(maxsize=1, ttl=300)
 
@@ -59,6 +66,12 @@ class HistoryPoint(BaseModel):
     actual_mw: float | None
     predicted_mw: float
     inst_load_mw: float | None
+
+
+class InstLoadPoint(BaseModel):
+    time: datetime
+    zone: str
+    inst_load_mw: float
 
 
 class ZonePeak(BaseModel):
@@ -125,6 +138,17 @@ def get_history(zone: str | None = None, hours: int = 48):
     if not records:
         raise HTTPException(status_code=404, detail=f"No data for zone '{zone}'")
     return records
+
+
+@cached(cache=_inst_load_cache, lock=_cache_lock)
+def _inst_load_cached(zone: str | None, hours: int) -> list[dict]:
+    df = inst_load_window(hours=hours, zone=zone)
+    return df.to_dict(orient="records")
+
+
+@app.get("/inst_load_history", response_model=list[InstLoadPoint])
+def get_inst_load_history(zone: str | None = None, hours: int = 48):
+    return _inst_load_cached(zone, hours)
 
 
 @cached(cache=_peak_cache, lock=_cache_lock)

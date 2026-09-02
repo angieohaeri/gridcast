@@ -49,15 +49,32 @@ def features_window(hours: int, zone: str | None = None) -> pd.DataFrame:
     return data
 
 
+def inst_load_window(hours: int, zone: str | None = None) -> pd.DataFrame:
+    """Raw public.instantaneous_load readings from the trailing `hours` hours, for /history.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    query = (
+        "SELECT time, zone, instantaneous_load_mw AS inst_load_mw "
+        "FROM public.instantaneous_load "
+        "WHERE time >= now() - make_interval(hours => %s) AND zone != 'RTO'"
+    )
+    params = (hours,)
+    if zone is not None:
+        query += " AND zone = %s"
+        params = (hours, zone)
+    query += " ORDER BY zone, time;"
+    cur.execute(query, params)
+    columns = [desc[0] for desc in cur.description]
+    data = pd.DataFrame(cur.fetchall(), columns=columns)
+
+    return data
+
+
 def latest_inst_load_time() -> pd.Timestamp | None:
     """Most recent reading in the raw public.instantaneous_load landing table.
 
-    Used for the dashboard's freshness indicator: inst_load carries no settlement
-    lag (unlike demand_mw's ~2-3 days), so it reflects whether the pipeline is
-    actually live rather than whether the settled feed is caught up. Reads the raw
-    table rather than analytics.stg_inst_load - that model is materialized
-    incremental (not a view), so it's only as fresh as the last dbt build, which
-    defeats the purpose of a pipeline-health signal.
+    Used for the dashboard's freshness indicator
     """
     conn = get_connection()
     cur = conn.cursor()
