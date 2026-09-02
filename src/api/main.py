@@ -111,7 +111,14 @@ def get_predictions(zone: str | None = None):
 
 @cached(cache=_history_cache, lock=_cache_lock)
 def _history_cached(zone: str | None, hours: int) -> list[dict]:
-    df = features_window(hours=hours, zone=zone)
+    # fetch extra lookback so every horizon's shifted actual-lookup (time + h) has a
+    # real row to match against, not just rows shifted from inside the caller's own
+    # `hours` window - otherwise actual_mw reads as a fake gap near the start of the
+    # window at large horizons, since there's nothing old enough to shift forward
+    # into that range. Callers already re-trim to their own display window downstream
+    # (e.g. the dashboard's zone_history()), so the extra rows are harmless there.
+    max_horizon = max(models) if models else 0
+    df = features_window(hours=hours + max_horizon, zone=zone)
     if df.empty:
         return []
 
