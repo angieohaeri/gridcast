@@ -24,6 +24,7 @@ dependencies = [
     "requests_cache",
     "retry_requests",
     "scikit-learn",
+    "scipy",
     "lightgbm",
     "tqdm",
     "typer",
