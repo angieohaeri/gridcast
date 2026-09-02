@@ -568,8 +568,12 @@ def server(input, output, session):
     @reactive.calc
     def inst_load_history() -> pd.DataFrame:
         reactive.invalidate_later(300)
-        # same window as system_history(), for a consistent cache/refresh cadence
-        hours = ACCURACY_WINDOW_HOURS + max(HORIZONS)
+        # wider than system_history()'s own 144h: zone_history() anchors its cutoff to
+        # load_features' own (possibly stale) ceiling rather than wall-clock now(), so
+        # on a day load hasn't settled in a while this needs enough extra runway that
+        # zone_inst_load()'s matching cutoff (same anchor) doesn't run past what's
+        # actually been fetched here - found 2026-09-02
+        hours = ACCURACY_WINDOW_HOURS + max(HORIZONS) + DRILLDOWN_LOOKBACK_HOURS
         response = requests.get(f"{API_URL}/inst_load_history", params={"hours": hours}, timeout=10)
         response.raise_for_status()
         df = pd.DataFrame(response.json())
@@ -685,14 +689,16 @@ def server(input, output, session):
     @reactive.calc
     def zone_inst_load() -> pd.DataFrame:
         # separate from zone_history(): inst_load_history() is raw 5-min telemetry, not
-        # on the same hourly grid as actual/predicted, so it isn't merged into that frame
+        # on the same hourly grid as actual/predicted, so it isn't merged into that frame.
+        # Cutoff matches zone_history()'s own (anchor-based, not wall-clock) window so
+        # the two lines start at the same point instead of inst_load falling short of
+        # actual/predicted's extended left edge - found 2026-09-02
         zone = drilldown_zone()
         df = inst_load_history()
-        if zone is None:
+        hist = zone_history()
+        if zone is None or hist.empty:
             return df.iloc[0:0]
-        h = int(input.horizon().removesuffix("h"))
-        hours = DRILLDOWN_LOOKBACK_HOURS + h
-        cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=hours)
+        cutoff = hist["time"].min()
         df = df[df["time"] >= cutoff]
         if zone == PJM_ZONE:
             # Kafka messages land per-zone independently, so the newest timestamp(s)
