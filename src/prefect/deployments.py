@@ -6,6 +6,7 @@ from prefect.schedules import Cron
 
 from gridcast.modeling.train import main as train_flow
 from gridcast.monitoring.drift import main as drift_flow
+from gridcast.monitoring.prediction_log import main as prediction_log_flow
 from prefect import serve
 
 # Producer/consumer scripts do a bare sibling import (e.g. `from kafka_client import
@@ -47,7 +48,10 @@ if __name__ == "__main__":
         # db_backup_flow.to_deployment(name="db_backup", cron="0 3 * * *"),  # disabled until RCLONE_REMOTE/backup setup is done
         # weekly retrain - adjust cadence once there's a sense of actual weekly drift
         train_flow.to_deployment(name="train", cron="0 4 * * 0"),
-        # daily, after dbt_build so it scores a fresh analytics.features
+        # both daily after dbt_build (12:55 ET): snapshot predictions, then score drift
+        prediction_log_flow.to_deployment(
+            name="prediction_log", schedule=Cron("5 13 * * *", timezone="America/New_York")
+        ),
         drift_flow.to_deployment(
             name="drift", schedule=Cron("15 13 * * *", timezone="America/New_York")
         ),

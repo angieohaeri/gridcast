@@ -124,3 +124,30 @@ CREATE INDEX IF NOT EXISTS datacenters_synced_at_idx
 
 CREATE INDEX IF NOT EXISTS datacenters_facility_name_idx
     ON datacenters (facility_name, synced_at DESC);
+
+-- What the live Production models predicted, snapshotted daily after dbt_build by
+-- gridcast/monitoring/prediction_log.py. /history re-scores the past with today's
+-- models, so it can't show how the model that was actually serving performed -
+-- this table can, once a later job joins it against settled demand_mw. Plain
+-- table, not a hypertable (~60 rows/day). feature_time is the analytics.features
+-- row scored; target_time = feature_time + horizon_h. Upsert on
+-- (target_time, zone, horizon_h): a re-run overwrites with the freshest-feature
+-- prediction for that hour.
+CREATE TABLE IF NOT EXISTS prediction_log (
+    predicted_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    feature_time    TIMESTAMPTZ NOT NULL,
+    target_time     TIMESTAMPTZ NOT NULL,
+    zone            TEXT NOT NULL,
+    horizon_h       INTEGER NOT NULL,
+    predicted_mw    DOUBLE PRECISION NOT NULL,
+    model_name      TEXT NOT NULL,
+    model_version   TEXT NOT NULL,
+    model_run_id    TEXT NOT NULL,
+    featureset      TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS prediction_log_target_zone_horizon_uidx
+    ON prediction_log (target_time, zone, horizon_h);
+
+CREATE INDEX IF NOT EXISTS prediction_log_zone_target_idx
+    ON prediction_log (zone, target_time DESC);
