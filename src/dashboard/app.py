@@ -433,9 +433,10 @@ app_ui = ui.page_fluid(
                     ui.div(
                         ui.div("Update cadence", class_="info-title"),
                         ui.div(
-                            "This dashboard refreshes every 5 minutes. PJM's zonal feed itself "
-                            "settles roughly 2-3 days behind by design, so \"live\" here means "
-                            "the pipeline is keeping pace with that lag, not true real-time.",
+                            "This dashboard refreshes every 5 minutes. PJM's settled zonal demand "
+                            "feed lags 2-3 days behind by design, so actual/predicted comparisons "
+                            "trail that far. The Live/Stale badge above tracks instantaneous load,"
+                            "PJM's unverified telemetry, which has no settlement lag. ",
                             class_="info-desc",
                         ),
                     ),
@@ -565,6 +566,23 @@ def server(input, output, session):
         return df
 
     @reactive.calc
+    def inst_load_history() -> pd.DataFrame:
+        reactive.invalidate_later(300)
+        # same window as system_history(), for a consistent cache/refresh cadence
+        hours = ACCURACY_WINDOW_HOURS + max(HORIZONS)
+        response = requests.get(f"{API_URL}/inst_load_history", params={"hours": hours}, timeout=10)
+        response.raise_for_status()
+        df = pd.DataFrame(response.json())
+        if df.empty:
+            return pd.DataFrame({
+                "time": pd.Series(dtype="datetime64[ns, UTC]"),
+                "zone": pd.Series(dtype="object"),
+                "inst_load_mw": pd.Series(dtype="float64"),
+            })
+        df["time"] = pd.to_datetime(df["time"], utc=True)
+        return df
+
+    @reactive.calc
     def table_data() -> pd.DataFrame:
         # real zones only - PJM_ZONE (the system-wide total) is a synthetic default
         # for drilldown_zone() below, not a selectable row (mixing a summed total in
@@ -602,22 +620,11 @@ def server(input, output, session):
             return data.iloc[rows[0]]["zone"]
         return None
 
-    # the drill-down chart is sticky: it keeps showing the last zone you looked at
-    # even after the map selection clears, so it only reflects an actual zone pick,
-    # never "nothing" once something has been picked
-    last_selected_zone = reactive.Value(None)
-
-    @reactive.effect
-    def _track_last_selected_zone():
-        zone = selected_zone()
-        if zone is not None:
-            last_selected_zone.set(zone)
-
     @reactive.calc
     def drilldown_zone() -> str | None:
-        zone = last_selected_zone.get()
-        # nothing explicitly picked yet (or the map selection was cleared back to
-        # "nothing") - PJM_ZONE (system-wide total) is the implicit default
+        zone = selected_zone()
+        # nothing picked (or the selection was just cleared) - PJM_ZONE
+        # (system-wide total) is the default
         return zone if zone is not None else PJM_ZONE
 
     @reactive.calc
@@ -641,9 +648,7 @@ def server(input, output, session):
     @reactive.calc
     def zone_history() -> pd.DataFrame:
         zone = drilldown_zone()
-        empty = pd.DataFrame(
-            columns=["time", "zone", "horizon_h", "actual_mw", "predicted_mw", "inst_load_mw"]
-        )
+        empty = pd.DataFrame(columns=["time", "zone", "horizon_h", "actual_mw", "predicted_mw"])
         if zone is None:
             return empty
         h = int(input.horizon().removesuffix("h"))
@@ -661,12 +666,31 @@ def server(input, output, session):
             df = df.groupby(["time", "horizon_h"], as_index=False).agg(
                 actual_mw=("actual_mw", lambda s: s.sum(min_count=1)),
                 predicted_mw=("predicted_mw", "sum"),
-                inst_load_mw=("inst_load_mw", lambda s: s.sum(min_count=1)),
             )
             df["zone"] = PJM_ZONE
         else:
             df = df[df["zone"] == zone]
         return df
+
+    @reactive.calc
+    def zone_inst_load() -> pd.DataFrame:
+        # separate from zone_history(): inst_load_history() is raw 5-min telemetry, not
+        # on the same hourly grid as actual/predicted, so it isn't merged into that frame
+        zone = drilldown_zone()
+        df = inst_load_history()
+        if zone is None:
+            return df.iloc[0:0]
+        h = int(input.horizon().removesuffix("h"))
+        hours = DRILLDOWN_LOOKBACK_HOURS + h
+        cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=hours)
+        df = df[df["time"] >= cutoff]
+        if zone == PJM_ZONE:
+            out = df.groupby("time", as_index=False).agg(
+                inst_load_mw=("inst_load_mw", lambda s: s.sum(min_count=1))
+            )
+            out["zone"] = PJM_ZONE
+            return out
+        return df[df["zone"] == zone]
 
     @reactive.calc
     def freshness_data() -> dict:
@@ -1091,11 +1115,13 @@ def server(input, output, session):
         if sub.empty:
             return ui.p("No data yet.", class_="hint")
         sub = sub.assign(time_et=to_eastern(sub["time"]))
+        inst_load = zone_inst_load().sort_values("time")
+        inst_load = inst_load.assign(time_et=to_eastern(inst_load["time"]))
 
-        def hover(values: pd.Series) -> list[str]:
+        def hover(times: pd.Series, values: pd.Series) -> list[str]:
             return [
                 f"{eastern_label(t)}<br>{fmt_mw_conditional(v)} MW"
-                for t, v in zip(sub["time_et"], values)
+                for t, v in zip(times, values)
                 if pd.notna(v)
             ]
 
@@ -1108,7 +1134,7 @@ def server(input, output, session):
                 mode="lines",
                 name="Actual",
                 line={"color": LINE_ACTUAL_HEX, "width": 2},
-                hovertext=hover(sub["actual_mw"]),
+                hovertext=hover(sub["time_et"], sub["actual_mw"]),
                 hoverinfo="text",
             )
         )
@@ -1119,11 +1145,10 @@ def server(input, output, session):
                 mode="lines",
                 name="Predicted",
                 line={"color": LINE_PREDICTED_LIGHT_HEX, "width": 2, "dash": "dash"},
-                hovertext=hover(sub["predicted_mw"]),
+                hovertext=hover(sub["time_et"], sub["predicted_mw"]),
                 hoverinfo="text",
             )
         )
-        inst_load = sub.dropna(subset=["inst_load_mw"])
         fig.add_trace(
             go.Scatter(
                 x=inst_load["time_et"],
@@ -1131,7 +1156,7 @@ def server(input, output, session):
                 mode="lines",
                 name="Instantaneous load",
                 line={"color": LINE_INSTLOAD_HEX, "width": 1.5, "dash": "dot"},
-                hovertext=hover(sub["inst_load_mw"]),
+                hovertext=hover(inst_load["time_et"], inst_load["inst_load_mw"]),
                 hoverinfo="text",
             )
         )
