@@ -655,9 +655,18 @@ def server(input, output, session):
         # same reasoning as system_history: enough lookback that the 48h window has an
         # actual to compare at every point. Always <= system_history()'s own 144h window,
         # so filtering its already-fetched frame avoids a second /history round trip.
-        hours = DRILLDOWN_LOOKBACK_HOURS + h
-        cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=hours)
         df = system_history()
+        df = df[df["horizon_h"] == h]
+        if df.empty:
+            return empty
+        hours = DRILLDOWN_LOOKBACK_HOURS + h
+        # anchor to the data's own latest point, not wall-clock now(): load settling
+        # 2-3 days behind means "now" keeps drifting further past the real data
+        # ceiling every day dbt doesn't rebuild load_features, which was leaving the
+        # short horizon (1h) with an entirely empty window once now() outran it by
+        # more than 48h+1h - found 2026-09-02
+        anchor = min(pd.Timestamp.now(tz="UTC"), df["time"].max())
+        cutoff = anchor - pd.Timedelta(hours=hours)
         df = df[df["time"] >= cutoff]
         if zone == PJM_ZONE:
             # no zone filter -> all 20 real zones; summed into a system-wide total.
