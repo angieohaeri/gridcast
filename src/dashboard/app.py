@@ -435,7 +435,7 @@ app_ui = ui.page_fluid(
                         ui.div(
                             "This dashboard refreshes every 5 minutes. PJM's settled zonal demand "
                             "feed lags 2-3 days behind by design, so actual/predicted comparisons "
-                            "trail that far. The Live/Stale badge above tracks instantaneous load,"
+                            "trail that far. The Live/Stale badge above tracks instantaneous load, "
                             "PJM's unverified telemetry, which has no settlement lag. ",
                             class_="info-desc",
                         ),
@@ -685,11 +685,16 @@ def server(input, output, session):
         cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=hours)
         df = df[df["time"] >= cutoff]
         if zone == PJM_ZONE:
+            # Kafka messages land per-zone independently, so the newest timestamp(s)
+            # often haven't heard from every zone yet - sum only once all 20 have
+            # reported, else a still-landing reading reads as a fake system-wide dip
             out = df.groupby("time", as_index=False).agg(
-                inst_load_mw=("inst_load_mw", lambda s: s.sum(min_count=1))
+                inst_load_mw=("inst_load_mw", "sum"),
+                n_zones=("zone", "nunique"),
             )
+            out.loc[out["n_zones"] < len(ZONE_ORDER), "inst_load_mw"] = float("nan")
             out["zone"] = PJM_ZONE
-            return out
+            return out.drop(columns="n_zones")
         return df[df["zone"] == zone]
 
     @reactive.calc
