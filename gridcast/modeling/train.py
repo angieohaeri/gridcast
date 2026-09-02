@@ -17,7 +17,7 @@ from prefect import flow
 
 app = typer.Typer()
 
-featureset = "v1"
+featureset = "v2"
 
 # val/test are fixed-size windows relative to the most recent row (not wall-clock now
 # - load settles 2-3 days late). train is everything older, so it grows over time.
@@ -160,7 +160,7 @@ def main():
                 signature = infer_signature(train[feature_cols], model.predict(train[feature_cols]))
                 logged_model = mlflow.lightgbm.log_model(
                     model,
-                    name="model",
+                    name=f"model_{h}h",
                     signature=signature,
                     registered_model_name=registered_name,
                 )
