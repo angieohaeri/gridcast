@@ -2048,6 +2048,7 @@ name = "gridcast"
 version = "0.0.1"
 source = { editable = "." }
 dependencies = [
+    { name = "cachetools" },
     { name = "confluent-kafka" },
     { name = "dbt-core" },
     { name = "dbt-postgres" },
@@ -2070,6 +2071,7 @@ dependencies = [
     { name = "requests-cache" },
     { name = "retry-requests" },
     { name = "scikit-learn" },
+    { name = "scipy" },
     { name = "shapely" },
     { name = "shiny" },
     { name = "tqdm" },
@@ -2095,6 +2097,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cachetools" },
     { name = "confluent-kafka" },
     { name = "dbt-core" },
     { name = "dbt-postgres" },
@@ -2124,6 +2127,7 @@ requires-dist = [
     { name = "retry-requests" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "scikit-learn" },
+    { name = "scipy" },
     { name = "shapely", specifier = ">=2.1.2" },
     { name = "shiny" },
     { name = "tqdm" },
