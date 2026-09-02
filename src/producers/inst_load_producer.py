@@ -17,7 +17,13 @@ setup_logging()
 
 logging.getLogger("gridstatus").setLevel(logging.WARNING)
 
-POLL_WINDOW_DAYS = 7
+# unlike load/lmp's 7-day re-poll (which exists to catch PJM revising settled data after
+# the fact), inst_load is raw point-in-time telemetry with no revision cycle - a wide
+# trailing window buys nothing here and, polled every 10 min, was re-publishing the same
+# ~40k messages per cycle to Kafka for no reason (found 2026-09-02 via a 1M+ message
+# consumer lag, see references/decisions.md). 2 hours is a 12x overlap on the 10-min poll
+# interval, generous enough to self-heal a missed cycle or two without the bloat.
+POLL_WINDOW_HOURS = 2
 # gridstatus formats get_load's date/end args straight into PJM's datetime_beginning_ept
 # param with no tz conversion of its own - they need to already be Eastern wall-clock
 # values, not UTC, and need minute precision, not just a date (a date-only string parses
@@ -64,7 +70,7 @@ def main():
     zone_ids = ["RTO"] + zones["zone_id"].unique().tolist()
 
     end = datetime.now(UTC)
-    start = end - timedelta(days=POLL_WINDOW_DAYS)
+    start = end - timedelta(hours=POLL_WINDOW_HOURS)
 
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
     inst_load = poll_pjm_inst_load(pjm, start, end, zone_ids)
