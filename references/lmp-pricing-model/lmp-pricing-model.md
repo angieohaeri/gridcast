@@ -2,6 +2,9 @@
 
 **Title: Initial draft + target-grain decision, Author: Angie Ohaeri, Date: August 22nd Time: (session)**
 
+**Title: Added Collected checkbox column to data-sources table (all 10 Tier 1 `raw_lmp`
+tables verified present with data), Author: Angie Ohaeri, Date: September 5th Time: (session)**
+
 
 **Decision: the empirical shift-factor proxy (see below) is now the primary approach,
 not a fallback.** It doesn't need coordinates at all, and it's arguably the *more*
@@ -86,29 +89,32 @@ Caveat: 2013, toy sim, ignores losses, 6-8hr horizon only. Directionally right, 
 Table structure, row counts, and date ranges for every backfilled `raw_lmp` table:
 `schema.md`. Deferred-source rationale: `decisions.md` ("Data source scope").
 
-| Tier | Source | Status | Contributes |
-|---|---|---|---|
-| 1 — LMP decomposition | Real-Time Marginal Value (`raw_lmp.marginal_value_rt`) | backfilled | shadow price µ per binding constraint (`Monitored Facility`/`Contingency Facility`, not pnode/zone) — the congestion term. 5-min native since 2018, posts daily 11am-12pm ET |
-| 1 | Day-Ahead Marginal Value (`raw_lmp.marginal_value_da`) | backfilled | same congestion term, for the day-ahead target — no penalty factor/limit control fields (RT-only) |
-| 1 | Forecasted Generation Outages (`raw_lmp.forecasted_generation_outages`) | backfilled | daily, 90-day horizon, RTO/West/Other only (not zonal) — weaker than hoped, still useful |
-| 1 | Operator Initiated Commitments (`raw_lmp.operator_initiated_commitments`) | backfilled | zonal(!) out-of-merit unit commitments with a `Reason` field — "Constraint Management" reason ties directly to congestion. Irregular event-level timestamps, not monthly snapshots — narrow: only reliability-driven commitments, not general economic unit commitment |
-| 1 | Scheduled Generation (`raw_lmp.scheduled_generation`) | backfilled | self-scheduled generation (runs regardless of price — must-run/contractual, not operator-directed) distorts normal dispatch, causes uplift charges. RTO-wide only (2 MW numbers, no zone field), so it can only inform λ, not the congestion term — same bucket as fuel mix/gas cost, not a second zonal signal |
-| 1 | Generation by Fuel Type (`raw_lmp.generation_by_fuel`) | backfilled | what fuel's on the margin; informs λ, RTO-wide by design (see mechanism above, not a limitation) |
-| 1 | EIA natural gas fuel cost (`raw_lmp.natural_gas_fuel_cost`) | backfilled | how expensive that margin is; pairs with fuel type to approximate λ (the "spark spread" signal). Not a PJM source — separate EIA API pull, ~3-month reporting lag unlike the PJM feeds |
-| 1 | Day-Ahead Transmission Constraints (`raw_lmp.transmission_constraints_da`) | backfilled | the congestion pattern set — which facility/contingency pairs bound and for how long (duration, no price magnitude; pairs with `marginal_value_da`'s shadow price for the same facility) |
-| 1 | Day-Ahead Hourly LMPs (`raw_lmp.lmp_da_hourly`) | backfilled | enables a DA-RT basis feature (same zone×hour grain as `public.lmp`, DA market instead of RT) |
-| 1 | Generation and Extra High Voltage Losses (`raw_lmp.generation_ehv_losses`) | backfilled | the losses term, smallest of the three components — was the lowest priority, now sourced |
-| 2 — renewable variability | Five Minute Solar/Wind Generation + forecasts | planned | duck-curve dynamics |
-| 3 — investigate first | Energy Market Generation Offers | not a live feature — 4-month posting delay (PJM's stated policy) | not useless though: genuinely rich bid-curve data (masked generator ID, MW/BID pairs, start costs, ECOMAX/ECOMIN). Heat rate is a slow-changing physical property, not something that needs to be fresh — use this (even 4mo stale) to back-calculate typical heat rate/markup per unit or fuel type (the primer's "effective heat rate"), then apply that calibration to **live** fuel cost to estimate a live marginal-cost curve. Freshness requirement moves from the bid (stale) to the heat rate (doesn't need to be fresh) |
-| 3 | Daily Cleared INCs, DECs, UTCs | checked, weak — posts daily 4am but only 1 row/day of RTO-wide MW totals (no price/location) | at best a blunt proxy for anticipated DA-RT congestion via UTC volume; low priority |
-| 3 | Transfer Interface Information / Transmission Limits | not started | likely redundant with Marginal Value |
-| 3 | Off-Cost Operations | checked | out-of-merit ops for voltage/reactive support, not congestion — `Facility`/`Contingency` fields match Marginal Value's structure. Monthly, updated the 4th. Correlates with congestion but isn't the same mechanism |
-| skip | Real-Time Default Marginal Value Override | checked | operational fallback-price flag (what PJM substitutes when the normal RT calc doesn't produce one), not a price driver |
-| skip | Balancing Transmission Congestion Preliminary Billing Data | checked | settlement/accounting — allocates congestion cost to who pays whom after the fact, not predictive |
-| 3 | Day-Ahead Ratings | not started | facility thermal/emergency headroom; needs the same facility geocoding as Marginal Value (`raw_lmp.facilities`, partial + CEII-capped) — defer |
-| 3 | Up-To-Congestion Bid Screening | not started | financial arbitrage bid data, closest thing to revealed trader expectations of congestion; check if published live vs. delayed/aggregated before committing |
-| 3 | Operating Reserve Rates Preliminary | not started | separate co-optimized ancillary market; reserve-price spikes can proxy system stress but it's a new mechanism to model, not congestion itself |
-| 2 | Instantaneous Dispatch Rates | not started | zonal(!), 15-second native — being zone-keyed skips the facility-name attribution problem entirely (zonal analog to Generation by Fuel Type). Don't point-sample hourly (a single 15s snapshot misses ramps/spikes); batch-pull the time series per date range and aggregate to hourly (mean/max/std/range) in dbt instead, if Data Miner supports a window query for this report — unverified, check first |
+Checkbox = table exists in `raw_lmp` with data ingested. All 10 Tier 1 tables backfilled
+(row counts in `schema.md`); Tier 2/3 sources not yet pulled.
+
+| Tier | Source | Collected | Status | Contributes |
+|---|---|:-:|---|---|
+| 1 — LMP decomposition | Real-Time Marginal Value (`raw_lmp.marginal_value_rt`) | [x] | backfilled | shadow price µ per binding constraint (`Monitored Facility`/`Contingency Facility`, not pnode/zone) — the congestion term. 5-min native since 2018, posts daily 11am-12pm ET |
+| 1 | Day-Ahead Marginal Value (`raw_lmp.marginal_value_da`) | [x] | backfilled | same congestion term, for the day-ahead target — no penalty factor/limit control fields (RT-only) |
+| 1 | Forecasted Generation Outages (`raw_lmp.forecasted_generation_outages`) | [x] | backfilled | daily, 90-day horizon, RTO/West/Other only (not zonal) — weaker than hoped, still useful |
+| 1 | Operator Initiated Commitments (`raw_lmp.operator_initiated_commitments`) | [x] | backfilled | zonal(!) out-of-merit unit commitments with a `Reason` field — "Constraint Management" reason ties directly to congestion. Irregular event-level timestamps, not monthly snapshots — narrow: only reliability-driven commitments, not general economic unit commitment |
+| 1 | Scheduled Generation (`raw_lmp.scheduled_generation`) | [x] | backfilled | self-scheduled generation (runs regardless of price — must-run/contractual, not operator-directed) distorts normal dispatch, causes uplift charges. RTO-wide only (2 MW numbers, no zone field), so it can only inform λ, not the congestion term — same bucket as fuel mix/gas cost, not a second zonal signal |
+| 1 | Generation by Fuel Type (`raw_lmp.generation_by_fuel`) | [x] | backfilled | what fuel's on the margin; informs λ, RTO-wide by design (see mechanism above, not a limitation) |
+| 1 | EIA natural gas fuel cost (`raw_lmp.natural_gas_fuel_cost`) | [x] | backfilled | how expensive that margin is; pairs with fuel type to approximate λ (the "spark spread" signal). Not a PJM source — separate EIA API pull, ~3-month reporting lag unlike the PJM feeds |
+| 1 | Day-Ahead Transmission Constraints (`raw_lmp.transmission_constraints_da`) | [x] | backfilled | the congestion pattern set — which facility/contingency pairs bound and for how long (duration, no price magnitude; pairs with `marginal_value_da`'s shadow price for the same facility) |
+| 1 | Day-Ahead Hourly LMPs (`raw_lmp.lmp_da_hourly`) | [x] | backfilled | enables a DA-RT basis feature (same zone×hour grain as `public.lmp`, DA market instead of RT) |
+| 1 | Generation and Extra High Voltage Losses (`raw_lmp.generation_ehv_losses`) | [x] | backfilled | the losses term, smallest of the three components — was the lowest priority, now sourced |
+| 2 — renewable variability | Five Minute Solar/Wind Generation + forecasts | [ ] | planned | duck-curve dynamics |
+| 3 — investigate first | Energy Market Generation Offers | [ ] | not a live feature — 4-month posting delay (PJM's stated policy) | not useless though: genuinely rich bid-curve data (masked generator ID, MW/BID pairs, start costs, ECOMAX/ECOMIN). Heat rate is a slow-changing physical property, not something that needs to be fresh — use this (even 4mo stale) to back-calculate typical heat rate/markup per unit or fuel type (the primer's "effective heat rate"), then apply that calibration to **live** fuel cost to estimate a live marginal-cost curve. Freshness requirement moves from the bid (stale) to the heat rate (doesn't need to be fresh) |
+| 3 | Daily Cleared INCs, DECs, UTCs | [ ] | checked, weak — posts daily 4am but only 1 row/day of RTO-wide MW totals (no price/location) | at best a blunt proxy for anticipated DA-RT congestion via UTC volume; low priority |
+| 3 | Transfer Interface Information / Transmission Limits | [ ] | not started | likely redundant with Marginal Value |
+| 3 | Off-Cost Operations | [ ] | checked | out-of-merit ops for voltage/reactive support, not congestion — `Facility`/`Contingency` fields match Marginal Value's structure. Monthly, updated the 4th. Correlates with congestion but isn't the same mechanism |
+| skip | Real-Time Default Marginal Value Override | [ ] | checked | operational fallback-price flag (what PJM substitutes when the normal RT calc doesn't produce one), not a price driver |
+| skip | Balancing Transmission Congestion Preliminary Billing Data | [ ] | checked | settlement/accounting — allocates congestion cost to who pays whom after the fact, not predictive |
+| 3 | Day-Ahead Ratings | [ ] | not started | facility thermal/emergency headroom; needs the same facility geocoding as Marginal Value (`raw_lmp.facilities`, partial + CEII-capped) — defer |
+| 3 | Up-To-Congestion Bid Screening | [ ] | not started | financial arbitrage bid data, closest thing to revealed trader expectations of congestion; check if published live vs. delayed/aggregated before committing |
+| 3 | Operating Reserve Rates Preliminary | [ ] | not started | separate co-optimized ancillary market; reserve-price spikes can proxy system stress but it's a new mechanism to model, not congestion itself |
+| 2 | Instantaneous Dispatch Rates | [ ] | not started | zonal(!), 15-second native — being zone-keyed skips the facility-name attribution problem entirely (zonal analog to Generation by Fuel Type). Don't point-sample hourly (a single 15s snapshot misses ramps/spikes); batch-pull the time series per date range and aggregate to hourly (mean/max/std/range) in dbt instead, if Data Miner supports a window query for this report — unverified, check first |
 
 ### Zone attribution / shift-factor proxy (reference data, not streaming)
 
