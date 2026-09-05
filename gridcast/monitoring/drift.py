@@ -1,9 +1,9 @@
 """Data, target, and prediction drift monitoring for the load models.
 
 Compares the trailing 30 days of `analytics.features` against the same 30 calendar
-days one year earlier - a seasonally matched reference, so a flag means a real regime
-change (load growth, new data-center load) rather than summer-vs-winter. Alert-only:
-every run logs a report to the `gridcast-drift` MLflow experiment and emits a loguru
+days one year earlier - a seasonally matched reference.
+
+Alert-only: every run logs a report to the `gridcast-drift` MLflow experiment and emits a loguru
 warning when drift is widespread; nothing retrains automatically.
 
 Hand-rolled PSI + KS rather than Evidently: the current Evidently pins `plotly<6` and
