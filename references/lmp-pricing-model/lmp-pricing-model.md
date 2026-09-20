@@ -2,6 +2,65 @@
 
 **Title: Initial draft + target-grain decision, Author: Angie Ohaeri, Date: August 22nd Time: (session)**
 
+**Title: Ingestion pipeline built for all 10 raw_lmp sources, Author: Angie Ohaeri, Date: September 5th Time: (session)**
+
+First pass built a Kafka producer/consumer pair per source, matching `lmp_producer.py`/
+`lmp_consumer.py`. Reconsidered before deploying: `decisions.md`'s Isolation section
+already called this - "skip Kafka for daily-batch feeds, use the `data_center_sync.py`
+direct-upsert pattern instead, reserve Kafka for genuinely streaming data." Checked
+each source's actual posting cadence against PJM Data Miner's feed pages rather than
+assume: confirmed daily for `marginal_value_rt` (11am-12pm ET - the shadow price data
+is 5-min-native, but the feed itself only refreshes once a day), `transmission_constraints_da`
+(12-2pm ET) and `forecasted_generation_outages` (4am ET); confirmed **hourly** (not
+daily) for `generation_by_fuel` (:15 past the hour); confirmed monthly for
+`operator_initiated_commitments` (posts the 20th). No PJM feed page found for
+`marginal_value_da`, `lmp_da_hourly`, `scheduled_generation`, or `generation_ehv_losses` -
+treated as daily, same family as their confirmed siblings. None of the 10 are genuinely
+streaming, so none needed Kafka.
+
+Built instead: `src/prefect/raw_lmp_sync.py` - one file, one `@flow` function per
+source (pull PJM/EIA API, upsert straight to Postgres), same trailing-window-for-
+settlement-revisions pattern as the Kafka producers would have used. Deployments live
+in their own `src/prefect/lmp_deployments.py` (separate `serve()` process from the
+working pipeline's `deployments.py`) - own Cron per source matching the cadence above,
+`paused=True` on all of them per decisions.md, until each has a validated run. No Kafka
+topics, no docker-compose producer/consumer services - the only new compose service is
+`lmp-prefect-deployments`, running `lmp_deployments.py`.
+
+Before building this, ran a one-off gap-fill (`_archive/scripts/gapfill_raw_lmp.py`) to
+close the ~2-week gap between the original Aug 21-23 historical backfill and now, since
+none of these sources had live ingestion until today.
+
+**Not yet done:** nothing has run for real yet - every deployment is `paused=True`.
+Mac Mini needs a `git pull` + `docker compose up` to get `lmp-prefect-deployments`
+running, then each deployment unpaused (and validated) individually in the Prefect UI.
+
+**Title: Real-time LMP target changed to the unverified feed + one genuine Kafka stream added, Author: Angie Ohaeri, Date: September 5th Time: (session)**
+
+Caught mid-review: `marginal_value_rt`'s ~2-day settlement lag means it (and every other
+verified PJM feed) can never be what a live pricing model forecasts *toward* - the
+number doesn't exist yet at decision time. Confirmed directly against PJM's own
+definitions and by polling live: `rt_unverified_fivemin_lmps` is the pre-settlement
+real-time LMP feed traders actually see and act on, landing every 5 minutes with ~8min
+lag (measured as low as 13 seconds in one poll). Verified prices only ever matter after
+the fact, for settlement/accounting and as a delayed accuracy check - never as a live
+target. **Decision: the model's "Real-time LMP: 5-min" target is now the unverified
+feed, not `rt_hrl_lmps`/`marginal_value_rt`.**
+
+Added `raw_lmp.lmp_rt_unverified_fivemin` (zone x 5-min, same 20 zones as every other
+table here - `src/consumers/lmp_model_schema.sql`). Unlike every other raw_lmp source,
+this one is genuinely streaming, so it's the one built as a real Kafka producer/consumer
+pair (`src/producers/raw_lmp_lmp_rt_unverified_fivemin_producer.py`,
+`src/consumers/raw_lmp_lmp_rt_unverified_fivemin_consumer.py`, own topic + DLQ, own
+docker-compose services, 10-min interval deployments in `lmp_deployments.py`) - matches
+decisions.md's "reserve Kafka for genuinely streaming data" carve-out exactly, the one
+case among all 11 raw_lmp sources where it actually applies.
+
+One operational quirk worth remembering: `rt_unverified_fivemin_lmps` returned "No data
+found" on repeated direct tests at 60/120/180/240-minute poll windows, but succeeded
+reliably at 360 minutes every time - the producer's `POLL_WINDOW_MINUTES = 360` isn't
+an arbitrary safety margin, it's a measured requirement of this specific endpoint.
+
 
 **Decision: the empirical shift-factor proxy (see below) is now the primary approach,
 not a fallback.** It doesn't need coordinates at all, and it's arguably the *more*
