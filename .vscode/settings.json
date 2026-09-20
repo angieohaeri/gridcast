@@ -4,7 +4,7 @@
         "**/dbt_project.yaml"
     ],
     "yaml.schemas": {
-        "https://raw.githubusercontent.com/dbt-labs/dbt-jsonschema/main/schemas/latest_fusion/dbt_yml_files-latest-fusion.json": "file:///Users/angieohaeri/projects/gridcast/src/dbt/dbt_project.yml",
-        "https://www.schemastore.org/pre-commit-config.json": "file:///Users/angieohaeri/projects/gridcast/.pre-commit-config.yaml"
+        "https://www.schemastore.org/pre-commit-config.json": "file:///Users/angieohaeri/projects/gridcast/.pre-commit-config.yaml",
+        "https://raw.githubusercontent.com/dbt-labs/dbt-jsonschema/main/schemas/latest_fusion/dbt_yml_files-latest-fusion.json": "file:///Users/angieohaeri/projects/gridcast/src/dbt/dbt_project.yml"
     }
 }
