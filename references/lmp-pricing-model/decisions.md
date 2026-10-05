@@ -248,3 +248,39 @@ unbackfilled** (full detail: `schema.md`; code: `raw_lmp_sync.py`, `lmp_deployme
 - Storage/compute cost of ~350-400M additional rows at full nodal-DA-backfill scope —
   not estimated here (depends on the DB host's current headroom, not something this
   investigation had visibility into).
+
+**Title: Switched the nodal-LMP backfill plan to manual CSV export from the Data Miner 2 UI, not the API; tables created ahead of that load, Author: Angie Ohaeri (assisted), Date: October 4th Time: (session, follow-up)**
+
+Decided to backfill `lmp_da_hourly_nodal`/`load_metered_by_area` via CSV exported by
+hand from the Data Miner 2 web UI instead of the gridstatus/API path every other
+raw_lmp source uses — sidesteps the rate-limiting this file's own test pulls already
+hit at nodal volume (above). Before that load, got both tables created in the live DB
+(`CREATE TABLE IF NOT EXISTS` only — ran just the two new blocks from
+`lmp_model_schema.sql`, nothing else touched, no deployment unpaused, no data written).
+
+**The CSV's headers do not match either this table's column names or the API's
+snake_case field names** — checked live against the Data Miner 2 UI
+(`dataminer2.pjm.com/feed/da_hrl_lmps` and `.../hrl_load_metered`) rather than guessed,
+same empirical-first approach as every other feed in this file. Full column mapping and
+a ready-to-use (not run) loader: `_archive/scripts/load_nodal_csv.py`. Three things the
+UI export doesn't hand you for free, all handled there:
+
+- `zone`: no transform needed for either table — confirmed live that `da_hrl_lmps`'s
+  nodal export's `Transmission Zone` column already uses this project's zone_id short
+  codes (`PSEG`, `AECO`, ... only appear in the filter dropdown, not the data rows),
+  simpler than the API path (which needs `LOCATION_TO_ZONE`). Flagged as a risk before
+  checking; turned out not to be one.
+- `time`: the export only has `Datetime Beginning UTC` (Interval Start) — every other
+  raw_lmp table uses Hour Ending (Interval End) as `time`, so the loader adds 1 hour,
+  matching `raw_lmp_sync.py`'s convention.
+- **Row de-duplication**: the UI does not pre-filter to one pnode type or one row
+  version the way the API path's `type=*LOAD*`/`row_is_current=TRUE` params do.
+  Confirmed live: `da_hrl_lmps`, one day, no filter → 348,120 rows (every pnode type,
+  multiple row versions for revised intervals); filtering the UI's "Pricing Node Type"
+  column to `LOAD` before export → 283,032 rows, still not exactly 11,751 × 24 =
+  282,024, meaning version duplication likely remains even after that filter. **The
+  user needs to filter Pricing Node Type = LOAD in the UI before exporting**, and the
+  loader de-dupes defensively on `(time, pnode_id)` by `Version Number` regardless, since
+  the UI has no `row_is_current`-equivalent guarantee.
+
+Tables are empty and ready; the actual CSV export/load is the user's to run.
