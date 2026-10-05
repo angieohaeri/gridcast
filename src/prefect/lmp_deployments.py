@@ -11,6 +11,11 @@ real-time LMP target - is genuinely streaming, so it's a real Kafka producer/con
 pair instead (src/producers/, src/consumers/), same shape as lmp_producer.py/
 lmp_consumer.py.  on every deployment per decisions.md, until each has a
 validated run.
+
+Two more sources added 2026-10-04 from the nodal-LMP investigation (decisions.md,
+"Nodal LMP granularity"): lmp_da_hourly_nodal and load_metered_by_area. Both explicitly
+paused=True below - neither has a validated run yet, same convention as every other
+raw_lmp deployment before its first unpause.
 """
 
 from datetime import timedelta
@@ -23,6 +28,8 @@ from raw_lmp_sync import (
     sync_generation_by_fuel,
     sync_generation_ehv_losses,
     sync_lmp_da_hourly,
+    sync_lmp_da_hourly_nodal,
+    sync_load_metered_by_area,
     sync_marginal_value_da,
     sync_marginal_value_rt,
     sync_natural_gas_fuel_cost,
@@ -101,6 +108,18 @@ if __name__ == "__main__":
             name="lmp_rt_5min_producer_unverified", interval=timedelta(minutes=10), 
         ),
         raw_lmp_lmp_rt_unverified_fivemin_consumer_flow.to_deployment(
-            name="lmp_rt_5min_consumer_unverified", interval=timedelta(minutes=10), 
+            name="lmp_rt_5min_consumer_unverified", interval=timedelta(minutes=10),
+        ),
+
+        # Added 2026-10-04 - nodal LMP investigation (decisions.md). paused=True: no
+        # validated run yet, and this one also needs an explicit backfill-scope decision
+        # before it should ever run unattended (see lmp_model_schema.sql's volume note).
+        sync_lmp_da_hourly_nodal.to_deployment(
+            name="lmp_da_hourly_nodal", schedule=Cron("40 12 * * *", timezone="America/New_York"), paused=True
+        ),
+        # Added 2026-10-04, same investigation. paused=True: no validated run yet. Low
+        # volume relative to lmp_da_hourly_nodal - safe to backfill once validated.
+        sync_load_metered_by_area.to_deployment(
+            name="load_metered_by_area", schedule=Cron("45 12 * * *", timezone="America/New_York"), paused=True
         ),
     )

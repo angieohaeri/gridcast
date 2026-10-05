@@ -59,6 +59,61 @@ reliably at 360 minutes every time - the producer's `POLL_WINDOW_MINUTES = 360` 
 an arbitrary safety margin, it's a measured requirement of this specific endpoint.
 
 
+**Title: Nodal LMP granularity investigated — available but unused everywhere; two new raw_lmp sources added (paused, unbackfilled), Author: Angie Ohaeri (assisted), Date: October 4th Time: (session)**
+
+Prompted by noticing Data Miner 2's web UI for Day-Ahead Hourly LMPs shows full nodal
+detail (thousands of individual pricing nodes — `ALDENE`, `ATHENIA`, `BELLEVIL` in
+PSEG, each with its own `Pricing Node ID`/`Voltage`/`Equipment`/`Pricing Node Type`),
+while every raw_lmp/public LMP table only has 20-23 distinct zones. Checked whether
+this project's existing ingestion (the 11 raw_lmp sources above, plus `public.lmp`) was
+already using the richer grain before assuming otherwise — it wasn't:
+
+- `public.lmp` (`lmp_producer.py`) pulls `rt_hrl_lmps` with `location_type="ZONE"`.
+- `raw_lmp.lmp_da_hourly` pulls `da_hrl_lmps` with `location_type="ZONE"`.
+- `raw_lmp.lmp_rt_unverified_fivemin` pulls the full unfiltered `rt_unverified_fivemin_lmps`
+  response (its own comment already says "the feed returns every pnode type - BUS/
+  AGGREGATE/EHV/etc, not just ZONE") and filters down to `type == "ZONE"` client-side.
+
+So the nodal detail was never evaluated as a feature source — it's discarded by design
+in all three places, inherited from `lmp_producer.py`'s original zone-only pattern, not
+a documented decision. Confirmed via gridstatus's `PJM.get_lmp(location_type=...)`
+(`LOCATION_TYPES` includes `LOAD`, `GEN`, `AGGREGATE`, `ZONE`, `HUB`, `EHV`, `TIE`,
+`INTERFACE`, `EXT`, `RESIDUAL_METERED_EDC`) and a live test pull: `da_hrl_lmps`,
+`type=*LOAD*`, one hour → exactly the nodes the UI showed (`ALDENE`/`ATHENIA`/
+`BELLEVIL`, PSEG zone, with `voltage`/`equipment` fields intact) and **11,751 distinct
+LOAD-type pnodes** — PJM's own `get_lmp` docstring's "over 10,000 unique pnodes" borne
+out exactly.
+
+Also checked load (the task's other explicit ask): PJM has no nodal load feed — load is
+metered per utility sub-area, not per pricing node, so there's no equivalent to LMP's
+pricing nodes here. But `hrl_load_metered` (the feed `public.load`'s producer already
+pulls) carries a `Load Area` field finer than zone that `load_producer.py` sums away
+("Six zones report multiple Load Areas per hour; sum to one zonal total") — same shape
+of problem as the LMP case: richer detail already being pulled, then thrown away before
+landing.
+
+**Decision: added two new raw_lmp sources** (schema.md has full detail):
+- `raw_lmp.lmp_da_hourly_nodal` — `da_hrl_lmps`, `type=*LOAD*`. The nodal counterpart to
+  `lmp_da_hourly` above, day-ahead only (no real-time Kafka complexity) as the safer
+  starting point. **Deliberately not backfilled, deployment left `paused=True`**: one
+  day's pull is already ~282k rows (6 pages) and hit PJM's rate limiter on the last page
+  during testing even with `retries=3` — a full backfill to 2023-01-01 (matching this
+  project's other Tier 1 sources) would be on the order of 350-400M rows. Needs an
+  explicit scope decision (all ~11,750 nodes vs. a zone subset; how much history) before
+  committing to that cost — not made unilaterally here.
+- `raw_lmp.load_metered_by_area` — `hrl_load_metered`, same feed as `public.load`, but
+  keeping `Load Area` instead of summing it away. Low volume (672 rows/day, 28 zone/area
+  pairs), no scope decision needed — just not backfilled yet since the deployment isn't
+  validated.
+
+Also surfaced, not acted on this pass (see `decisions.md` for the full list and why):
+`rt_fivemin_hrl_lmps` (verified 5-min settled LMP — gridstatus-wrapped, unused; would
+match the RT target's grain exactly, unlike today's hourly-verified reconciliation
+value), PJM's load-forecast feeds (`get_load_forecast`/`_historical`/`_5_min` — day-ahead
+and 5-min load forecasts, not currently ingested at all), and confirmation that
+`inst_dispatch_rates` (Tier 2 above) *does* support a date-range window query — resolves
+that row's "unverified, check first" note.
+
 **Decision: the empirical shift-factor proxy (see below) is now the primary approach,
 not a fallback.** It doesn't need coordinates at all, and it's arguably the *more*
 accurate quantity to estimate anyway — see `decisions.md` for the tradeoffs.
@@ -154,6 +209,10 @@ Table structure, row counts, and date ranges for every backfilled `raw_lmp` tabl
 | 1 | Day-Ahead Transmission Constraints (`raw_lmp.transmission_constraints_da`) | backfilled | the congestion pattern set — which facility/contingency pairs bound and for how long (duration, no price magnitude; pairs with `marginal_value_da`'s shadow price for the same facility) |
 | 1 | Day-Ahead Hourly LMPs (`raw_lmp.lmp_da_hourly`) | backfilled | enables a DA-RT basis feature (same zone×hour grain as `public.lmp`, DA market instead of RT) |
 | 1 | Generation and Extra High Voltage Losses (`raw_lmp.generation_ehv_losses`) | backfilled | the losses term, smallest of the three components — was the lowest priority, now sourced |
+| 1 — nodal grain | Day-Ahead Hourly LMPs, pnode-level (`raw_lmp.lmp_da_hourly_nodal`) | added, paused, **not backfilled** | the actual nodal LMP (`ALDENE`/`ATHENIA`/`BELLEVIL`-style pricing nodes) Data Miner's UI shows and this project never ingested at any grain until now — 11,751 LOAD pnodes, ~282k rows/day; needs a scope decision (all nodes vs. zone subset, how much history) before backfill/unpause, see decisions.md |
+| 1 — nodal grain | Hourly Metered Load by Load Area (`raw_lmp.load_metered_by_area`) | added, paused, not backfilled | sub-zone load granularity from the same feed `public.load` already pulls, previously summed away; low volume, no scope decision needed |
+| 2 | Real-Time 5-Min LMP, verified (`rt_fivemin_hrl_lmps`) | checked, not added | gridstatus-wrapped (`get_lmp(market=REAL_TIME_5_MIN)`), currently unused — would match the 5-min RT target's own grain exactly, unlike today's hourly-verified (`rt_hrl_lmps`) reconciliation value; worth a closer look before the backtest-reconciliation step is finalized |
+| 2 | PJM Load Forecast (`get_load_forecast`/`_historical`/`_5_min`) | checked, not added | day-ahead (6-day hourly) and 5-min-ahead load forecasts, gridstatus-wrapped, not currently ingested in any form — a leading indicator neither `load` nor `lmp` has today |
 | 2 — renewable variability | Five Minute Solar/Wind Generation + forecasts | planned | duck-curve dynamics |
 | 3 — investigate first | Energy Market Generation Offers | not a live feature — 4-month posting delay (PJM's stated policy) | not useless though: genuinely rich bid-curve data (masked generator ID, MW/BID pairs, start costs, ECOMAX/ECOMIN). Heat rate is a slow-changing physical property, not something that needs to be fresh — use this (even 4mo stale) to back-calculate typical heat rate/markup per unit or fuel type (the primer's "effective heat rate"), then apply that calibration to **live** fuel cost to estimate a live marginal-cost curve. Freshness requirement moves from the bid (stale) to the heat rate (doesn't need to be fresh) |
 | 3 | Daily Cleared INCs, DECs, UTCs | checked, weak — posts daily 4am but only 1 row/day of RTO-wide MW totals (no price/location) | at best a blunt proxy for anticipated DA-RT congestion via UTC volume; low priority |
@@ -164,7 +223,7 @@ Table structure, row counts, and date ranges for every backfilled `raw_lmp` tabl
 | 3 | Day-Ahead Ratings | not started | facility thermal/emergency headroom; needs the same facility geocoding as Marginal Value (`raw_lmp.facilities`, partial + CEII-capped) — defer |
 | 3 | Up-To-Congestion Bid Screening | not started | financial arbitrage bid data, closest thing to revealed trader expectations of congestion; check if published live vs. delayed/aggregated before committing |
 | 3 | Operating Reserve Rates Preliminary | not started | separate co-optimized ancillary market; reserve-price spikes can proxy system stress but it's a new mechanism to model, not congestion itself |
-| 2 | Instantaneous Dispatch Rates | not started | zonal(!), 15-second native — being zone-keyed skips the facility-name attribution problem entirely (zonal analog to Generation by Fuel Type). Don't point-sample hourly (a single 15s snapshot misses ramps/spikes); batch-pull the time series per date range and aggregate to hourly (mean/max/std/range) in dbt instead, if Data Miner supports a window query for this report — unverified, check first |
+| 2 | Instantaneous Dispatch Rates | not started — window-query support now **confirmed** (`get_instantaneous_dispatch_rates(date, end=...)`, a real date-range pull, not point-sampling) | zonal(!), 15-second native — being zone-keyed skips the facility-name attribution problem entirely (zonal analog to Generation by Fuel Type). Don't point-sample hourly (a single 15s snapshot misses ramps/spikes); batch-pull the time series per date range and aggregate to hourly (mean/max/std/range) in dbt instead |
 
 ### Zone attribution / shift-factor proxy (reference data, not streaming)
 
@@ -202,6 +261,17 @@ Graph-construction and zone-attribution-fallback decisions: `decisions.md`.
   regression on top and measure the lift — don't build the complex feature first.
 - Decide forecast horizon N for both targets (same open question as
   `project_pjm_load_forecast_feature`).
+- Decide `lmp_da_hourly_nodal`'s backfill scope (all ~11,750 LOAD pnodes vs. a zone
+  subset; how much history) before unpausing it or running any backfill — see
+  `decisions.md`. Until then it's code-only, no data.
+- Validate `lmp_da_hourly_nodal` and `load_metered_by_area`'s deployments (both
+  `paused=True`) the same way the other 11 raw_lmp sources were — see decisions.md for
+  why `lmp_da_hourly_nodal`'s normal 7-day trailing-window production pull (~2M rows,
+  ~40 pages) likely needs the same hand-rolled chunked-pagination treatment as
+  `lmp_rt_unverified_fivemin`'s backfill script before it's safe unattended.
+- If `lmp_da_hourly_nodal` proves out, decide whether the zone-level `lmp_rt_hrl_lmps`/
+  `rt_unverified_fivemin_lmps`/`da_hrl_lmps` pulls should gain a nodal sibling too, or
+  whether day-ahead nodal alone is enough signal for the shift-factor/congestion work.
 
 Graph-distance matching (facility → `transmission_nodes` → shortest path to zone) is on
 hold, not deleted — `raw_lmp.facilities` + CEII ceiling means it can only ever cover

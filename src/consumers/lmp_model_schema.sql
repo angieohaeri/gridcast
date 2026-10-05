@@ -195,6 +195,71 @@ create table if not exists raw_lmp.natural_gas_fuel_cost (
     unique (period, location)
 );
 
+-- da_hrl_lmps, type=*LOAD*: day-ahead PRICING-NODE-level hourly LMP - same feed as
+-- lmp_da_hourly above, but server-side filtered to LOAD-type pnodes (delivery points,
+-- e.g. ALDENE/ATHENIA/BELLEVIL in PSEG) instead of the 20 zone aggregates. Investigated
+-- 2026-10-04 (references/lmp-pricing-model/decisions.md, "Nodal LMP granularity") after
+-- confirming Data Miner 2's UI exposes this grain and the current ingestion discards it
+-- via location_type=ZONE. Called via PJM._get_pjm_json() directly, not gridstatus's
+-- get_lmp() wrapper, to keep the equipment/voltage fields get_lmp() drops and to avoid
+-- get_lmp()'s extra pnode-metadata merge call (confirmed hitting PJM's rate limit on its
+-- own during investigation). zone here is already the full utility name (PSEG, AECO,
+-- etc, matching lmp_da_hourly's LOCATION_TO_ZONE values) - no Location Short Name
+-- indirection needed, unlike the zone-level pull. row_is_current=TRUE, same as
+-- lmp_da_hourly. PAUSED, NOT BACKFILLED - see decisions.md for why: ~11,750 distinct
+-- LOAD pnodes per hour (confirmed empirically), ~282k rows/day, so backfilling to
+-- 2023-01-01 to match this project's other Tier 1 sources would be on the order of
+-- 350-400M rows. Needs an explicit scope decision (all nodes vs. a zone subset, how much
+-- history) before either backfilling or unpausing - deliberately left paused and
+-- unbackfilled pending that decision.
+create table if not exists raw_lmp.lmp_da_hourly_nodal (
+    time timestamptz not null,
+    pnode_id bigint not null,
+    pnode_name text not null,
+    pnode_type text not null,
+    zone text not null,
+    voltage text,
+    equipment text,
+    lmp numeric not null,
+    congestion_price numeric,
+    marginal_loss_price numeric,
+    unique (time, pnode_id)
+);
+
+select create_hypertable('raw_lmp.lmp_da_hourly_nodal', 'time', if_not_exists => true);
+
+create index if not exists lmp_da_hourly_nodal_zone_time_idx
+    on raw_lmp.lmp_da_hourly_nodal (zone, time desc);
+
+create index if not exists lmp_da_hourly_nodal_pnode_time_idx
+    on raw_lmp.lmp_da_hourly_nodal (pnode_id, time desc);
+
+-- hrl_load_metered, Load Area preserved: same feed public.load's producer already
+-- pulls (src/producers/load_producer.py), but that producer sums every Load Area within
+-- a zone into one zonal total ("Six zones report multiple Load Areas per hour; sum to
+-- one zonal total") - this table keeps Load Area as its own column instead, the one
+-- finer-than-zone grain PJM actually publishes for metered load (load is metered per
+-- utility sub-area, not per pricing node - there is no nodal load feed, unlike LMP).
+-- Investigated 2026-10-04 alongside the nodal LMP work above. zone uses this project's
+-- zone_id codes directly (hrl_load_metered's own zone field, unlike da_hrl_lmps/
+-- rt_hrl_lmps, already uses zone_id short codes - see raw_lmp_sync.py). Low volume
+-- (zones x load areas x hours, nowhere near the nodal LMP table above) - safe to
+-- backfill once validated, unlike lmp_da_hourly_nodal. PAUSED, NOT BACKFILLED pending
+-- validation, same as every other new raw_lmp deployment per decisions.md.
+create table if not exists raw_lmp.load_metered_by_area (
+    time timestamptz not null,
+    zone text not null,
+    load_area text not null,
+    demand_mw numeric not null,
+    is_verified boolean,
+    unique (time, zone, load_area)
+);
+
+select create_hypertable('raw_lmp.load_metered_by_area', 'time', if_not_exists => true);
+
+create index if not exists load_metered_by_area_zone_time_idx
+    on raw_lmp.load_metered_by_area (zone, time desc);
+
 -- Compression was tried and reverted (2026-08-23) on all 8 raw_lmp hypertables - see
 -- decisions.md ("Compression tried and reverted"). Reason: Postgres validates system
 -- columns across every chunk when planning a query against a hypertable, so a client

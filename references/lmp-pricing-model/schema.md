@@ -317,3 +317,84 @@ DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,bac
 | `cost_per_mmbtu` | numeric | dollars per million BTU (fixed unit — EIA's `cost-per-btu-units` field, always this value, dropped); null = no NG generation reported |
 
 Unique constraint: `(period, location)`.
+
+---
+
+### `lmp_da_hourly_nodal`
+
+**Added 2026-10-04** (nodal-LMP investigation, `decisions.md` — "Nodal LMP granularity").
+`da_hrl_lmps`, `type=*LOAD*` — the same feed as `lmp_da_hourly` above, server-side
+filtered to individual LOAD-type pricing nodes (delivery points, e.g. `ALDENE`,
+`ATHENIA`, `BELLEVIL` in the PSEG zone — confirmed empirically) instead of the 20 zone
+aggregates. Pulled via `PJM._get_pjm_json()` directly, not gridstatus's `get_lmp()`
+wrapper — `get_lmp()` drops the `equipment` field and does a second API call to merge in
+pnode metadata, which hit PJM's rate limit on its own during a single day's test pull of
+this feed. `zone` here is already the full utility name (`PSEG`, `AECO`, ...) — same
+values as `LOCATION_TO_ZONE`, no `Location Short Name` indirection needed.
+
+**Not backfilled. Deployment `paused=True`, not yet validated with a full production
+pull.** Confirmed empirically (2026-10-04): **11,751 distinct LOAD pnodes** in a single
+hour's pull — PJM posts the same roster every hour, so that's ~282k rows/day, not
+11,751×24. A 7-day trailing-window production pull (this project's standard
+`POLL_WINDOW_DAYS`) is therefore ~2M rows per run, requiring ~40 sequential 50k-row pages
+— two orders of magnitude more than every other `raw_lmp` source. A test pull of just
+one day (6 pages) hit PJM's rate limiter on the last page even with `retries=3`; the
+production flow uses `retries=6`, which is likely but not confirmed sufficient. Treat
+this the way `lmp_rt_unverified_fivemin`'s backfill script treats its feed (hand-rolled
+chunking + cooldown-retry, not gridstatus's default pagination) before trusting this on
+an unattended schedule. Backfilling to 2023-01-01 to match this project's other Tier 1
+sources would be on the order of **350-400M rows** — needs an explicit scope decision
+(all ~11,750 nodes vs. a zone subset; how much history) before either backfilling or
+unpausing. See `decisions.md` for the full tradeoff.
+
+DDL: `src/consumers/lmp_model_schema.sql`. No backfill script — deliberately not
+written yet, see `decisions.md`.
+
+| column | type | notes |
+|---|---|---|
+| `time` | timestamptz, not null | Hour Ending, UTC; hypertable partitioning column |
+| `pnode_id` | bigint, not null | |
+| `pnode_name` | text, not null | e.g. `ALDENE`, `ATHENIA`, `BELLEVIL` |
+| `pnode_type` | text, not null | always `LOAD` in this pass — `GEN`-type pnodes are the same feed, a separate pull, deliberately not added here |
+| `zone` | text, not null | project zone_id code |
+| `voltage` | text | e.g. `230 KV` |
+| `equipment` | text | e.g. `T-10`, `26KV-2` — sub-node equipment tag, not unique by itself (pairs with `pnode_id`) |
+| `lmp` | numeric, not null | total day-ahead LMP ($/MWh) |
+| `congestion_price` | numeric | |
+| `marginal_loss_price` | numeric | |
+
+Unique constraint: `(time, pnode_id)`. Indexes: `(zone, time desc)`, `(pnode_id, time desc)`.
+
+---
+
+### `load_metered_by_area`
+
+**Added 2026-10-04**, same investigation. `hrl_load_metered` — the same feed
+`public.load`'s producer already pulls (`src/producers/load_producer.py`), but that
+producer sums every `Load Area` within a zone into one zonal total ("Six zones report
+multiple Load Areas per hour; sum to one zonal total"). This table keeps `Load Area` as
+its own column instead — the one finer-than-zone grain PJM actually publishes for
+metered load. Load has no nodal/pricing-node grain the way LMP does — it's metered per
+utility sub-area, not per pricing node — so `Load Area` is the ceiling here, not a
+deliberately-coarser choice. `zone` uses this project's zone_id codes directly (this
+feed's own `zone` field, unlike `da_hrl_lmps`/`rt_hrl_lmps`, already uses zone_id short
+codes — same as `load_producer.py`'s `poll_pjm_load`).
+
+**Not backfilled. Deployment `paused=True`, not yet validated.** Confirmed empirically
+(2026-10-04): 1 day = 672 rows, 28 distinct `(zone, load_area)` pairs across the 20
+zones (e.g. `ATSI` reports both `PAPWR` and `OE`; most zones report only one area
+matching their own zone code). Low volume — nowhere near `lmp_da_hourly_nodal` above —
+safe to backfill once validated, same effort as any other Tier 1 source.
+
+DDL: `src/consumers/lmp_model_schema.sql`. No backfill script yet — not written in this
+pass, but unlike `lmp_da_hourly_nodal` this one doesn't need a scope decision first.
+
+| column | type | notes |
+|---|---|---|
+| `time` | timestamptz, not null | Hour Ending, UTC; hypertable partitioning column |
+| `zone` | text, not null | project zone_id code |
+| `load_area` | text, not null | PJM sub-zone load-reporting area; often equal to `zone` where a zone has only one area |
+| `demand_mw` | numeric, not null | |
+| `is_verified` | boolean | |
+
+Unique constraint: `(time, zone, load_area)`. Index: `(zone, time desc)`.

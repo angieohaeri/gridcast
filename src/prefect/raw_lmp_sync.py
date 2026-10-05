@@ -6,6 +6,10 @@ below, confirmed against PJM Data Miner where a feed page was found). One `@flow
 function per source so each keeps its own retries/schedule/run history in Prefect
 (deployments.py schedules them independently) - running this file directly just runs
 all 10 in sequence, same pattern as _archive/scripts/gapfill_raw_lmp.py.
+
+Also two sources added 2026-10-04 from the nodal-LMP investigation (decisions.md,
+"Nodal LMP granularity"): sync_lmp_da_hourly_nodal and sync_load_metered_by_area. Both
+follow the same pattern as the 10 above - PAUSED in lmp_deployments.py, not backfilled.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -404,6 +408,120 @@ def sync_natural_gas_fuel_cost():
     logger.success(f"Upserted {len(rows)} raw_lmp.natural_gas_fuel_cost rows")
 
 
+# --- lmp_da_hourly_nodal - same da_hrl_lmps feed as lmp_da_hourly, filtered to --------
+# LOAD-type pricing nodes instead of ZONE. Added 2026-10-04 (decisions.md, "Nodal LMP ---
+# granularity"). PAUSED, NOT BACKFILLED - see lmp_model_schema.sql's comment for the ----
+# ~350-400M-row backfill-volume estimate; needs a scope decision first. --------------
+
+LMP_DA_HOURLY_NODAL_UPSERT = """
+INSERT INTO raw_lmp.lmp_da_hourly_nodal
+    (time, pnode_id, pnode_name, pnode_type, zone, voltage, equipment, lmp, congestion_price, marginal_loss_price)
+VALUES %s
+ON CONFLICT (time, pnode_id) DO UPDATE SET
+    pnode_name = EXCLUDED.pnode_name,
+    pnode_type = EXCLUDED.pnode_type,
+    zone = EXCLUDED.zone,
+    voltage = EXCLUDED.voltage,
+    equipment = EXCLUDED.equipment,
+    lmp = EXCLUDED.lmp,
+    congestion_price = EXCLUDED.congestion_price,
+    marginal_loss_price = EXCLUDED.marginal_loss_price
+"""
+
+# Delivery-point pnodes only, matching what Data Miner's UI shows (ALDENE/ATHENIA/
+# BELLEVIL etc, confirmed empirically 2026-10-04). GEN-type pnodes are a separate,
+# equally-available pull (same feed, type=*GEN*) - deliberately left out of this pass,
+# see decisions.md.
+NODAL_LOCATION_TYPE = "LOAD"
+
+
+def poll_lmp_da_hourly_nodal(pjm: gs.PJM, start: datetime, end: datetime) -> pd.DataFrame:
+    # Direct _get_pjm_json call, not get_lmp(location_type=...): get_lmp() drops the
+    # equipment field and does a second API call to merge in pnode metadata, which
+    # rate-limited during investigation on a single day's pull of this feed. Calling
+    # da_hrl_lmps directly with an explicit type filter avoids both.
+    raw = pjm._get_pjm_json(
+        "da_hrl_lmps",
+        start=start.strftime("%Y-%m-%d"),
+        end=end.strftime("%Y-%m-%d"),
+        params={
+            "type": f"*{NODAL_LOCATION_TYPE}*",
+            "row_is_current": "TRUE",
+            "fields": "congestion_price_da,datetime_beginning_utc,equipment,marginal_loss_price_da,pnode_id,"
+            "pnode_name,row_is_current,total_lmp_da,type,voltage,zone",
+        },
+        interval_duration_min=60,
+    )
+    # zone here is already the full utility name (PSEG, AECO, ...), same values as
+    # LOCATION_TO_ZONE - no Location Short Name indirection needed, unlike lmp_da_hourly.
+    raw = raw[raw["zone"].isin(LOCATION_TO_ZONE)].copy()
+    raw["zone"] = raw["zone"].map(LOCATION_TO_ZONE)
+    raw["time"] = raw["Interval End"].dt.tz_convert("UTC")
+    raw = raw.rename(
+        columns={
+            "type": "pnode_type",
+            "total_lmp_da": "lmp",
+            "congestion_price_da": "congestion_price",
+            "marginal_loss_price_da": "marginal_loss_price",
+        }
+    )
+    raw = raw.where(raw.notna(), None)
+    return raw.drop_duplicates(subset=["time", "pnode_id"])
+
+
+@flow(name="raw_lmp_lmp_da_hourly_nodal_sync", retries=3, retry_delay_seconds=60, log_prints=True)
+def sync_lmp_da_hourly_nodal():
+    _assert_zone_mapping_in_sync()
+    end = datetime.now(UTC)
+    pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
+    raw = poll_lmp_da_hourly_nodal(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end)
+    rows = list(
+        raw[
+            ["time", "pnode_id", "pnode_name", "pnode_type", "zone", "voltage", "equipment", "lmp", "congestion_price", "marginal_loss_price"]
+        ].itertuples(index=False, name=None)
+    )
+    _upsert(LMP_DA_HOURLY_NODAL_UPSERT, rows)
+    logger.success(f"Upserted {len(rows)} raw_lmp.lmp_da_hourly_nodal rows")
+
+
+# --- load_metered_by_area - same hrl_load_metered feed public.load's producer already --
+# pulls, but keeping Load Area instead of summing it away. Added 2026-10-04 -------------
+# (decisions.md, "Nodal LMP granularity" - load has no nodal grain, Load Area is as -----
+# fine as PJM publishes it). PAUSED, NOT BACKFILLED pending validation, low volume. -----
+
+LOAD_METERED_BY_AREA_UPSERT = """
+INSERT INTO raw_lmp.load_metered_by_area (time, zone, load_area, demand_mw, is_verified)
+VALUES %s
+ON CONFLICT (time, zone, load_area) DO UPDATE SET
+    demand_mw = EXCLUDED.demand_mw,
+    is_verified = EXCLUDED.is_verified
+"""
+
+
+def poll_load_metered_by_area(pjm: gs.PJM, start: datetime, end: datetime, zone_ids: set[str]) -> pd.DataFrame:
+    # hrl_load_metered's own zone field is already this project's zone_id short codes
+    # (AE, AEP, ...) - unlike da_hrl_lmps/rt_hrl_lmps, no LOCATION_TO_ZONE mapping needed
+    # (see load_producer.py's poll_pjm_load, same feed).
+    raw = pjm.get_load_metered_hourly(start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
+    raw = raw[raw["Zone"].isin(zone_ids)].copy()
+    raw["time"] = raw["Interval End"].dt.tz_convert("UTC")
+    raw = raw.rename(columns={"Zone": "zone", "Load Area": "load_area", "MW": "demand_mw", "Is Verified": "is_verified"})
+    raw = raw.where(raw.notna(), None)
+    return raw.drop_duplicates(subset=["time", "zone", "load_area"])
+
+
+@flow(name="raw_lmp_load_metered_by_area_sync", retries=3, retry_delay_seconds=60, log_prints=True)
+def sync_load_metered_by_area():
+    zones = pd.read_csv(PROCESSED_DATA_DIR / "pjm_weather_zones.csv")
+    zone_ids = set(zones["zone_id"].unique())
+    end = datetime.now(UTC)
+    pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
+    raw = poll_load_metered_by_area(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end, zone_ids)
+    rows = list(raw[["time", "zone", "load_area", "demand_mw", "is_verified"]].itertuples(index=False, name=None))
+    _upsert(LOAD_METERED_BY_AREA_UPSERT, rows)
+    logger.success(f"Upserted {len(rows)} raw_lmp.load_metered_by_area rows")
+
+
 if __name__ == "__main__":
     sync_marginal_value_rt()
     sync_marginal_value_da()
@@ -415,3 +533,5 @@ if __name__ == "__main__":
     sync_generation_ehv_losses()
     sync_forecasted_generation_outages()
     sync_natural_gas_fuel_cost()
+    sync_lmp_da_hourly_nodal()
+    sync_load_metered_by_area()
