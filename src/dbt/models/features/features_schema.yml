@@ -11,7 +11,13 @@ models:
       - name: zone
         tests: [not_null]
       - name: demand_mw
-        tests: [not_null]
+        # NULL past the settlement edge is expected: the model forecasts from "now", and
+        # demand_mw is the target, unsettled for recent hours. still enforced on the
+        # settled region so a real gap in historical demand is caught.
+        tests:
+          - not_null:
+              config:
+                where: "time < now() - interval '4 days'"
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -69,7 +75,13 @@ models:
       - name: zone
         tests: [not_null]
       - name: demand_mw
-        tests: [not_null]
+        # NULL past the settlement edge is expected: the model forecasts from "now", and
+        # demand_mw is the target, unsettled for recent hours. still enforced on the
+        # settled region so a real gap in historical demand is caught.
+        tests:
+          - not_null:
+              config:
+                where: "time < now() - interval '4 days'"
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
