@@ -39,6 +39,14 @@ left join {{ ref('weather_features') }} w
 left join {{ ref('inst_load_features') }} i
     on l.time = i.time and l.zone = i.zone
 
+-- cap the served rows at the latest hour with a complete real-time feature vector:
+-- weather and inst_load bucket hourly (~1h behind now), so without this the newest spine
+-- row would forecast from a "now" whose weather is still NULL. anchor at the freshest
+-- fully-featured hour instead (and drop the incomplete tail from the output).
+where l.time <= least(
+    (select max(time) from {{ ref('weather_features') }}),
+    (select max(time) from {{ ref('inst_load_features') }})
+)
 {% if is_incremental() %}
-where l.time >= (select max(time) - interval '3 days' from {{ this }})
+and l.time >= (select max(time) - interval '3 days' from {{ this }})
 {% endif %}
