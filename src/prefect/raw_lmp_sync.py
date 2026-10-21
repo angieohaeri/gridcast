@@ -87,7 +87,7 @@ def poll_marginal_value_rt(pjm: gs.PJM, start: datetime, end: datetime) -> pd.Da
     return raw.drop_duplicates(subset=["datetime_beginning_utc", "Monitored Facility", "Contingency Facility"])
 
 
-@flow(name="raw_lmp_marginal_value_rt_sync", retries=3, retry_delay_seconds=60, log_prints=True)
+@flow(name="marginal_value_rt", retries=3, retry_delay_seconds=60, log_prints=True)
 def sync_marginal_value_rt():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
@@ -97,7 +97,7 @@ def sync_marginal_value_rt():
         "Transmission Constraint Penalty Factor", "Limit Control Percentage", "Shadow Price",
     ]].itertuples(index=False, name=None))
     _upsert(MARGINAL_VALUE_RT_UPSERT, rows)
-    logger.success(f"Upserted {len(rows)} raw_lmp.marginal_value_rt rows")
+    logger.success(f"Upserted {len(rows)} .marginal_value_rt rows")
 
 
 # --- marginal_value_da - cadence unconfirmed, treated as daily (same settlement family --
@@ -121,7 +121,7 @@ def poll_marginal_value_da(pjm: gs.PJM, start: datetime, end: datetime) -> pd.Da
     return raw.drop_duplicates(subset=["datetime_beginning_utc", "Monitored Facility", "Contingency Facility"])
 
 
-@flow(name="raw_lmp_marginal_value_da_sync", retries=3, retry_delay_seconds=60, log_prints=True)
+@flow(name="marginal_value_da", retries=3, retry_delay_seconds=60, log_prints=True)
 def sync_marginal_value_da():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
@@ -156,7 +156,7 @@ def poll_lmp_da_hourly(pjm: gs.PJM, start: datetime, end: datetime) -> pd.DataFr
     return raw.drop_duplicates(subset=["time", "zone"])
 
 
-@flow(name="raw_lmp_lmp_da_hourly_sync", retries=3, retry_delay_seconds=60, log_prints=True)
+@flow(name="lmp_da_hourly", retries=3, retry_delay_seconds=60, log_prints=True)
 def sync_lmp_da_hourly():
     _assert_zone_mapping_in_sync()
     end = datetime.now(UTC)
@@ -186,7 +186,7 @@ def poll_generation_by_fuel(pjm: gs.PJM, start: datetime, end: datetime) -> pd.D
     return long.where(long.notna(), None)
 
 
-@flow(name="raw_lmp_generation_by_fuel_sync", retries=3, retry_delay_seconds=60, log_prints=True)
+@flow(name="generation_by_fuel", retries=3, retry_delay_seconds=60, log_prints=True)
 def sync_generation_by_fuel():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
@@ -216,7 +216,7 @@ def poll_transmission_constraints_da(pjm: gs.PJM, start: datetime, end: datetime
     return raw.drop_duplicates(subset=["datetime_beginning_utc", "Monitored Facility", "Contingency Facility"])
 
 
-@flow(name="raw_lmp_transmission_constraints_da_sync", retries=3, retry_delay_seconds=60, log_prints=True)
+@flow(name="transmission_constraints_da", retries=3, retry_delay_seconds=60, log_prints=True)
 def sync_transmission_constraints_da():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
@@ -254,7 +254,7 @@ def poll_operator_initiated_commitments(pjm: gs.PJM, start: datetime, end: datet
     return raw.drop_duplicates(subset=["datetime_beginning_utc", "zone", "reason", "economic_max_mw"])
 
 
-@flow(name="raw_lmp_operator_initiated_commitments_sync", retries=3, retry_delay_seconds=60, log_prints=True)
+@flow(name="operator_initiated_commitments", retries=3, retry_delay_seconds=60, log_prints=True)
 def sync_operator_initiated_commitments():
     _assert_zone_mapping_in_sync()
     end = datetime.now(UTC)
@@ -284,7 +284,7 @@ def poll_scheduled_generation(pjm: gs.PJM, start: datetime, end: datetime) -> pd
     return raw.drop_duplicates(subset=["time"])
 
 
-@flow(name="raw_lmp_scheduled_generation_sync", retries=3, retry_delay_seconds=60, log_prints=True)
+@flow(name="scheduled_generation", retries=3, retry_delay_seconds=60, log_prints=True)
 def sync_scheduled_generation():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
@@ -312,7 +312,7 @@ def poll_generation_ehv_losses(pjm: gs.PJM, start: datetime, end: datetime) -> p
     return raw.drop_duplicates(subset=["time"])
 
 
-@flow(name="raw_lmp_generation_ehv_losses_sync", retries=3, retry_delay_seconds=60, log_prints=True)
+@flow(name="generation_ehv_losses", retries=3, retry_delay_seconds=60, log_prints=True)
 def sync_generation_ehv_losses():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
@@ -342,7 +342,7 @@ def poll_forecasted_generation_outages(pjm: gs.PJM, start: datetime, end: dateti
     return raw.drop_duplicates(subset=["forecast_execution_date", "forecast_date"])
 
 
-@flow(name="raw_lmp_forecasted_generation_outages_sync", retries=3, retry_delay_seconds=60, log_prints=True)
+@flow(name="forecasted_generation_outages", retries=3, retry_delay_seconds=60, log_prints=True)
 def sync_forecasted_generation_outages():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
@@ -394,7 +394,7 @@ def poll_natural_gas_fuel_cost(eia: gs.EIA, start: datetime, end: datetime) -> p
     return raw.drop_duplicates(subset=["period", "location"])
 
 
-@flow(name="raw_lmp_natural_gas_fuel_cost_sync", retries=3, retry_delay_seconds=60, log_prints=True)
+@flow(name="natural_gas_fuel_cost", retries=3, retry_delay_seconds=60, log_prints=True)
 def sync_natural_gas_fuel_cost():
     end = datetime.now(UTC)
     eia = gs.EIA(api_key=os.environ["EIA_API_KEY"])
