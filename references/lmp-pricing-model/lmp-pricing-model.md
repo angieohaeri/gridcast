@@ -31,9 +31,6 @@ Before building this, ran a one-off gap-fill (`_archive/scripts/gapfill_raw_lmp.
 close the ~2-week gap between the original Aug 21-23 historical backfill and now, since
 none of these sources had live ingestion until today.
 
-**Not yet done:** nothing has run for real yet - every deployment is `paused=True`.
-Mac Mini needs a `git pull` + `docker compose up` to get `lmp-prefect-deployments`
-running, then each deployment unpaused (and validated) individually in the Prefect UI.
 
 **Title: Real-time LMP target changed to the unverified feed + one genuine Kafka stream added, Author: Angie Ohaeri, Date: September 5th Time: (session)**
 
