@@ -26,24 +26,24 @@ with hourly as (
     {% endif %}
 
     group by 1, 2
-),
-
-lagged as (
-    select
-        time,
-        zone,
-        inst_load_mw,
-        lag(inst_load_mw, 1)  over w as inst_load_lag_1h,
-        lag(inst_load_mw, 3)  over w as inst_load_lag_3h,
-        lag(inst_load_mw, 24) over w as inst_load_lag_24h
-    from hourly
-    window w as (partition by zone order by time)
 )
 
-select *
-from lagged
+-- lags are offset joins on the hour, not lag(n) over rows: inst_load and weather drop
+-- together on a poller outage, and a positional lag would then slide onto the wrong
+-- hour across the gap. an offset join reads NULL for a missing hour instead.
+select
+    h.time,
+    h.zone,
+    h.inst_load_mw,
+    l1.inst_load_mw  as inst_load_lag_1h,
+    l3.inst_load_mw  as inst_load_lag_3h,
+    l24.inst_load_mw as inst_load_lag_24h
+from hourly h
+left join hourly l1  on l1.zone = h.zone and l1.time = h.time - interval '1 hour'
+left join hourly l3  on l3.zone = h.zone and l3.time = h.time - interval '3 hours'
+left join hourly l24 on l24.zone = h.zone and l24.time = h.time - interval '24 hours'
 {% if is_incremental() %}
 -- drop the 1-day lookback buffer from the output - it only exists to give the
 -- reprocessing window's earliest rows full history, not to be written itself
-where time >= (select max(time) - interval '1 day' from {{ this }})
+where h.time >= (select max(time) - interval '1 day' from {{ this }})
 {% endif %}

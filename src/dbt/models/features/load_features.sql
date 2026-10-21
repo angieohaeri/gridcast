@@ -21,18 +21,17 @@ with base as (
     {% endif %}
 ),
 
-lagged as (
+rolled as (
     -- demand_lag_1h/3h/24h dropped: PJM zonal load settles ~2-3 days after the
     -- fact (see references/decisions.md), so anything newer than 72h is not
     -- knowable at "now" regardless of forecast horizon - staleness depends on
     -- now vs. settlement lag, not on how far ahead the target is. 72h floor is
-    -- conservative (measured lag looks closer to 48h).
+    -- conservative (measured lag looks closer to 48h). rolling means are time
+    -- ranges, so a missing hour shrinks the window rather than shifting it.
     select
         time,
         zone,
         demand_mw,
-        lag(demand_mw, 72)  over w as demand_lag_72h,
-        lag(demand_mw, 168) over w as demand_lag_168h,
         avg(demand_mw) over (
             partition by zone order by time
             range between interval '78 hours' preceding and interval '72 hours' preceding
@@ -42,13 +41,24 @@ lagged as (
             range between interval '96 hours' preceding and interval '72 hours' preceding
         ) as demand_roll_24h
     from base
-    window w as (partition by zone order by time)
 )
 
-select *
-from lagged
+-- lags are offset joins on the hour, not lag(n) over rows: a gap in settled demand
+-- would otherwise shift a positional lag onto the wrong hour (same pattern as the
+-- lmp offset join in features.sql).
+select
+    r.time,
+    r.zone,
+    r.demand_mw,
+    l72.demand_mw  as demand_lag_72h,
+    l168.demand_mw as demand_lag_168h,
+    r.demand_roll_6h,
+    r.demand_roll_24h
+from rolled r
+left join base l72  on l72.zone = r.zone and l72.time = r.time - interval '72 hours'
+left join base l168 on l168.zone = r.zone and l168.time = r.time - interval '168 hours'
 {% if is_incremental() %}
 -- drop the 7-day lookback buffer from the output - it only exists to give the
 -- reprocessing window's earliest rows full history, not to be written itself
-where time >= (select max(time) - interval '8 days' from {{ this }})
+where r.time >= (select max(time) - interval '8 days' from {{ this }})
 {% endif %}
