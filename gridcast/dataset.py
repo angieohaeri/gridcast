@@ -5,6 +5,15 @@ from gridcast.config import get_connection, setup_logging
 setup_logging()
 
 
+def _coerce_numeric(data: pd.DataFrame) -> pd.DataFrame:
+    # a column that is entirely NULL comes back from the cursor as object dtype, which
+    # LightGBM rejects; cast the feature columns back to float so NULL reads as NaN (the
+    # missing value the model already handles). hits weather on an upstream feed gap.
+    feature_cols = data.columns.difference(["time", "zone"])
+    data[feature_cols] = data[feature_cols].apply(pd.to_numeric)
+    return data
+
+
 def dataset():
     conn = get_connection()
     cur = conn.cursor()
@@ -29,7 +38,7 @@ def latest_features(zone: str | None = None) -> pd.DataFrame:
     columns = [desc[0] for desc in cur.description]
     data = pd.DataFrame(cur.fetchall(), columns=columns)
 
-    return data
+    return _coerce_numeric(data)
 
 
 def features_window(hours: int, zone: str | None = None) -> pd.DataFrame:
@@ -46,7 +55,7 @@ def features_window(hours: int, zone: str | None = None) -> pd.DataFrame:
     columns = [desc[0] for desc in cur.description]
     data = pd.DataFrame(cur.fetchall(), columns=columns)
 
-    return data
+    return _coerce_numeric(data)
 
 
 def inst_load_window(hours: int, zone: str | None = None) -> pd.DataFrame:
