@@ -218,6 +218,149 @@ Reference table, rebuilt wholesale (`DROP`/recreate), not incrementally updated.
 
 ---
 
+### `pnode_topology_nodes` / `pnode_topology_edges`
+
+**Title: GNN node set and substation edges for pnode-level LMP modeling, Author: Angie Ohaeri (assisted), Date: October 22nd Time: 3:34am**
+
+Node set and graph for a pnode-level GNN over real-time hourly LMPs. Plain tables, not
+hypertables (no time axis); rebuilt wholesale (`DROP`/recreate) like `transmission_nodes`/
+`transmission_edges`, with `built_at` marking the build - PJM's pnode list changes
+quarterly, so the topology goes stale slowly rather than per row.
+
+Built in stages, all in `_archive/scripts/`: `pull_pnode_metadata.py` (PJM `pnode` feed →
+`data/external/pjm_pnodes.parquet`) → `join_pnode_hifld.py` (HIFLD attach) →
+`build_pnode_topology.py` (GridSFM attach + merge + edges) → `build_backfill_node_list.py`
+(node selection) → `load_pnode_topology.py` (these tables). Intermediate parquet lives in
+`data/interim/`.
+
+How pnodes get edges:
+- **pnode → substation**: first 8 chars of `pnode_name`, which is fixed-width (substation
+  code + voltage + equipment). Agrees 100% with the Substation column of PJM's 2008-2019 LMP
+  Bus Model Update files (`data/external/2008-2019/`, 4,528 overlapping buses) - those files
+  are change logs with no line/branch records, so they add no edges themselves.
+- **substation → graph**, name match within zone (exact, then 8-char truncation, voltage
+  tie-break) against two sources:
+  - **HIFLD** substations (`electric_substation_hifld_v4.gpkg`), snapped to the nearest
+    `transmission_nodes` endpoint within 1 km. Limited by naming: only ~2,700 HIFLD
+    substations in the PJM footprint have real names (the rest are `UNKNOWN…`).
+  - **GridSFM** (`data/external/gridsfm_pjm_network.json` - Microsoft's OSM-derived
+    bus/branch network, `huggingface.co/datasets/microsoft/GridSFM_US_power_grid`,
+    `16h/pjm_model.json`, MIT). A power-network model (buses, branches, impedances), not an
+    ML model. One bus per voltage yard - same-name yards within 2 km are merged into one
+    physical substation, which also resolved 133 of 143 apparently ambiguous names.
+- **Validation**: where both sources attach the same pnode substation (346), their locations
+  agree to a median ~35 m. 4 disagree by > 5 km (name collisions) and are flagged
+  `conflict`, kept out of the edges.
+- **Edges**: two attached substations are linked if a path of ≤ 4 hops runs between them
+  through unattached graph nodes, computed in each graph separately and unioned. Uncapped,
+  this connects nearly everything (median degree ~387); 4 hops gives median degree 4.
+
+Coverage: 1,037 of 6,293 pnode substations attached (3,032 BUS pnodes, 22%; 42% of ≥ 230 kV
+buses). Weak by zone - ComEd 0% (numbered station codes like `107 DIXO` never match a name),
+EKPC/Dayton ~1%, DEOK ~4% - so those zones get `fill_in` nodes: price history now, edges
+later (learned adjacency or a ComEd-specific name fix) without re-pulling LMPs.
+
+Other edge sources checked: PJM-format constraint names (`CONASTON-PEACHBOT 5012 B 500 KV`)
+are real substation-pair lines in pnode naming, but only binding lines - 598 edges, largest
+component 29 on their own; a raw OSM Overpass pull was dropped as redundant with GridSFM.
+PJM's own network model is CEII.
+
+DDL: in `load_pnode_topology.py` (same pattern as `build_transmission_graph.py`).
+
+**`pnode_topology_nodes`** - 1,505 rows: 1,037 `attached`, 426 `fill_in`, 42 `aggregate`
+
+| column | type | notes |
+|---|---|---|
+| `pnode_id` | bigint, primary key | |
+| `pnode_name` | text, not null | |
+| `pnode_subtype` | text, not null | LOAD / GEN / EXT for buses; ZONE / HUB / INTERFACE for aggregates |
+| `role` | text, not null | `aggregate` (all ZONE/HUB/INTERFACE pnodes), `attached` (one representative bus per attached substation), `fill_in` (one per ≥ 138 kV substation in ComEd/EKPC/Dayton/DEOK not already attached) |
+| `zone` | text | PJM zone name (`COMED`, `PSEG`, …); ZONE aggregates use their own name |
+| `zone_id` | text | project zone_id code; null for hubs, interfaces, `PJM-RTO`, `MID-ATL/APS`, `OVEC` |
+| `substation` | text | 8-char substation code; null for aggregates |
+| `sub_key` | text | `zone_id\|substation` - join key to the edges; null for aggregates. Indexed |
+| `voltage_kv` | numeric | |
+| `lat` / `lon` | double precision | attached only (GridSFM location, else HIFLD) |
+| `topo_source` | text | `gridsfm` \| `hifld` \| `both`; null if not attached |
+| `conflict` | boolean | GridSFM and HIFLD locations > 5 km apart; excluded from edges |
+| `built_at` | timestamptz, not null | |
+
+Representative bus per substation: highest voltage, LOAD before GEN (gen-bus prices can
+carry unit-local constraints), then lowest `pnode_id`.
+
+**`pnode_topology_edges`** - 2,921 rows: 1,628 `gridsfm`, 953 `hifld`, 340 `gridsfm+hifld`
+
+| column | type | notes |
+|---|---|---|
+| `sub_a` / `sub_b` | text, not null | `sub_key` of each end, `sub_a < sub_b`; primary key `(sub_a, sub_b)`, index on `sub_b` |
+| `source` | text, not null | which graph(s) produced the edge |
+| `built_at` | timestamptz, not null | |
+
+Largest connected component: 995 of 1,037 attached substations; 27 isolated.
+
+---
+
+### `rt_hrl_lmps_nodal`
+
+**Title: Verified real-time hourly LMPs at pnode level for the GNN node set, Author: Angie Ohaeri (assisted), Date: October 22nd Time: 7:38am**
+
+`rt_hrl_lmps` (verified real-time hourly LMP - the hourly average of the 5-min settlement
+prices) for every pnode in `pnode_topology_nodes` (1,505). The only pnode-level LMP table;
+every other LMP table here is zonal. Hypertable, 30-day chunks. Loaded 2026-10-22:
+25,737,322 rows, 1,505 pnodes, 2024-10-22 01:00 ET → 2026-10-19 00:00 ET (hour ending).
+4.11 GB uncompressed (1.55 GB table + 2.55 GB indexes, ~160 B/row).
+
+**Title: Compression enabled on rt_hrl_lmps_nodal, Author: Angie Ohaeri (assisted), Date: October 22nd Time: 7:50am**
+
+The only compressed `raw_lmp` hypertable - a deliberate exception to the 2026-08-23
+revert (note at the end of `lmp_model_schema.sql`: a compressed chunk breaks Postico's row
+browser for the whole table). Accepted for this table because of its size; query it with
+SQL rather than the row browser. `compress_segmentby = 'pnode_id'`,
+`compress_orderby = 'time desc'` - matches the main access pattern (one pnode's history).
+Chunks older than 30 days compress via policy (job 1008); the newest chunk stays
+uncompressed so partial-month refreshes stay cheap. Upserts into compressed chunks still
+work (slower). Result: 4.11 GB → 0.68 GB with 23 of 25 chunks compressed (whole DB
+5.7 GB → 2.5 GB); row count unchanged; one pnode's full 2-year history queries in ~0.07 s.
+
+DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/backfill_rt_hrl_lmps_nodal.py`
+(→ `data/interim/rt_hrl_lmps_nodal/`, 275 parquet checkpoints, DVC-tracked) →
+`_archive/scripts/load_rt_hrl_lmps_nodal.py`.
+
+Pull constraints found while backfilling (all free-tier Data Miner 2):
+- **History**: the `pnode_id` filter only works on non-archived data - the last 731 days.
+  Archived requests return 400 ("invalid attribute(s) for archived data - Pnode_Id"), so
+  anything older means pulling every pnode (~14k) and filtering client-side. The cutoff
+  rolls daily: it moved past 2024-10-21 mid-backfill and silently dropped that day for later
+  requests, hence the common 2024-10-22 start.
+- **URL length, not id count**: ~1,700 characters of URL-encoded `pnode_id` list is the
+  most that works per request (150 mostly-10-digit ids = 1,888 chars → 404). Chunks are
+  capped on both.
+- **Rate limit**: 6 requests/min, shared with the live producers on the same API key.
+  Requests are sized to one 50,000-row page and spaced 10.5 s apart; gridstatus's own
+  backoff alone doesn't keep up. ~2.5 h for the full pull.
+- **Late pnodes**: 60 of the 1,505 became effective after 2024-10-22 (up to 2026-09-16),
+  so their history starts at their effective date - a GNN needs to mask them before that.
+
+Validated on load: no duplicate `(time, pnode_id)`, no nulls, no missing hours for any
+pnode from max(2024-10-22, effective date); exactly one `system_energy_price` per hour;
+`system_energy_price + congestion_price + marginal_loss_price = lmp` to $0.01. Heavy-tailed:
+LMP −$2,328 to $4,673/MWh, congestion −$2,942 to $3,706; 99.8% of LMPs within −$59 to $1,275.
+
+| column | type | notes |
+|---|---|---|
+| `time` | timestamptz, not null | Hour Ending, UTC (feed's Interval Start + 1h), matching `public.lmp` / `lmp_da_hourly`; hypertable partitioning column |
+| `pnode_id` | bigint, not null | join to `pnode_topology_nodes` for name/zone/substation/role |
+| `system_energy_price` | real, not null | λ - system-wide, identical for every pnode in an hour |
+| `lmp` | real, not null | total LMP ($/MWh) |
+| `congestion_price` | real, not null | |
+| `marginal_loss_price` | real, not null | |
+
+`real` (float4), not `numeric` like the zonal tables: the feed's values fit float4 to the
+cent, and at ~26M rows the width matters. Unique constraint: `(time, pnode_id)`. Index:
+`(pnode_id, time DESC)`.
+
+---
+
 ### `operator_initiated_commitments`
 
 `ops_init_commit` (via `PJM._get_pjm_json()` directly — no gridstatus wrapper): zonal(!)

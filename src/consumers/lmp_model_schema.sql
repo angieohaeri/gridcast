@@ -195,10 +195,44 @@ create table if not exists raw_lmp.natural_gas_fuel_cost (
     unique (period, location)
 );
 
+-- rt_hrl_lmps (verified real-time hourly LMP) at pnode level, for the GNN node set in
+-- pnode_topology_nodes - not zonal like every other LMP table here. time = Interval End
+-- (Hour Ending, UTC), matching public.lmp / lmp_da_hourly. Lean on purpose: ~25.7M rows,
+-- so no per-row text (names/zone/voltage live in pnode_topology_nodes) and real (float4)
+-- prices - the feed's values fit float4 to the cent. lmp = system_energy_price +
+-- congestion_price + marginal_loss_price (to $0.01). Backfill:
+-- _archive/scripts/backfill_rt_hrl_lmps_nodal.py -> load_rt_hrl_lmps_nodal.py.
+create table if not exists raw_lmp.rt_hrl_lmps_nodal (
+    time timestamptz not null,
+    pnode_id bigint not null,
+    system_energy_price real not null,
+    lmp real not null,
+    congestion_price real not null,
+    marginal_loss_price real not null,
+    unique (time, pnode_id)
+);
+
+select create_hypertable('raw_lmp.rt_hrl_lmps_nodal', 'time', chunk_time_interval => interval '30 days', if_not_exists => true);
+
+create index if not exists rt_hrl_lmps_nodal_pnode_time_idx
+    on raw_lmp.rt_hrl_lmps_nodal (pnode_id, time desc);
+
+-- The one compressed raw_lmp hypertable - exception to the revert noted below, accepted
+-- 2026-10-22: at ~26M rows the size difference is worth losing Postico's row browser for
+-- this table (query it with SQL instead). Chunks older than 30 days compress via policy.
+alter table raw_lmp.rt_hrl_lmps_nodal set (
+    timescaledb.compress,
+    timescaledb.compress_segmentby = 'pnode_id',
+    timescaledb.compress_orderby = 'time desc'
+);
+
+select add_compression_policy('raw_lmp.rt_hrl_lmps_nodal', interval '30 days', if_not_exists => true);
+
 -- Compression was tried and reverted (2026-08-23) on all 8 raw_lmp hypertables - see
 -- decisions.md ("Compression tried and reverted"). Reason: Postgres validates system
 -- columns across every chunk when planning a query against a hypertable, so a client
 -- requesting ctid (Postico's row-browser grid does this) fails against the WHOLE table
 -- the moment even one chunk anywhere in it is compressed - there's no partial-compression
 -- state that keeps a GUI row browser working. Not reflected in this file: compression
--- was applied and fully undone directly against the live DB.
+-- was applied and fully undone directly against the live DB. Exception: rt_hrl_lmps_nodal
+-- (added later, above) is compressed on purpose.
