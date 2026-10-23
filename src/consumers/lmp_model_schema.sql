@@ -209,6 +209,9 @@ create table if not exists raw_lmp.rt_hrl_lmps_nodal (
     lmp real not null,
     congestion_price real not null,
     marginal_loss_price real not null,
+    -- false = from rt_unverified_hrl_lmps (hourly, live); true = verified rt_hrl_lmps, which
+    -- always overwrites. Unverified never overwrites verified (raw_lmp_sync.py upserts).
+    is_verified boolean not null default true,
     unique (time, pnode_id)
 );
 

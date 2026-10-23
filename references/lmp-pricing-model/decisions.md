@@ -66,6 +66,29 @@ unverified feed). The day-ahead hourly target is unchanged.
   unpause the 5-min pipeline and repurpose its client-side filter from `type == ZONE` to
   the GNN node set - it already downloads every pnode each poll.
 
+**Title: Live inputs from unverified hourly LMPs, verified still the training truth, Author: Angie Ohaeri (assisted), Date: October 23rd Time: 6:30pm CT**
+
+Amends the entry above, whose cost was that verified hourly posts 1-2 days late, so the
+model couldn't see recent prices at prediction time. Verified-only isn't actually
+real-time: at 6 PM the newest row was the previous midnight.
+
+- **Decision**: also collect PJM's `rt_unverified_hrl_lmps` (hourly, ~20 min lag) into the
+  same `raw_lmp.rt_hrl_lmps_nodal` table with `is_verified = false`. The daily verified sync
+  keeps running and overwrites those rows with settled values; unverified never overwrites
+  verified. The 2-year verified backfill is kept as-is - not re-pulled.
+- **Why not unverified-only**: unverified values revise (20 of 3,008 re-pulled pnode-hours
+  moved by more than $0.01), and the feed keeps only 30 days. This is the original
+  reconciliation rule (serve from unverified, train/backtest on verified), applied at pnode
+  level and hourly instead of zonal and 5-min.
+- **Why the same table, not a separate one**: live queries need "latest value per
+  pnode-hour", which one table with a flag gives directly; training filters
+  `is_verified`. Same pattern as `load`.
+- **Cost**: one request per hourly run (every location, ~14.5k rows/hour - the feed has no
+  pnode filter), ~24/day - versus the paused 5-min pipeline's ~2/min. The 5-min pipeline
+  stays paused: this replaces it for live inputs.
+- **Watch**: a sync outage longer than 30 days loses those hours from the unverified feed;
+  they'd still arrive as verified a day or two later, so only live freshness is lost.
+
 ## Zone attribution / shift-factor proxy
 
 **Title: Build the transmission graph from each line's own endpoint coordinates, not by name-joining substations, Author: Angie Ohaeri, Date: August 22nd Time: (session)**

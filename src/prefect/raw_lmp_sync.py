@@ -417,14 +417,16 @@ NODAL_IDS_PER_CHUNK = 150
 NODAL_MAX_ID_PARAM_CHARS = 1705
 NODAL_REQUEST_SPACING_S = 10.5
 
+# Verified always wins: upgrades any unverified row for the same hour.
 RT_HRL_LMPS_NODAL_UPSERT = """
-INSERT INTO raw_lmp.rt_hrl_lmps_nodal (time, pnode_id, system_energy_price, lmp, congestion_price, marginal_loss_price)
+INSERT INTO raw_lmp.rt_hrl_lmps_nodal (time, pnode_id, system_energy_price, lmp, congestion_price, marginal_loss_price, is_verified)
 VALUES %s
 ON CONFLICT (time, pnode_id) DO UPDATE SET
     system_energy_price = EXCLUDED.system_energy_price,
     lmp = EXCLUDED.lmp,
     congestion_price = EXCLUDED.congestion_price,
-    marginal_loss_price = EXCLUDED.marginal_loss_price
+    marginal_loss_price = EXCLUDED.marginal_loss_price,
+    is_verified = true
 """
 
 
@@ -473,11 +475,72 @@ def sync_rt_hrl_lmps_nodal():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
     raw = poll_rt_hrl_lmps_nodal(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end, pnode_ids)
+    raw["is_verified"] = True
     rows = list(raw[[
-        "time", "pnode_id", "system_energy_price_rt", "total_lmp_rt", "congestion_price_rt", "marginal_loss_price_rt",
+        "time", "pnode_id", "system_energy_price_rt", "total_lmp_rt", "congestion_price_rt", "marginal_loss_price_rt", "is_verified",
     ]].itertuples(index=False, name=None))
     _upsert(RT_HRL_LMPS_NODAL_UPSERT, rows)
-    logger.success(f"Upserted {len(rows)} raw_lmp.rt_hrl_lmps_nodal rows ({raw['pnode_id'].nunique()} pnodes)")
+    logger.success(f"Upserted {len(rows)} verified raw_lmp.rt_hrl_lmps_nodal rows ({raw['pnode_id'].nunique()} pnodes)")
+
+
+# --- rt_unverified_hrl_lmps -> rt_hrl_lmps_nodal, is_verified = false - confirmed hourly ---
+# (posts ~20 min after each hour, 30-day retention). Gives the GNN live inputs; the daily
+# verified sync above later overwrites these rows with settled values. The feed has no
+# pnode_id and no system_energy_price (PJM rejects both as field names): pnode_id comes
+# from pnode_name (unique across PJM's active pnodes; maps 1,504 of the 1,505-node set -
+# MID-ATL/APS isn't published here), and system_energy_price = lmp - congestion - loss,
+# which is identical at every location in an hour (checked 2026-10-23: 14,504 locations,
+# zero spread). No pnode filter either, so each poll pulls every location - one hour is
+# ~14,500 rows, so UNVERIFIED_POLL_WINDOW_HOURS fits one 50,000-row page. Missed polls
+# beyond that window are filled by the verified sync a day or two later.
+
+UNVERIFIED_POLL_WINDOW_HOURS = 3
+
+RT_UNVERIFIED_HRL_LMPS_NODAL_UPSERT = """
+INSERT INTO raw_lmp.rt_hrl_lmps_nodal (time, pnode_id, system_energy_price, lmp, congestion_price, marginal_loss_price, is_verified)
+VALUES %s
+ON CONFLICT (time, pnode_id) DO UPDATE SET
+    system_energy_price = EXCLUDED.system_energy_price,
+    lmp = EXCLUDED.lmp,
+    congestion_price = EXCLUDED.congestion_price,
+    marginal_loss_price = EXCLUDED.marginal_loss_price
+WHERE NOT raw_lmp.rt_hrl_lmps_nodal.is_verified
+"""
+
+
+def poll_rt_unverified_hrl_lmps_nodal(pjm: gs.PJM, start: datetime, end: datetime, name_to_id: dict[str, int]) -> pd.DataFrame:
+    raw = pjm._get_pjm_json(
+        "rt_unverified_hrl_lmps",
+        start=pd.Timestamp(start).tz_convert("US/Eastern"),
+        end=pd.Timestamp(end).tz_convert("US/Eastern"),
+        params={},
+        filter_timestamp_name="datetime_beginning",
+        interval_duration_min=60,
+    )
+    raw = raw[raw["pnode_name"].isin(name_to_id)].copy()
+    raw["pnode_id"] = raw["pnode_name"].map(name_to_id)
+    raw["time"] = raw["Interval End"].dt.tz_convert("UTC")
+    raw["system_energy_price"] = raw["total_lmp_rt"] - raw["congestion_price_rt"] - raw["marginal_loss_price_rt"]
+    raw["is_verified"] = False
+    return raw.drop_duplicates(subset=["time", "pnode_id"])
+
+
+@flow(name="rt_unverified_hrl_lmps_nodal", retries=3, retry_delay_seconds=120, log_prints=True)
+def sync_rt_unverified_hrl_lmps_nodal():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("select pnode_name, pnode_id from raw_lmp.pnode_topology_nodes")
+    name_to_id = dict(cur.fetchall())
+    conn.close()
+
+    end = datetime.now(UTC)
+    pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
+    raw = poll_rt_unverified_hrl_lmps_nodal(pjm, end - timedelta(hours=UNVERIFIED_POLL_WINDOW_HOURS), end, name_to_id)
+    rows = list(raw[[
+        "time", "pnode_id", "system_energy_price", "total_lmp_rt", "congestion_price_rt", "marginal_loss_price_rt", "is_verified",
+    ]].itertuples(index=False, name=None))
+    _upsert(RT_UNVERIFIED_HRL_LMPS_NODAL_UPSERT, rows)
+    logger.success(f"Upserted {len(rows)} unverified raw_lmp.rt_hrl_lmps_nodal rows ({raw['pnode_id'].nunique()} pnodes, latest {raw['time'].max()})")
 
 
 if __name__ == "__main__":
@@ -492,3 +555,4 @@ if __name__ == "__main__":
     sync_forecasted_generation_outages()
     sync_natural_gas_fuel_cost()
     sync_rt_hrl_lmps_nodal()
+    sync_rt_unverified_hrl_lmps_nodal()

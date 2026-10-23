@@ -354,10 +354,32 @@ LMP −$2,328 to $4,673/MWh, congestion −$2,942 to $3,706; 99.8% of LMPs withi
 | `lmp` | real, not null | total LMP ($/MWh) |
 | `congestion_price` | real, not null | |
 | `marginal_loss_price` | real, not null | |
+| `is_verified` | boolean, not null, default true | `true` = verified `rt_hrl_lmps`; `false` = unverified `rt_unverified_hrl_lmps`, live, not settlement quality. Filter to `true` for training/backtests |
 
 `real` (float4), not `numeric` like the zonal tables: the feed's values fit float4 to the
 cent, and at ~26M rows the width matters. Unique constraint: `(time, pnode_id)`. Index:
 `(pnode_id, time DESC)`.
+
+**Title: Unverified hourly rows added alongside verified (is_verified), Author: Angie Ohaeri (assisted), Date: October 23rd Time: 6:30pm CT**
+
+Two syncs write this table, both in `src/prefect/raw_lmp_sync.py`:
+
+- `sync_rt_unverified_hrl_lmps_nodal` - **hourly** (:25 ET). PJM's `rt_unverified_hrl_lmps`
+  posts each hour ~20 min after it ends, retains 30 days. Inserts `is_verified = false` and
+  never overwrites a verified row. Feed quirks: no `pnode_id` (mapped from `pnode_name`,
+  unique across PJM's active pnodes - covers 1,504 of 1,505 nodes, `MID-ATL/APS` isn't
+  published), no `system_energy_price` (derived as `lmp - congestion_price -
+  marginal_loss_price`; identical at all 14,504 locations in an hour, checked
+  2026-10-23), and no pnode filter - each run pulls every location for a 3-hour window
+  (~43k rows, one request).
+- `sync_rt_hrl_lmps_nodal` - **daily** (12:40 ET), verified, 7-day trailing window. Writes
+  `is_verified = true` and overwrites unverified rows for the same hours. Verification does
+  revise prices: 20 of 3,008 re-pulled pnode-hours differed by more than $0.01.
+
+So at any moment: history is verified; the last ~1-2 days are unverified until the daily run
+catches up. Added 2026-10-23 with all 25.9M existing rows `true`, plus a one-off unverified
+fill of 2026-10-23 01:00-19:00 ET (the gap between the last verified hour and the first
+hourly run).
 
 ---
 

@@ -8,9 +8,8 @@ deployments.py's.
 The raw_lmp batch sources live together in raw_lmp_sync.py as one @flow function per
 source. lmp_rt_unverified_fivemin is the exception - a Kafka producer/consumer pair
 (src/producers/, src/consumers/) - and is paused since 2026-10-22: the real-time target
-moved to verified hourly LMP at pnode level (rt_hrl_lmps_nodal), see decisions.md
-("Real-time target moved to verified hourly, nodal"). Kept, not deleted, so it can be
-unpaused or repurposed for live nodal inputs.
+moved to hourly LMP at pnode level (rt_hrl_lmps_nodal - unverified hourly for live
+inputs, overwritten by verified daily), see decisions.md. Kept, not deleted.
 """
 
 from datetime import timedelta
@@ -28,6 +27,7 @@ from raw_lmp_sync import (
     sync_natural_gas_fuel_cost,
     sync_operator_initiated_commitments,
     sync_rt_hrl_lmps_nodal,
+    sync_rt_unverified_hrl_lmps_nodal,
     sync_scheduled_generation,
     sync_transmission_constraints_da,
 )
@@ -99,6 +99,12 @@ if __name__ == "__main__":
         # spaced requests, 7-day trailing window catches settlement revisions.
         sync_rt_hrl_lmps_nodal.to_deployment(
             name="rt_hrl_lmps_nodal", schedule=Cron("40 12 * * *", timezone="America/New_York"),
+        ),
+        # Unverified hourly LMP, same table with is_verified = false - live inputs until the
+        # daily verified run above overwrites them. Confirmed hourly, posts ~20 min after the
+        # hour; one request per run (every location, no pnode filter on this feed).
+        sync_rt_unverified_hrl_lmps_nodal.to_deployment(
+            name="rt_unverified_hrl_lmps_nodal", schedule=Cron("25 * * * *", timezone="America/New_York"),
         ),
 
         # Paused 2026-10-22 (decisions.md, "Real-time target moved to verified hourly,
