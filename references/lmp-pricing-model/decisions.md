@@ -41,6 +41,31 @@ choice, verified data for "now" doesn't exist yet — but **train/backtest again
 verified value once it lands**, not the unverified value the model saw at inference
 time, since unverified values can revise.
 
+**Title: Real-time target moved to verified hourly, nodal; 5-min unverified pipeline paused, Author: Angie Ohaeri (assisted), Date: October 22nd Time: 8:49pm**
+
+Supersedes the real-time half of the two entries above (5-min target, served from the
+unverified feed). The day-ahead hourly target is unchanged.
+
+- **New target**: verified real-time hourly LMP (`rt_hrl_lmps`) at pnode level, for a GNN
+  over the 1,505-pnode node set in `raw_lmp.pnode_topology_nodes` - stored in
+  `raw_lmp.rt_hrl_lmps_nodal` (see `schema.md`). Real time, not day-ahead, because
+  congestion spikes happen in real time; that propagation is what a graph model adds.
+  Hourly, not 5-min: 2 years × 1,505 pnodes is already 25.7M rows, and verified is what
+  training/backtesting should use anyway (the reconciliation entry above).
+- **Kept current by** `sync_rt_hrl_lmps_nodal` in `raw_lmp_sync.py` - daily Prefect
+  deployment, 7-day trailing upsert, ~11 spaced requests.
+- **Paused, not deleted**: the `lmp_rt_unverified_fivemin` Kafka producer/consumer -
+  `paused=True` on both deployments in `lmp_deployments.py`, and both containers behind
+  the `fivemin` compose profile. Reasons: it's zonal only, so it doesn't feed a nodal
+  model; and it pages the full all-pnode feed every 10 min (~60-70 s of requests), about
+  a third of the API key's shared 6 requests/min - the likely cause of rate-limit retries
+  in the other pulls. `raw_lmp.lmp_rt_unverified_fivemin` keeps what it already holds.
+- **Cost of the reversal**: verified hourly posts ~1-2 days late, so the model can't see
+  the last few hours' prices at prediction time. That makes it a backtest model, or one
+  forecasting 2+ days out, rather than a live intraday one. Undo path for live serving:
+  unpause the 5-min pipeline and repurpose its client-side filter from `type == ZONE` to
+  the GNN node set - it already downloads every pnode each poll.
+
 ## Zone attribution / shift-factor proxy
 
 **Title: Build the transmission graph from each line's own endpoint coordinates, not by name-joining substations, Author: Angie Ohaeri, Date: August 22nd Time: (session)**

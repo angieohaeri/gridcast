@@ -5,12 +5,12 @@ schedules, same as its own branch/schema/dbt target/MLflow naming (see decisions
 "Isolation" section). Run as its own `serve()` process, alongside (not instead of)
 deployments.py's.
 
-10 of the 11 raw_lmp sources are batch pulls, living together in raw_lmp_sync.py as one
-@flow function per source. The 11th - lmp_rt_unverified_fivemin, the model's actual
-real-time LMP target - is genuinely streaming, so it's a real Kafka producer/consumer
-pair instead (src/producers/, src/consumers/), same shape as lmp_producer.py/
-lmp_consumer.py.  on every deployment per decisions.md, until each has a
-validated run.
+The raw_lmp batch sources live together in raw_lmp_sync.py as one @flow function per
+source. lmp_rt_unverified_fivemin is the exception - a Kafka producer/consumer pair
+(src/producers/, src/consumers/) - and is paused since 2026-10-22: the real-time target
+moved to verified hourly LMP at pnode level (rt_hrl_lmps_nodal), see decisions.md
+("Real-time target moved to verified hourly, nodal"). Kept, not deleted, so it can be
+unpaused or repurposed for live nodal inputs.
 """
 
 from datetime import timedelta
@@ -27,6 +27,7 @@ from raw_lmp_sync import (
     sync_marginal_value_rt,
     sync_natural_gas_fuel_cost,
     sync_operator_initiated_commitments,
+    sync_rt_hrl_lmps_nodal,
     sync_scheduled_generation,
     sync_transmission_constraints_da,
 )
@@ -93,14 +94,21 @@ if __name__ == "__main__":
             name="natural_gas_fuel_cost", schedule=Cron("0 3 * * 0", timezone="America/New_York"), 
         ),
 
-        # Genuinely streaming (~5min cadence, ~8min lag, confirmed 2026-09-05) - the
-        # model's real-time LMP target. Interval-based like weather_producer/consumer,
-        # not Cron, same reasoning: this needs to keep up with a continuously-updating
-        # feed, not hit a fixed daily post time.
+        # Verified real-time hourly LMP for the GNN node set - the real-time target since
+        # 2026-10-22. Treated as daily, after the rest of the rt_hrl_lmps family; ~11
+        # spaced requests, 7-day trailing window catches settlement revisions.
+        sync_rt_hrl_lmps_nodal.to_deployment(
+            name="rt_hrl_lmps_nodal", schedule=Cron("40 12 * * *", timezone="America/New_York"),
+        ),
+
+        # Paused 2026-10-22 (decisions.md, "Real-time target moved to verified hourly,
+        # nodal"): zonal-only, so it doesn't feed the GNN, and its full-feed pages every
+        # 10 min took ~1/3 of the API key's 6 requests/min. Interval-based, not Cron -
+        # streaming feed (~5min cadence, ~8min lag).
         raw_lmp_lmp_rt_unverified_fivemin_producer_flow.to_deployment(
-            name="lmp_rt_5min_producer_unverified", interval=timedelta(minutes=10), 
+            name="lmp_rt_5min_producer_unverified", interval=timedelta(minutes=10), paused=True,
         ),
         raw_lmp_lmp_rt_unverified_fivemin_consumer_flow.to_deployment(
-            name="lmp_rt_5min_consumer_unverified", interval=timedelta(minutes=10), 
+            name="lmp_rt_5min_consumer_unverified", interval=timedelta(minutes=10), paused=True,
         ),
     )

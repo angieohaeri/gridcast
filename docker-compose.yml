@@ -292,7 +292,10 @@ services:
   # LMP pricing model (references/lmp-pricing-model/) - the one raw_lmp source that's
   # genuinely streaming (see lmp_model_schema.sql's comment on raw_lmp.lmp_rt_unverified_fivemin).
   # Every other raw_lmp source is a batch pull via raw_lmp_sync.py, no Kafka.
+  # Paused 2026-10-22 behind the fivemin profile (decisions.md, "Real-time target moved to
+  # verified hourly, nodal") - not started by a plain `up`; `--profile fivemin up` runs it.
   raw-lmp-lmp-rt-unverified-fivemin-producer:
+    profiles: ["fivemin"]
     build: .
     image: gridcast:latest
     container_name: gridcast-raw-lmp-lmp-rt-unverified-fivemin-producer
@@ -393,6 +396,7 @@ services:
       - kafka-net
 
   raw-lmp-lmp-rt-unverified-fivemin-consumer:
+    profiles: ["fivemin"]
     build: .
     image: gridcast:latest
     container_name: gridcast-raw-lmp-lmp-rt-unverified-fivemin-consumer
