@@ -377,7 +377,47 @@ Two syncs write this table, both in `src/prefect/raw_lmp_sync.py`:
   revise prices: 20 of 3,008 re-pulled pnode-hours differed by more than $0.01.
 
 So at any moment: history is verified; the last ~1-2 days are unverified until the daily run
-catches up. Added 2026-10-23 with all 25.9M existing rows `true`, plus a one-off unverified
+catches up.
+
+---
+
+### `da_hrl_lmps_nodal`
+
+**Title: Day-ahead hourly LMPs at pnode level for the GNN node set, Author: Angie Ohaeri (assisted), Date: October 23rd Time: 10:10pm CT**
+
+`da_hrl_lmps` (day-ahead hourly LMP) for the same 1,505 pnodes as `rt_hrl_lmps_nodal`, same
+lean shape, hour-ending `time`, 30-day chunks and compression (policy job, chunks older
+than 30 days). DA clears the day before, so these prices are known ahead of the real-time
+hour they cover - a leakage-safe input - and DA minus RT at each node is a congestion
+signal. No `is_verified`: DA prices are final when published. Loaded 2026-10-24:
+25,883,242 rows, 1,505 pnodes, 2024-10-23 01:00 ET → 2026-10-24 00:00 ET; 0.71 GB
+compressed. Not kept current yet - no sync flow.
+
+Not the empty `raw_lmp.lmp_da_hourly_nodal`, an earlier unused draft with per-row text
+columns.
+
+DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/backfill_da_hrl_lmps_nodal.py`
+(→ `data/interim/da_hrl_lmps_nodal/`, 275 parquet checkpoints) → `_archive/scripts/load_da_hrl_lmps_nodal.py`.
+Both are copies of the RT scripts with feed/field names swapped. Same request limits as RT
+(pnode filter only on the last 731 days, ~1,700-char id lists, 6 requests/min), but none of
+RT's quirks: `system_energy_price_da` is a real field and every row is current. Pulled in
+142 min with no retries.
+
+Validated: no duplicate `(time, pnode_id)`, no nulls, no missing hours for any pnode from
+max(2024-10-23, effective date); one `system_energy_price` per hour; components sum to
+`lmp` exactly. Smoother than RT: LMP std $64 vs $89, 99.9th percentile $850 vs $1,275;
+LMP −$2,060 to $4,397/MWh.
+
+| column | type | notes |
+|---|---|---|
+| `time` | timestamptz, not null | Hour Ending, UTC, matching `rt_hrl_lmps_nodal` |
+| `pnode_id` | bigint, not null | join to `pnode_topology_nodes` |
+| `system_energy_price` | real, not null | DA λ, identical for every pnode in an hour |
+| `lmp` | real, not null | total DA LMP ($/MWh) |
+| `congestion_price` | real, not null | |
+| `marginal_loss_price` | real, not null | |
+
+Unique constraint: `(time, pnode_id)`. Index: `(pnode_id, time DESC)`. Added 2026-10-23 with all 25.9M existing rows `true`, plus a one-off unverified
 fill of 2026-10-23 01:00-19:00 ET (the gap between the last verified hour and the first
 hourly run).
 

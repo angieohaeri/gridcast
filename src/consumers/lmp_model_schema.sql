@@ -231,11 +231,43 @@ alter table raw_lmp.rt_hrl_lmps_nodal set (
 
 select add_compression_policy('raw_lmp.rt_hrl_lmps_nodal', interval '30 days', if_not_exists => true);
 
+-- da_hrl_lmps (day-ahead hourly LMP) for the same GNN node set - the DA counterpart of
+-- rt_hrl_lmps_nodal, same lean shape, hour-ending time and compression. No is_verified:
+-- DA prices are final when the market clears the day before, so they're known ahead of the
+-- RT hour they price - a leakage-safe input, and the DA-RT spread is a congestion signal.
+-- Separate from the empty raw_lmp.lmp_da_hourly_nodal (an earlier unused draft with per-row
+-- text columns). Backfill: _archive/scripts/backfill_da_hrl_lmps_nodal.py ->
+-- load_da_hrl_lmps_nodal.py.
+create table if not exists raw_lmp.da_hrl_lmps_nodal (
+    time timestamptz not null,
+    pnode_id bigint not null,
+    system_energy_price real not null,
+    lmp real not null,
+    congestion_price real not null,
+    marginal_loss_price real not null,
+    unique (time, pnode_id)
+);
+
+select create_hypertable('raw_lmp.da_hrl_lmps_nodal', 'time', chunk_time_interval => interval '30 days', if_not_exists => true);
+
+create index if not exists da_hrl_lmps_nodal_pnode_time_idx
+    on raw_lmp.da_hrl_lmps_nodal (pnode_id, time desc);
+
+-- Compressed for the same reason as rt_hrl_lmps_nodal (size; query with SQL, not Postico's
+-- row browser).
+alter table raw_lmp.da_hrl_lmps_nodal set (
+    timescaledb.compress,
+    timescaledb.compress_segmentby = 'pnode_id',
+    timescaledb.compress_orderby = 'time desc'
+);
+
+select add_compression_policy('raw_lmp.da_hrl_lmps_nodal', interval '30 days', if_not_exists => true);
+
 -- Compression was tried and reverted (2026-08-23) on all 8 raw_lmp hypertables - see
 -- decisions.md ("Compression tried and reverted"). Reason: Postgres validates system
 -- columns across every chunk when planning a query against a hypertable, so a client
 -- requesting ctid (Postico's row-browser grid does this) fails against the WHOLE table
 -- the moment even one chunk anywhere in it is compressed - there's no partial-compression
 -- state that keeps a GUI row browser working. Not reflected in this file: compression
--- was applied and fully undone directly against the live DB. Exception: rt_hrl_lmps_nodal
--- (added later, above) is compressed on purpose.
+-- was applied and fully undone directly against the live DB. Exceptions: rt_hrl_lmps_nodal
+-- and da_hrl_lmps_nodal (added later, above) are compressed on purpose.

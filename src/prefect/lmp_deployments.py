@@ -18,6 +18,7 @@ import sys
 
 from prefect.schedules import Cron
 from raw_lmp_sync import (
+    sync_da_hrl_lmps_nodal,
     sync_forecasted_generation_outages,
     sync_generation_by_fuel,
     sync_generation_ehv_losses,
@@ -105,6 +106,11 @@ if __name__ == "__main__":
         # hour; one request per run (every location, no pnode filter on this feed).
         sync_rt_unverified_hrl_lmps_nodal.to_deployment(
             name="rt_unverified_hrl_lmps_nodal", schedule=Cron("25 * * * *", timezone="America/New_York"),
+        ),
+        # Day-ahead hourly LMP for the GNN node set - DA results for tomorrow post ~1:30pm
+        # ET, so this runs after; window runs through tomorrow.
+        sync_da_hrl_lmps_nodal.to_deployment(
+            name="da_hrl_lmps_nodal", schedule=Cron("30 14 * * *", timezone="America/New_York"),
         ),
 
         # Paused 2026-10-22 (decisions.md, "Real-time target moved to verified hourly,
