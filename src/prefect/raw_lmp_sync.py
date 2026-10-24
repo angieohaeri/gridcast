@@ -406,12 +406,6 @@ def sync_natural_gas_fuel_cost():
 
 
 # --- rt_hrl_lmps_nodal - verified real-time hourly LMP for the GNN node set, treated as ---
-# daily (same rt_hrl_lmps family as public.lmp's feed; settles over ~2 days). -------------
-# Node set comes from raw_lmp.pnode_topology_nodes, so a topology rebuild changes what's
-# pulled. pnode_id filters are URL-length-bound (~1,700 encoded chars; longer 404s) and the
-# API key's 6 requests/min is shared with every other flow - so one single-page request per
-# chunk (<= 150 ids x 7 days x 24h < 50,000 rows), spaced out. See
-# _archive/scripts/backfill_rt_hrl_lmps_nodal.py for how those limits were found.
 
 NODAL_IDS_PER_CHUNK = 150
 NODAL_MAX_ID_PARAM_CHARS = 1705
@@ -493,9 +487,6 @@ def sync_rt_hrl_lmps_nodal():
 
 
 # --- da_hrl_lmps_nodal - day-ahead hourly LMP for the GNN node set. DA clears once a day -
-# results for tomorrow post ~1:30pm ET - so the window runs through the end of tomorrow;
-# the 7-day lookback re-polls in case of reposts. 150 ids x 9 days x 24h < 50,000 rows, so
-# still one page per chunk.
 
 DA_HRL_LMPS_NODAL_UPSERT = """
 INSERT INTO raw_lmp.da_hrl_lmps_nodal (time, pnode_id, system_energy_price, lmp, congestion_price, marginal_loss_price)
@@ -520,15 +511,6 @@ def sync_da_hrl_lmps_nodal():
 
 
 # --- rt_unverified_hrl_lmps -> rt_hrl_lmps_nodal, is_verified = false - confirmed hourly ---
-# (posts ~20 min after each hour, 30-day retention). Gives the GNN live inputs; the daily
-# verified sync above later overwrites these rows with settled values. The feed has no
-# pnode_id and no system_energy_price (PJM rejects both as field names): pnode_id comes
-# from pnode_name (unique across PJM's active pnodes; maps 1,504 of the 1,505-node set -
-# MID-ATL/APS isn't published here), and system_energy_price = lmp - congestion - loss,
-# which is identical at every location in an hour (checked 2026-10-23: 14,504 locations,
-# zero spread). No pnode filter either, so each poll pulls every location - one hour is
-# ~14,500 rows, so UNVERIFIED_POLL_WINDOW_HOURS fits one 50,000-row page. Missed polls
-# beyond that window are filled by the verified sync a day or two later.
 
 UNVERIFIED_POLL_WINDOW_HOURS = 3
 
