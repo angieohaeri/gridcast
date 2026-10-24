@@ -1,0 +1,35 @@
+version: 2
+
+sources:
+  - name: raw_lmp
+    description: Landing tables for the LMP pricing model, isolated from public.* (see references/lmp-pricing-model/).
+    schema: raw_lmp
+    tables:
+      - name: rt_hrl_lmps_nodal
+        description: >
+          Real-time hourly LMP per pnode, Hour Ending UTC. is_verified=false rows are
+          from the unverified hourly feed; verified rows overwrite them.
+      - name: da_hrl_lmps_nodal
+        description: Day-ahead hourly LMP per pnode, Hour Ending UTC. Final once the market clears.
+      - name: pnode_topology_nodes
+        description: The 1,505 pnodes in the GNN node set, with zone and substation attribution.
+      - name: marginal_value_rt
+        description: RT shadow price per binding constraint, 5-min native, posts daily 11am-12pm ET. Keyed by facility name.
+      - name: marginal_value_da
+        description: DA shadow price per binding constraint, hourly. Keyed by facility name.
+      - name: lmp_da_hourly
+        description: DA zonal hourly LMP (20 zones), Hour Ending UTC.
+      - name: generation_by_fuel
+        description: Hourly RTO-wide generation by fuel type, long format.
+      - name: transmission_constraints_da
+        description: DA constraints that bound, with duration in hours. No price.
+      - name: operator_initiated_commitments
+        description: Zonal out-of-merit unit commitments, event-level timestamps. Posts monthly on the 20th.
+      - name: scheduled_generation
+        description: Hourly RTO-wide self-scheduled generation. rt_ecomax is null under PJM confidentiality suppression.
+      - name: generation_ehv_losses
+        description: Hourly RTO-wide generation and EHV losses.
+      - name: forecasted_generation_outages
+        description: 90-day-horizon outage forecasts (RTO/West/Other), one set per daily forecast execution.
+      - name: natural_gas_fuel_cost
+        description: EIA monthly natural gas cost by state. Lags real time by ~3 months.

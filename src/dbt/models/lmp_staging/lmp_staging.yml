@@ -1,0 +1,152 @@
+version: 2
+
+models:
+  - name: stg_rt_lmp_nodal
+    description: "Real-time hourly LMP per pnode. Grain: one row per (time, pnode_id)."
+    columns:
+      - name: time
+        tests: [not_null]
+      - name: pnode_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_pnode_topology')
+                field: pnode_id
+      - name: lmp_total
+        tests: [not_null]
+      - name: is_verified
+        description: Train labels use verified rows only.
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, pnode_id]
+
+  - name: stg_da_lmp_nodal
+    description: "Day-ahead hourly LMP per pnode. Grain: one row per (time, pnode_id)."
+    columns:
+      - name: time
+        tests: [not_null]
+      - name: pnode_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_pnode_topology')
+                field: pnode_id
+      - name: lmp_total
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, pnode_id]
+
+  - name: stg_pnode_topology
+    description: "GNN node set. Grain: one row per pnode_id."
+    columns:
+      - name: pnode_id
+        tests: [not_null, unique]
+      - name: role
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['aggregate', 'attached', 'fill_in']
+
+  - name: stg_marginal_value_rt
+    description: >
+      RT shadow price per binding constraint, rolled up from 5-min to Hour Ending UTC.
+      Grain: one row per (time, monitored_facility, contingency_facility). Keyed by
+      facility, not pnode. Posts daily, so nothing for day D exists before D+1.
+    columns:
+      - name: time
+        tests: [not_null]
+      - name: monitored_facility
+        tests: [not_null]
+      - name: binding_intervals
+        description: 5-min intervals this constraint bound in the hour (1-12).
+
+  - name: stg_marginal_value_da
+    description: >
+      DA shadow price per binding constraint, hourly, Hour Ending UTC.
+      Grain: one row per (time, monitored_facility, contingency_facility).
+    columns:
+      - name: time
+        tests: [not_null]
+      - name: monitored_facility
+        tests: [not_null]
+      - name: shadow_price
+        tests: [not_null]
+
+  - name: stg_lmp_da_zonal
+    description: "DA zonal hourly LMP, Hour Ending UTC. Grain: one row per (time, zone)."
+    columns:
+      - name: time
+        tests: [not_null]
+      - name: zone
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, zone]
+
+  - name: stg_generation_by_fuel
+    description: >
+      Hourly RTO-wide generation by fuel. Grain: one row per (time, fuel_type), Hour Ending UTC.
+    columns:
+      - name: time
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, fuel_type]
+
+  - name: stg_transmission_constraints_da
+    description: >
+      DA constraints that bound, with duration. Grain: one row per
+      (datetime_beginning_utc, monitored_facility, contingency_facility).
+    columns:
+      - name: datetime_beginning_utc
+        tests: [not_null]
+      - name: monitored_facility
+        tests: [not_null]
+
+  - name: stg_operator_initiated_commitments
+    description: "Event-level out-of-merit commitments per zone. Not hourly."
+    columns:
+      - name: event_time
+        tests: [not_null]
+      - name: zone
+        tests: [not_null]
+
+  - name: stg_scheduled_generation
+    description: >
+      Hourly RTO-wide self-scheduled generation. Hour Ending UTC.
+      rt_ecomax is null under PJM suppression, not missing data.
+    columns:
+      - name: time
+        tests: [not_null, unique]
+
+  - name: stg_generation_ehv_losses
+    description: Hourly RTO-wide generation and EHV losses. Hour Ending UTC.
+    columns:
+      - name: time
+        tests: [not_null, unique]
+
+  - name: stg_forecasted_generation_outages
+    description: >
+      Outage forecasts. Grain: one row per (forecast_execution_date, forecast_date).
+      Filter on forecast_execution_date, not forecast_date, to avoid leakage.
+    columns:
+      - name: forecast_execution_date
+        tests: [not_null]
+      - name: forecast_date
+        tests: [not_null]
+
+  - name: stg_natural_gas_fuel_cost
+    description: "Monthly state-level gas cost. Grain: one row per (period, state). Null cost = no NG generation reported."
+    columns:
+      - name: period
+        tests: [not_null]
+      - name: state
+        tests: [not_null]
