@@ -14,7 +14,7 @@ Pnode_Id"). Start one day inside that cutoff; end at the end of today (END_LAG_D
 today's DA prices posted yesterday).
 
 Rate limit: free tier is 6 requests/min. gridstatus pages back-to-back and only backs off
-after a 429, which has crashed earlier backfills (see backfill_lmp_rt_unverified_fivemin.py).
+after a 429, which has crashed earlier backfills under sustained rate limiting.
 So every request is sized to a single page (chunk x WINDOW_DAYS x 24 <= 50,000 rows) and
 spaced REQUEST_SPACING_S apart. A chunk-month that still fails is retried after a cooldown.
 

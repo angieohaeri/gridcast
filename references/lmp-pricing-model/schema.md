@@ -391,10 +391,9 @@ than 30 days). DA clears the day before, so these prices are known ahead of the 
 hour they cover - a leakage-safe input - and DA minus RT at each node is a congestion
 signal. No `is_verified`: DA prices are final when published. Loaded 2026-10-24:
 25,883,242 rows, 1,505 pnodes, 2024-10-23 01:00 ET → 2026-10-24 00:00 ET; 0.71 GB
-compressed. Not kept current yet - no sync flow.
-
-Not the empty `raw_lmp.lmp_da_hourly_nodal`, an earlier unused draft with per-row text
-columns.
+compressed. Kept current by `sync_da_hrl_lmps_nodal` in `raw_lmp_sync.py` (daily, 14:30 ET,
+7 days back through tomorrow). The earlier empty draft `raw_lmp.lmp_da_hourly_nodal` was
+dropped 2026-10-24.
 
 DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/backfill_da_hrl_lmps_nodal.py`
 (→ `data/interim/da_hrl_lmps_nodal/`, 275 parquet checkpoints) → `_archive/scripts/load_da_hrl_lmps_nodal.py`.

@@ -1,8 +1,8 @@
 """Fill hours where public.weather has no row for any zone - live polling outages.
 
-Same fetch/insert as backfill_weather_2026_10.py (Open-Meteo historical hourly per station,
-only zone-hours not already present), but the days come from the table instead of
-constants: every UTC day containing an hour with zero rows.
+Open-Meteo historical hourly per station, inserting only zone-hours not already present.
+The days come from the table: every UTC day containing an hour with zero rows. (Replaced
+the fixed-window one-off backfill_weather_2026_10.py, removed 2026-10-24.)
 """
 
 import os

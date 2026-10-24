@@ -89,6 +89,16 @@ real-time: at 6 PM the newest row was the previous midnight.
 - **Watch**: a sync outage longer than 30 days loses those hours from the unverified feed;
   they'd still arrive as verified a day or two later, so only live freshness is lost.
 
+**Title: 5-min unverified pipeline removed, Author: Angie Ohaeri (assisted), Date: October 24th Time: 11:19am CT**
+
+Follows the two entries above: the hourly unverified feed replaced it for live inputs, so
+the paused pipeline was deleted rather than kept. Removed: the producer/consumer scripts,
+both Prefect deployments, both compose services and Kafka topics (+ DLQ), the table
+`raw_lmp.lmp_rt_unverified_fivemin` (86,040 zonal rows, 2026-09-05 → 09-20) and its DDL,
+and `_archive/scripts/backfill_lmp_rt_unverified_fivemin.py`. The code is in git history
+if live 5-min data is ever needed again; the data is not recoverable from PJM past its
+~15-day retention.
+
 **Title: First GNN: next-day 24-hour horizon, RT minus DA spread target, Author: Angie Ohaeri (assisted), Date: October 24th Time: 11:06am CT**
 
 Settles the open "forecast horizon N" question for the pnode-level GNN.

@@ -34,6 +34,8 @@ none of these sources had live ingestion until today.
 
 **Title: Real-time LMP target changed to the unverified feed + one genuine Kafka stream added, Author: Angie Ohaeri, Date: September 5th Time: (session)**
 
+*(Removed 2026-10-24 - the 5-min pipeline and its table no longer exist; see `decisions.md`.)*
+
 Caught mid-review: `marginal_value_rt`'s ~2-day settlement lag means it (and every other
 verified PJM feed) can never be what a live pricing model forecasts *toward* - the
 number doesn't exist yet at decision time. Confirmed directly against PJM's own

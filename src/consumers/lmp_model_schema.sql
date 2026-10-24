@@ -99,35 +99,6 @@ select create_hypertable('raw_lmp.lmp_da_hourly', 'time', if_not_exists => true)
 create index if not exists lmp_da_hourly_zone_time_idx
     on raw_lmp.lmp_da_hourly (zone, time desc);
 
--- rt_unverified_fivemin_lmps, type=ZONE: real-time zone-level 5-min LMP, unverified
--- (pre-settlement). This is the model's actual real-time LMP TARGET, not just a feature -
--- decided 2026-09-05: the verified rt_hrl_lmps/marginal_value_rt feeds carry a ~2-day
--- settlement lag, so they can never be what a live pricing/trading model forecasts toward
--- (the number doesn't exist yet at decision time); the unverified feed is the only version
--- of "real-time LMP" that's knowable close enough to the moment to be a coherent target.
--- Genuinely streaming (~5min cadence, ~8min lag, confirmed by direct polling) - the one
--- raw_lmp source that actually justifies Kafka per decisions.md's "reserve Kafka for
--- genuinely streaming data" line; every other raw_lmp source is a daily/hourly/monthly
--- batch post (see raw_lmp_sync.py) and stays off Kafka. zone uses this project's zone_id
--- codes via the same mapping as public.lmp/lmp_da_hourly; PJM-RTO (hub) and OVEC (out of
--- scope) dropped at ingestion. time = Interval Start + 5min (Interval End) - feed doesn't
--- return an Interval End column directly, computed client-side. type=ZONE filtering isn't
--- accepted as a query param on this feed (unlike da_hrl_lmps's location_type) - done
--- client-side after pulling the full response instead.
-create table if not exists raw_lmp.lmp_rt_unverified_fivemin (
-    time timestamptz not null,
-    zone text not null,
-    lmp numeric not null,
-    congestion_price numeric,
-    marginal_loss_price numeric,
-    unique (time, zone)
-);
-
-select create_hypertable('raw_lmp.lmp_rt_unverified_fivemin', 'time', if_not_exists => true);
-
-create index if not exists lmp_rt_unverified_fivemin_zone_time_idx
-    on raw_lmp.lmp_rt_unverified_fivemin (zone, time desc);
-
 -- The following 3 tables have no gridstatus wrapper method - pulled by calling
 -- gridstatus's PJM._get_pjm_json() directly against the raw Data Miner 2 feed name
 -- (reuses its auth/retry/pagination handling rather than writing a new HTTP client).
@@ -235,9 +206,8 @@ select add_compression_policy('raw_lmp.rt_hrl_lmps_nodal', interval '30 days', i
 -- rt_hrl_lmps_nodal, same lean shape, hour-ending time and compression. No is_verified:
 -- DA prices are final when the market clears the day before, so they're known ahead of the
 -- RT hour they price - a leakage-safe input, and the DA-RT spread is a congestion signal.
--- Separate from the empty raw_lmp.lmp_da_hourly_nodal (an earlier unused draft with per-row
--- text columns). Backfill: _archive/scripts/backfill_da_hrl_lmps_nodal.py ->
--- load_da_hrl_lmps_nodal.py.
+-- Backfill: _archive/scripts/backfill_da_hrl_lmps_nodal.py -> load_da_hrl_lmps_nodal.py;
+-- kept current by sync_da_hrl_lmps_nodal in raw_lmp_sync.py.
 create table if not exists raw_lmp.da_hrl_lmps_nodal (
     time timestamptz not null,
     pnode_id bigint not null,
