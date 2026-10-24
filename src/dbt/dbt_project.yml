@@ -19,6 +19,22 @@ vars:
   in_scope_zones: ['AE', 'AEP', 'AP', 'ATSI', 'BC', 'CE', 'DAY', 'DEOK', 'DOM', 'DPL',
                    'DUQ', 'EKPC', 'JC', 'ME', 'PE', 'PEP', 'PL', 'PN', 'PS', 'RECO']
 
+  # LMP pricing model: last complete ET day of each source available at the 14:30 ET
+  # forecast cutoff on day D, as an offset from D. Observed in the DB 2026-10-24 18:47 ET,
+  # not PJM's nominal timing (DA shadow prices should reach D+1 but are a day behind).
+  feature_availability_days:
+    rt_lmp_verified: -2
+    da_lmp: 1
+    marginal_value_rt: -2
+    marginal_value_da: -1
+    transmission_constraints_da: -1
+    lmp_da_zonal: -1
+    generation_by_fuel: -1
+    scheduled_generation: -2
+    generation_ehv_losses: -1
+    forecasted_generation_outages: 0
+  rt_unverified_last_hour_ending_et: 14
+
 models:
   gridcast:
     staging:

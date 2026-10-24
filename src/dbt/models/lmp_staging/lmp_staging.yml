@@ -2,7 +2,10 @@ version: 2
 
 models:
   - name: stg_rt_lmp_nodal
-    description: "Real-time hourly LMP per pnode. Grain: one row per (time, pnode_id)."
+    description: >
+      Real-time hourly LMP per pnode. Grain: one row per (time, pnode_id). Available at the
+      14:30 ET cutoff on day D: verified rows through the end of D-2 (settlement lag);
+      unverified rows through hour ending 14:00 ET on D.
     columns:
       - name: time
         tests: [not_null]
@@ -24,7 +27,9 @@ models:
             combination_of_columns: [time, pnode_id]
 
   - name: stg_da_lmp_nodal
-    description: "Day-ahead hourly LMP per pnode. Grain: one row per (time, pnode_id)."
+    description: >
+      Day-ahead hourly LMP per pnode. Grain: one row per (time, pnode_id). Available at the
+      14:30 ET cutoff on day D: through the end of D+1 (DA results post about 1:30pm ET).
     columns:
       - name: time
         tests: [not_null]
@@ -43,7 +48,7 @@ models:
             combination_of_columns: [time, pnode_id]
 
   - name: stg_pnode_topology
-    description: "GNN node set. Grain: one row per pnode_id."
+    description: "GNN node set. Grain: one row per pnode_id. Static reference, rebuilt quarterly."
     columns:
       - name: pnode_id
         tests: [not_null, unique]
@@ -57,7 +62,7 @@ models:
     description: >
       RT shadow price per binding constraint, rolled up from 5-min to Hour Ending UTC.
       Grain: one row per (time, monitored_facility, contingency_facility). Keyed by
-      facility, not pnode. Posts daily, so nothing for day D exists before D+1.
+      facility, not pnode. Available at the 14:30 ET cutoff on day D: through the end of D-2 (posts daily 11am-12pm ET).
     columns:
       - name: time
         tests: [not_null]
@@ -70,6 +75,8 @@ models:
     description: >
       DA shadow price per binding constraint, hourly, Hour Ending UTC.
       Grain: one row per (time, monitored_facility, contingency_facility).
+      Available at the 14:30 ET cutoff on day D: only through D-1 in the database (checked
+      2026-10-24 18:47 ET, DA LMPs already reached D+1), so D+1 values are NOT usable yet.
     columns:
       - name: time
         tests: [not_null]
@@ -79,7 +86,7 @@ models:
         tests: [not_null]
 
   - name: stg_lmp_da_zonal
-    description: "DA zonal hourly LMP, Hour Ending UTC. Grain: one row per (time, zone)."
+    description: "DA zonal hourly LMP, Hour Ending UTC. Grain: one row per (time, zone). Observed only through D-1 at the cutoff."
     columns:
       - name: time
         tests: [not_null]
@@ -93,6 +100,7 @@ models:
   - name: stg_generation_by_fuel
     description: >
       Hourly RTO-wide generation by fuel. Grain: one row per (time, fuel_type), Hour Ending UTC.
+      Feed is hourly but the database reached only D-1 at 18:47 ET on 2026-10-24.
     columns:
       - name: time
         tests: [not_null]
@@ -105,6 +113,7 @@ models:
     description: >
       DA constraints that bound, with duration. Grain: one row per
       (datetime_beginning_utc, monitored_facility, contingency_facility).
+      Observed only through D-1 at the cutoff, like stg_marginal_value_da.
     columns:
       - name: datetime_beginning_utc
         tests: [not_null]
@@ -112,7 +121,7 @@ models:
         tests: [not_null]
 
   - name: stg_operator_initiated_commitments
-    description: "Event-level out-of-merit commitments per zone. Not hourly."
+    description: "Event-level out-of-merit commitments per zone. Not hourly. Posts monthly on the 20th; latest data 2026-09-30."
     columns:
       - name: event_time
         tests: [not_null]
@@ -121,14 +130,14 @@ models:
 
   - name: stg_scheduled_generation
     description: >
-      Hourly RTO-wide self-scheduled generation. Hour Ending UTC.
+      Hourly RTO-wide self-scheduled generation. Hour Ending UTC. Observed through D-2.
       rt_ecomax is null under PJM suppression, not missing data.
     columns:
       - name: time
         tests: [not_null, unique]
 
   - name: stg_generation_ehv_losses
-    description: Hourly RTO-wide generation and EHV losses. Hour Ending UTC.
+    description: Hourly RTO-wide generation and EHV losses. Hour Ending UTC. Observed through D-1.
     columns:
       - name: time
         tests: [not_null, unique]
@@ -137,6 +146,7 @@ models:
     description: >
       Outage forecasts. Grain: one row per (forecast_execution_date, forecast_date).
       Filter on forecast_execution_date, not forecast_date, to avoid leakage.
+      Available at the 14:30 ET cutoff on day D: executions through D (daily).
     columns:
       - name: forecast_execution_date
         tests: [not_null]
@@ -144,7 +154,7 @@ models:
         tests: [not_null]
 
   - name: stg_natural_gas_fuel_cost
-    description: "Monthly state-level gas cost. Grain: one row per (period, state). Null cost = no NG generation reported."
+    description: "Monthly state-level gas cost. Grain: one row per (period, state). Null cost = no NG generation reported. EIA lags about 3 months; latest 2026-07."
     columns:
       - name: period
         tests: [not_null]
