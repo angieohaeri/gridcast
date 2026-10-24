@@ -89,6 +89,33 @@ real-time: at 6 PM the newest row was the previous midnight.
 - **Watch**: a sync outage longer than 30 days loses those hours from the unverified feed;
   they'd still arrive as verified a day or two later, so only live freshness is lost.
 
+**Title: First GNN: next-day 24-hour horizon, RT minus DA spread target, Author: Angie Ohaeri (assisted), Date: October 24th Time: 11:06am CT**
+
+Settles the open "forecast horizon N" question for the pnode-level GNN.
+
+- **Horizon**: one forecast per day, issued at 14:30 ET on day D (after DA results for D+1
+  post ~1:30pm ET and the `da_hrl_lmps_nodal` sync runs), covering every hour of D+1 at
+  every node - 11 to 35 hours ahead. Mirrors the actual market decision (bid DA knowing
+  tomorrow's DA prices; profit is the RT-DA spread), and puts the DA backfill to work: all
+  DA prices for the target day are known at issue time. Chosen over intraday 1-6h, where
+  last-hour persistence is a hard baseline to beat and every forecast depends on the hourly
+  unverified feed.
+- **Target**: per node, `rt_lmp - da_lmp` for the same hour; the RT forecast is reported as
+  DA + predicted spread. Centered near zero (DA already explains the price level), and it is
+  the trader-relevant quantity. Train on verified RT only (`is_verified`). Spikes remain as
+  large spreads, so use a robust loss (e.g. Huber) rather than plain MSE.
+- **Feature cutoff (as-of 14:30 ET on D)**: RT unverified through hour ending ~14:00 ET on
+  D; RT verified through D-1 at best; DA LMP for D and D+1; RT shadow prices only through
+  D-1 (posts daily for the prior day); hourly fuel mix through ~13:00 ET. DA constraints /
+  DA shadow prices for D+1 post around the same time as DA LMPs - confirm they are in by
+  14:30 before using them for D+1. Every feature model filters on this cutoff.
+- **Evaluation**: walk-forward splits; metrics on RT LMP in $/MWh (MAE overall, plus error
+  on spike hours, e.g. top 1% of |spread|) so any target choice stays comparable.
+  Baselines to beat: spread = 0 (RT = DA), and same-hour spread from the most recent
+  complete day.
+- **Revisit later**: intraday horizons as a second model once this one works; the
+  decomposed target (λ + per-node congestion/loss) if the spread target struggles.
+
 ## Zone attribution / shift-factor proxy
 
 **Title: Build the transmission graph from each line's own endpoint coordinates, not by name-joining substations, Author: Angie Ohaeri, Date: August 22nd Time: (session)**

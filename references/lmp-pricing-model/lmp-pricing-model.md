@@ -80,10 +80,19 @@ target, MLflow naming, Prefect deployments, Kafka usage) — see `decisions.md`.
 
 ---
 
-## Targets — two, not one mixed grain
+## Targets
 
-Matches how PJM's markets actually clear (full rationale + the unverified/verified
-reconciliation decision: `decisions.md`):
+**Title: Current target for the first GNN, Author: Angie Ohaeri (assisted), Date: October 24th Time: 11:06am CT**
+
+**Current**: pnode-level **RT minus DA spread**, hourly, forecast **next-day** - issued at
+14:30 ET on day D for every hour of D+1 at all 1,505 nodes (11-35h ahead); RT reported as
+DA + predicted spread. Data: `raw_lmp.rt_hrl_lmps_nodal` (labels: `is_verified` rows) and
+`raw_lmp.da_hrl_lmps_nodal`. Feature cutoff, baselines and metrics: `decisions.md`
+("First GNN: next-day 24-hour horizon, RT minus DA spread target"). The zonal two-target
+plan below is the original framing, kept for history - its 5-min RT target was superseded
+(`decisions.md`, 2026-10-22 and 2026-10-23 entries).
+
+**Original framing - two targets, not one mixed grain** (matches how PJM's markets clear):
 
 - **Day-ahead LMP**: hourly.
   DA only clears hourly. Reuses existing hourly lag/rolling/join architecture almost as-is.
@@ -200,8 +209,20 @@ Graph-construction and zone-attribution-fallback decisions: `decisions.md`.
 - Ship a simple zonal congestion baseline first (`operator_initiated_commitments` +
   system-wide binding-constraint count), then layer the empirical shift-factor
   regression on top and measure the lift — don't build the complex feature first.
-- Decide forecast horizon N for both targets (same open question as
-  `project_pjm_load_forecast_feature`).
+- ~~Decide forecast horizon N~~ - decided 2026-10-24: next-day 24h, RT-DA spread
+  (`decisions.md`).
+
+**Title: Next steps for the pnode-level GNN, Author: Angie Ohaeri (assisted), Date: October 24th Time: 11:06am CT**
+
+- Declare the `raw_lmp` tables as dbt sources (none are yet) and build staging models:
+  hour-ending UTC alignment, 5-min shadow prices rolled up to hourly, pnode → zone mapping.
+- Write a per-source availability table (when each feed is known) and enforce the 14:30 ET
+  feature cutoff in every feature model.
+- First GNN against the two baselines (spread = 0, last day's same-hour spread). Mask the 60
+  pnodes that start partway through the window; the 426 fill-in nodes have no edges yet.
+- Deferred until after a first model: linking shadow prices to graph edges. Direct name
+  matching covers ~43-47% of RT shadow-price weight; many binding constraints sit at
+  switching stations with no pnode, only resolvable through the GridSFM network.
 
 Graph-distance matching (facility → `transmission_nodes` → shortest path to zone) is on
 hold, not deleted — `raw_lmp.facilities` + CEII ceiling means it can only ever cover
