@@ -92,7 +92,7 @@ def poll_marginal_value_rt(pjm: gs.PJM, start: datetime, end: datetime) -> pd.Da
 def sync_marginal_value_rt():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
-    raw = poll_marginal_value_rt(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end)
+    raw = poll_marginal_value_rt(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end + timedelta(days=1))
     rows = list(raw[[
         "datetime_beginning_utc", "datetime_ending_utc", "Monitored Facility", "Contingency Facility",
         "Transmission Constraint Penalty Factor", "Limit Control Percentage", "Shadow Price",
@@ -126,7 +126,7 @@ def poll_marginal_value_da(pjm: gs.PJM, start: datetime, end: datetime) -> pd.Da
 def sync_marginal_value_da():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
-    raw = poll_marginal_value_da(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end)
+    raw = poll_marginal_value_da(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end + timedelta(days=2))
     rows = list(raw[[
         "datetime_beginning_utc", "datetime_ending_utc", "Monitored Facility", "Contingency Facility", "Shadow Price",
     ]].itertuples(index=False, name=None))
@@ -162,7 +162,7 @@ def sync_lmp_da_hourly():
     _assert_zone_mapping_in_sync()
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
-    raw = poll_lmp_da_hourly(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end)
+    raw = poll_lmp_da_hourly(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end + timedelta(days=2))
     rows = list(raw[["time", "zone", "LMP", "Congestion", "Loss"]].itertuples(index=False, name=None))
     _upsert(LMP_DA_HOURLY_UPSERT, rows)
     logger.success(f"Upserted {len(rows)} raw_lmp.lmp_da_hourly rows")
@@ -191,7 +191,7 @@ def poll_generation_by_fuel(pjm: gs.PJM, start: datetime, end: datetime) -> pd.D
 def sync_generation_by_fuel():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
-    long = poll_generation_by_fuel(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end)
+    long = poll_generation_by_fuel(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end + timedelta(days=1))
     rows = list(long[["time", "fuel_type", "generation_mw"]].itertuples(index=False, name=None))
     _upsert(GENERATION_BY_FUEL_UPSERT, rows)
     logger.success(f"Upserted {len(rows)} raw_lmp.generation_by_fuel rows")
@@ -221,7 +221,7 @@ def poll_transmission_constraints_da(pjm: gs.PJM, start: datetime, end: datetime
 def sync_transmission_constraints_da():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
-    raw = poll_transmission_constraints_da(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end)
+    raw = poll_transmission_constraints_da(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end + timedelta(days=2))
     rows = list(raw[[
         "datetime_beginning_utc", "datetime_ending_utc", "Duration", "Monitored Facility", "Contingency Facility",
     ]].itertuples(index=False, name=None))
@@ -289,7 +289,7 @@ def poll_scheduled_generation(pjm: gs.PJM, start: datetime, end: datetime) -> pd
 def sync_scheduled_generation():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
-    raw = poll_scheduled_generation(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end)
+    raw = poll_scheduled_generation(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end + timedelta(days=1))
     rows = list(raw[["time", "rt_ecomax", "self_ecomax"]].itertuples(index=False, name=None))
     _upsert(SCHEDULED_GENERATION_UPSERT, rows)
     logger.success(f"Upserted {len(rows)} raw_lmp.scheduled_generation rows")
@@ -317,7 +317,7 @@ def poll_generation_ehv_losses(pjm: gs.PJM, start: datetime, end: datetime) -> p
 def sync_generation_ehv_losses():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
-    raw = poll_generation_ehv_losses(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end)
+    raw = poll_generation_ehv_losses(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end + timedelta(days=1))
     rows = list(raw[["time", "total_gen", "total_losses"]].itertuples(index=False, name=None))
     _upsert(GENERATION_EHV_LOSSES_UPSERT, rows)
     logger.success(f"Upserted {len(rows)} raw_lmp.generation_ehv_losses rows")
@@ -347,7 +347,7 @@ def poll_forecasted_generation_outages(pjm: gs.PJM, start: datetime, end: dateti
 def sync_forecasted_generation_outages():
     end = datetime.now(UTC)
     pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
-    raw = poll_forecasted_generation_outages(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end)
+    raw = poll_forecasted_generation_outages(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end + timedelta(days=1))
     rows = list(
         raw[["forecast_execution_date", "forecast_date", "RTO MW", "West MW", "Other MW"]]
         .itertuples(index=False, name=None)

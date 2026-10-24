@@ -36,14 +36,13 @@ if __name__ == "__main__":
         sync_marginal_value_rt.to_deployment(
             name="marginal_value_rt", schedule=Cron("15 12 * * *", timezone="America/New_York"),
         ),
-        # Unconfirmed on PJM Data Miner - same settlement family as marginal_value_rt,
-        # treated as daily.
+        # DA results for tomorrow post ~1:30pm ET and the forecast is issued at 14:30 ET, so
+        # the four DA flows run 13:50-14:05, staggered for PJM's shared 6 requests/min.
         sync_marginal_value_da.to_deployment(
-            name="marginal_value_da", schedule=Cron("20 12 * * *", timezone="America/New_York"),
+            name="marginal_value_da", schedule=Cron("50 13 * * *", timezone="America/New_York"),
         ),
-        # Unconfirmed - DA market clears once/day; treated as daily.
         sync_lmp_da_hourly.to_deployment(
-            name="lmp_da_hourly", schedule=Cron("25 12 * * *", timezone="America/New_York"),
+            name="lmp_da_hourly", schedule=Cron("55 13 * * *", timezone="America/New_York"),
         ),
         # Confirmed hourly, :15 past the hour - still a periodic batch post, not a push
         # feed, so still direct pull-and-upsert, just on an hourly schedule.
@@ -52,7 +51,7 @@ if __name__ == "__main__":
         ),
         # Confirmed daily, 12-2pm ET.
         sync_transmission_constraints_da.to_deployment(
-            name="transmission_constraints_da", schedule=Cron("15 14 * * *", timezone="America/New_York"),
+            name="transmission_constraints_da", schedule=Cron("0 14 * * *", timezone="America/New_York"),
         ),
         # Confirmed monthly, posts on the 20th.
         sync_operator_initiated_commitments.to_deployment(
@@ -88,8 +87,8 @@ if __name__ == "__main__":
             name="rt_unverified_hrl_lmps_nodal", schedule=Cron("25 * * * *", timezone="America/New_York"),
         ),
         # Day-ahead hourly LMP for the GNN node set - DA results for tomorrow post ~1:30pm
-        # ET, so this runs after; window runs through tomorrow.
+        # ET, so this runs after, ahead of the 14:30 ET forecast; window runs through tomorrow.
         sync_da_hrl_lmps_nodal.to_deployment(
-            name="da_hrl_lmps_nodal", schedule=Cron("30 14 * * *", timezone="America/New_York"),
+            name="da_hrl_lmps_nodal", schedule=Cron("5 14 * * *", timezone="America/New_York"),
         ),
     )
