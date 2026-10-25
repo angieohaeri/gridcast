@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: lmp_spread
+    description: >
+      Per-pnode RT-DA spread target. Grain: one row per (time, pnode_id). Verified RT only.
+    columns:
+      - name: rt_lmp
+        tests: [not_null]
+      - name: da_lmp
+        tests: [not_null]
+      - name: spread
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, pnode_id]
+
+  - name: lmp_baseline_features
+    description: >
+      Baseline feature row per (time, pnode_id) for the next-day spread model. DA-spined, so
+      spread is null for hours not yet verified (the rows being forecast).
+      spread_last_verified_day is also the second baseline to beat.
+    columns:
+      - name: da_lmp
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, pnode_id]
