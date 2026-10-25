@@ -18,6 +18,23 @@ source:
           - ^analytics_lmp$
           - ^public$
           - ^raw_lmp$
+      # hypertables: the profiler reads the empty parent table (row count -1/0, no column stats)
+      tableFilterPattern:
+        excludes:
+          - ^instantaneous_load$
+          - ^lmp$
+          - ^load$
+          - ^weather$
+          - ^da_hrl_lmps_nodal$
+          - ^rt_hrl_lmps_nodal$
+          - ^lmp_da_hourly$
+          - ^generation_by_fuel$
+          - ^generation_ehv_losses$
+          - ^marginal_value_da$
+          - ^marginal_value_rt$
+          - ^operator_initiated_commitments$
+          - ^scheduled_generation$
+          - ^transmission_constraints_da$
 processor:
   type: orm-profiler
   config: {}
