@@ -1,0 +1,32 @@
+source:
+  type: postgres
+  serviceName: gridcast-timescaledb
+  serviceConnection:
+    config:
+      type: Postgres
+      hostPort: ${TIMESCALEDB_HOST}:${TIMESCALEDB_PORT}
+      username: ${TIMESCALEDB_USER}
+      authType:
+        password: ${TIMESCALEDB_PASSWORD}
+      database: ${TIMESCALEDB_DB}
+  sourceConfig:
+    config:
+      type: Profiler
+      schemaFilterPattern:
+        includes:
+          - ^analytics$
+          - ^analytics_lmp$
+          - ^public$
+          - ^raw_lmp$
+processor:
+  type: orm-profiler
+  config: {}
+sink:
+  type: metadata-rest
+  config: {}
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: ${OPENMETADATA_URL}/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: ${OPENMETADATA_JWT_TOKEN}

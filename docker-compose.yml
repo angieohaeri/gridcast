@@ -380,6 +380,8 @@ services:
       TIMESCALEDB_HOST: timescaledb
       TIMESCALEDB_PORT: "5432"
       PREFECT_API_URL: http://prefect-server:4200/api
+      OPENMETADATA_URL: http://openmetadata-server:8585
+      PREFECT_SERVER_URL: http://prefect-server:4200
       MLFLOW_TRACKING_URI: http://mlflow:5000
       API_URL: http://api:8000
       DASHBOARD_URL: http://dashboard:8080
@@ -484,6 +486,84 @@ services:
       - ./data/external/pjm_zones.geojson:/app/data/external/pjm_zones.geojson:ro
       - ./data/processed/pjm_eia930_subregions.csv:/app/data/processed/pjm_eia930_subregions.csv:ro
 
+  # OpenMetadata (data catalog / lineage). Metadata lives in its own `openmetadata` db on
+  # the shared timescaledb instance (same pattern as mlflow/prefect) - create it once:
+  #   docker exec gridcast-timescaledb psql -U $TIMESCALEDB_USER -c "CREATE DATABASE openmetadata"
+  # Search index needs OpenSearch; no Airflow ingestion container, so connectors are run
+  # with the `metadata ingest` CLI rather than scheduled from the UI.
+  opensearch:
+    image: opensearchproject/opensearch:2.19.1
+    container_name: gridcast-opensearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - kafka-net
+
+  openmetadata-migrate:
+    image: docker.getcollate.io/openmetadata/server:${OPENMETADATA_VERSION:-2.0.6}
+    container_name: gridcast-openmetadata-migrate
+    command: ./bootstrap/openmetadata-ops.sh migrate
+    environment: &openmetadata-env
+      DB_DRIVER_CLASS: org.postgresql.Driver
+      DB_SCHEME: postgresql
+      DB_HOST: timescaledb
+      DB_PORT: "5432"
+      DB_USER: ${TIMESCALEDB_USER}
+      DB_USER_PASSWORD: ${TIMESCALEDB_PASSWORD}
+      OM_DATABASE: openmetadata
+      DB_PARAMS: allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+      SEARCH_TYPE: opensearch
+      ELASTICSEARCH_HOST: opensearch
+      ELASTICSEARCH_PORT: "9200"
+      ELASTICSEARCH_SCHEME: http
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+    networks:
+      - kafka-net
+
+  openmetadata-server:
+    image: docker.getcollate.io/openmetadata/server:${OPENMETADATA_VERSION:-2.0.6}
+    container_name: gridcast-openmetadata
+    restart: unless-stopped
+    environment:
+      <<: *openmetadata-env
+      OPENMETADATA_HEAP_OPTS: -Xmx1G -Xms1G
+    ports:
+      - "8585:8585"
+    depends_on:
+      openmetadata-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8586/healthcheck || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      - kafka-net
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
@@ -510,3 +590,4 @@ volumes:
   prefect_data:
   backup_data:  # unused while db_backup is disabled (see prefect-deployments/deployments.py)
   mlflow_artifacts:
+  opensearch_data:

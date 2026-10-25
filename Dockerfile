@@ -18,6 +18,10 @@ COPY gridcast/ gridcast/
 # host it stretched into minutes and looked identical to a startup deadlock.
 RUN uv sync --frozen --no-dev --compile-bytecode
 
+# OpenMetadata's ingestion CLI in its own isolated tool env - its pins downgrade dbt's
+# metricflow/sqlglot, so it can't go in pyproject. UV_TOOL_BIN_DIR puts `metadata` on PATH.
+RUN UV_TOOL_BIN_DIR=/usr/local/bin uv tool install --with alembic "openmetadata-ingestion[postgres,dbt,mlflow,kafka]==2.0.6"
+
 ENV PATH="/app/.venv/bin:$PATH"
 
 COPY src/ src/
