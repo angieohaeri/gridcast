@@ -233,3 +233,30 @@ baseline is fit, so no train split is needed. Spike = top 1% of |spread| (≥ $3
 - Spike hours are 1% of rows but 28% of total absolute error, so spike MAE matters as much
   as overall MAE. Both baselines are equally bad there (~$680), the bar for the GNN.
 - The GNN's bar is spread = 0 on overall MAE and either baseline on spike MAE.
+
+## GNN edge set
+
+**Title: Correlation edges for nodes the topology data cannot connect, Author: Angie Ohaeri (assisted), Date: October 25, 4:49PM UTC**
+
+`pnode_topology_edges` links only the 1,037 attached substations. The 426 fill-ins (ComEd:
+277 fill-ins, 0 attached; DEOK 90/9; DAY 30/1; EKPC 29/5) and 42 aggregates had no edges, plus
+23 attached substations with no geographic edge.
+
+Check on hourly spread with the cross-node hourly median removed (so the system-wide λ
+component doesn't make every pair look correlated), last year of data:
+- Geographic edges are real: connected pairs median corr 0.96 vs 0.49 for random same-zone
+  non-edges.
+- Learned edges hold out of sample: top-3 correlated same-zone nodes picked on the first half
+  of the year have median corr 0.98-0.99 on the second half (zone median 0.78-0.92); 92% of
+  fill-ins stay above 0.8.
+
+Decision: keep the geographic edges; every node without one is linked to its top-3 most
+correlated real nodes in its zone (any zone when its zone has no real nodes: hubs, interfaces,
+PJM-RTO, OVEC). Built by `gridcast/graph.py:build_edges` → `data/processed/pnode_edges_<train_end>.parquet`
+(undirected, `src < dst`, `kind` = geographic | correlation). Correlations use only
+`[train_start, train_end)`, so the graph never sees the evaluation period; rebuild when the
+train window changes. First build, train 2024-10-23 → 2026-04-01: 2,921 geographic + 1,091
+correlation edges, no isolated nodes.
+
+Caveat: top neighbors correlate ~0.99, so many fill-ins carry nearly the same price as a
+neighbor and add little independent signal.
