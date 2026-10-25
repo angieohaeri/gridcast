@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 6,
+  "subjectArea": "staging",
+  "layer": "silver",
+  "description": "Drawn from dbt: staging.",
+  "logical": {
+    "tables": [
+      "stg_inst_load",
+      "stg_lmp",
+      "stg_load",
+      "stg_weather"
+    ],
+    "relationships": []
+  },
+  "viewConfig": {
+    "positions": {
+      "stg_inst_load": {
+        "x": 492,
+        "y": 12
+      },
+      "stg_lmp": {
+        "x": 12,
+        "y": 12
+      },
+      "stg_load": {
+        "x": 12,
+        "y": 169
+      },
+      "stg_weather": {
+        "x": 252,
+        "y": 12
+      }
+    }
+  }
+}

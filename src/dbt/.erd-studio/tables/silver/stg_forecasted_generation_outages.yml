@@ -1,0 +1,9 @@
+name: stg_forecasted_generation_outages
+schema: analytics_lmp
+description: |
+  Outage forecasts. Grain: one row per (forecast_execution_date, forecast_date). Filter on forecast_execution_date, not forecast_date, to avoid leakage. Available at the 14:30 ET cutoff on day D: executions through D (daily).
+columns:
+  - name: forecast_execution_date
+    dataType: ""
+  - name: forecast_date
+    dataType: ""

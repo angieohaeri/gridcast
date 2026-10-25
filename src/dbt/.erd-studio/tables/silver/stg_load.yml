@@ -1,0 +1,12 @@
+name: stg_load
+schema: analytics
+description: "Cleaned load rows. Grain: one row per (time, zone, source)."
+columns:
+  - name: time
+    dataType: ""
+  - name: zone
+    dataType: ""
+  - name: source
+    dataType: ""
+  - name: demand_mw
+    dataType: ""

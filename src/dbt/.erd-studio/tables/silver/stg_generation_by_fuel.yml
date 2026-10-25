@@ -1,0 +1,7 @@
+name: stg_generation_by_fuel
+schema: analytics_lmp
+description: |
+  Hourly RTO-wide generation by fuel. Grain: one row per (time, fuel_type), Hour Ending UTC. Feed is hourly but the database reached only D-1 at 18:47 ET on 2026-10-24.
+columns:
+  - name: time
+    dataType: ""

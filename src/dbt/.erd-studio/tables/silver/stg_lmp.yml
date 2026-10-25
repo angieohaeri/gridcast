@@ -1,0 +1,10 @@
+name: stg_lmp
+schema: analytics
+description: "Cleaned LMP rows, in-scope zones only. Grain: one row per (time, pnode_id)."
+columns:
+  - name: time
+    dataType: ""
+  - name: zone
+    dataType: ""
+  - name: lmp_total
+    dataType: ""

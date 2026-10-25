@@ -1,0 +1,8 @@
+name: stg_lmp_da_zonal
+schema: analytics_lmp
+description: "DA zonal hourly LMP, Hour Ending UTC. Grain: one row per (time, zone). Observed only through D-1 at the cutoff."
+columns:
+  - name: time
+    dataType: ""
+  - name: zone
+    dataType: ""

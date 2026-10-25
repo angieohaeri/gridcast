@@ -1,0 +1,8 @@
+name: stg_operator_initiated_commitments
+schema: analytics_lmp
+description: Event-level out-of-merit commitments per zone. Not hourly. Posts monthly on the 20th; latest data 2026-09-30.
+columns:
+  - name: event_time
+    dataType: ""
+  - name: zone
+    dataType: ""

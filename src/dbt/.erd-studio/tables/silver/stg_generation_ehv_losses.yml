@@ -1,0 +1,7 @@
+name: stg_generation_ehv_losses
+schema: analytics_lmp
+description: Hourly RTO-wide generation and EHV losses. Hour Ending UTC. Observed through D-1.
+columns:
+  - name: time
+    dataType: ""
+    isPrimaryKey: true

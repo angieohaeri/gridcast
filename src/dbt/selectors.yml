@@ -1,0 +1,60 @@
+# ERD Studio manages selectors prefixed with `domain_` whose description ends with "Managed by ERD Studio." — regenerated automatically.
+# Other selectors below are user-managed and preserved across regenerates.
+
+selectors:
+  - name: domain_gold_features_load
+    description: All models in the features_load domain (gold layer). Managed by ERD Studio.
+    definition:
+      union:
+        - method: fqn
+          value: features
+        - method: fqn
+          value: inst_load_features
+        - method: fqn
+          value: lmp_features
+        - method: fqn
+          value: load_features
+        - method: fqn
+          value: weather_features
+  - name: domain_silver_lmp_staging
+    description: All models in the lmp_staging domain (silver layer). Managed by ERD Studio.
+    definition:
+      union:
+        - method: fqn
+          value: stg_pnode_topology
+        - method: fqn
+          value: stg_da_lmp_nodal
+        - method: fqn
+          value: stg_rt_lmp_nodal
+        - method: fqn
+          value: stg_forecasted_generation_outages
+        - method: fqn
+          value: stg_generation_by_fuel
+        - method: fqn
+          value: stg_generation_ehv_losses
+        - method: fqn
+          value: stg_lmp_da_zonal
+        - method: fqn
+          value: stg_marginal_value_da
+        - method: fqn
+          value: stg_marginal_value_rt
+        - method: fqn
+          value: stg_natural_gas_fuel_cost
+        - method: fqn
+          value: stg_operator_initiated_commitments
+        - method: fqn
+          value: stg_scheduled_generation
+        - method: fqn
+          value: stg_transmission_constraints_da
+  - name: domain_silver_staging
+    description: All models in the staging domain (silver layer). Managed by ERD Studio.
+    definition:
+      union:
+        - method: fqn
+          value: stg_inst_load
+        - method: fqn
+          value: stg_lmp
+        - method: fqn
+          value: stg_load
+        - method: fqn
+          value: stg_weather

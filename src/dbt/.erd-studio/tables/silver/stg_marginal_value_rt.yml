@@ -1,0 +1,12 @@
+name: stg_marginal_value_rt
+schema: analytics_lmp
+description: |
+  RT shadow price per binding constraint, rolled up from 5-min to Hour Ending UTC. Grain: one row per (time, monitored_facility, contingency_facility). Keyed by facility, not pnode. Available at the 14:30 ET cutoff on day D: through the end of D-2 (posts daily 11am-12pm ET).
+columns:
+  - name: time
+    dataType: ""
+  - name: monitored_facility
+    dataType: ""
+  - name: binding_intervals
+    dataType: ""
+    description: 5-min intervals this constraint bound in the hour (1-12).

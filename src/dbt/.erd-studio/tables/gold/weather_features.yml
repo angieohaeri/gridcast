@@ -1,0 +1,12 @@
+name: weather_features
+schema: analytics
+description: |
+  Weather collapsed to hourly, timestamped Hour Ending to match load_features. Grain: one row per (time, zone).
+columns:
+  - name: time
+    dataType: ""
+  - name: zone
+    dataType: ""
+  - name: observation_count
+    dataType: ""
+    description: Polls collapsed into this hour. Expect ~3; fewer means a producer gap or backfilled historical data.
