@@ -213,3 +213,23 @@ independent power producers too, matching PJM's competitive generation mix).
 
 This completes **every** Tier 1 source identified in this project, including the one
 explicitly out-of-scope PJM source.
+
+## Baselines for the next-day RT-DA spread
+
+**Title: Baseline MAE on the per-pnode spread: last day's spread is worse than predicting zero, Author: Angie Ohaeri (assisted), Date: October 25th Time: 2:42am UTC**
+
+Source: `analytics_lmp.lmp_baseline_features`, verified rows with a non-null
+`spread_last_verified_day`, test window 2026-04-01 onward (7,379,876 pnode-hours). Neither
+baseline is fit, so no train split is needed. Spike = top 1% of |spread| (≥ $342/MWh).
+
+| | spread = 0 | last verified day's spread |
+|---|---|---|
+| MAE ($/MWh) | 25.0 | 40.1 |
+| median AE | 7.8 | 11.6 |
+| spike MAE | 686 | 672 |
+
+- Last-day spread loses to zero in every month since 2024-10 (e.g. 2026-01: 54 vs 75),
+  so the spread has no day-to-day persistence; copying it adds the previous day's noise.
+- Spike hours are 1% of rows but 28% of total absolute error, so spike MAE matters as much
+  as overall MAE. Both baselines are equally bad there (~$680), the bar for the GNN.
+- The GNN's bar is spread = 0 on overall MAE and either baseline on spike MAE.
