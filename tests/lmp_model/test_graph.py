@@ -1,6 +1,6 @@
 import pandas as pd
 
-from gridcast.graph import correlation_edges
+from lmp_model.graph import correlation_edges
 
 
 def test_correlation_edges_link_isolated_nodes_within_zone():

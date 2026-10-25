@@ -252,7 +252,7 @@ component doesn't make every pair look correlated), last year of data:
 
 Decision: keep the geographic edges; every node without one is linked to its top-3 most
 correlated real nodes in its zone (any zone when its zone has no real nodes: hubs, interfaces,
-PJM-RTO, OVEC). Built by `gridcast/graph.py:build_edges` → `data/processed/pnode_edges_<train_end>.parquet`
+PJM-RTO, OVEC). Built by `lmp_model/graph.py:build_edges` → `data/processed/pnode_edges_<train_end>.parquet`
 (undirected, `src < dst`, `kind` = geographic | correlation). Correlations use only
 `[train_start, train_end)`, so the graph never sees the evaluation period; rebuild when the
 train window changes. First build, train 2024-10-23 → 2026-04-01: 2,921 geographic + 1,091
