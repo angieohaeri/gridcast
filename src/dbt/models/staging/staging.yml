@@ -5,8 +5,10 @@ models:
     description: "Cleaned load rows. Grain: one row per (time, zone, source)."
     columns:
       - name: time
+        description: "Hour Ending, UTC."
         tests: [not_null]
       - name: zone
+        description: "PJM zone code, or RTO for system totals. Unfiltered."
         tests:
           - not_null
           - accepted_values:
@@ -14,39 +16,69 @@ models:
               values: ['AE', 'AEP', 'AP', 'ATSI', 'BC', 'CE', 'DAY', 'DEOK', 'DOM', 'DPL',
                        'DUQ', 'EKPC', 'JC', 'ME', 'PE', 'PEP', 'PL', 'PN', 'PS', 'RECO', 'RTO']
       - name: source
+        description: "Which feed the row came from: pjm (metered zonal load) or eia (EIA-930 RTO-level)."
         tests:
           - not_null
           - accepted_values: {values: ['pjm', 'eia']}
       - name: demand_mw
+        description: "Actual demand, MW (hourly average)."
         tests: [not_null]
+      - name: demand_forecast_mw
+        description: "EIA-930's own published day-ahead demand forecast, MW, when present."
+      - name: net_generation_mw
+        description: "Net generation, MW."
+      - name: total_interchange_mw
+        description: "Net power exported (positive) or imported (negative), MW."
+      - name: is_verified
+        description: "PJM unverified-to-verified flag. Only meaningful for source = pjm; null for eia."
 
   - name: stg_lmp
     description: "Cleaned LMP rows, in-scope zones only. Grain: one row per (time, pnode_id)."
     columns:
       - name: time
+        description: "Hour Ending, UTC."
         tests: [not_null]
       - name: zone
+        description: "Project zone_id code of the node's PJM zone. In-scope zones only."
         tests:
           - not_null
           - relationships:
               to: ref('pjm_weather_zones')
               field: zone_id
       - name: lmp_total
+        description: "Total real-time hourly LMP, $/MWh (raw column: lmp)."
         tests: [not_null]
+      - name: pnode_id
+        description: "PJM pricing node id."
+      - name: pnode_name
+        description: "PJM pricing node name."
+      - name: congestion_price
+        description: "Congestion component of the LMP, $/MWh."
+      - name: marginal_loss_price
+        description: "Marginal loss component of the LMP, $/MWh."
 
   - name: stg_weather
     description: Cleaned weather observations at native sub-hourly grain.
     columns:
       - name: time
+        description: "Ingestion time of the poll (not an observation interval)."
         tests: [not_null]
       - name: zone
+        description: "PJM zone code. In-scope zones only."
         tests:
           - not_null
           - relationships:
               to: ref('pjm_weather_zones')
               field: zone_id
       - name: temperature
+        description: "Air temperature at 2 m, degrees C."
         tests: [not_null]
+      - name: precipitation
+        description: "Precipitation, mm."
+      - name: wind_speed
+        description: "Wind speed at 10 m, km/h."
+      - name: cloud_cover
+        description: "Cloud cover, %."
 
   - name: stg_inst_load
     description: >
@@ -54,8 +86,10 @@ models:
       Grain: one row per (time, zone).
     columns:
       - name: time
+        description: "UTC, native ~5-minute posting interval (not Hour Ending)."
         tests: [not_null]
       - name: zone
+        description: "PJM zone code, or RTO for the system-wide total. Unfiltered."
         tests:
           - not_null
           - accepted_values:
@@ -63,4 +97,5 @@ models:
               values: ['AE', 'AEP', 'AP', 'ATSI', 'BC', 'CE', 'DAY', 'DEOK', 'DOM', 'DPL',
                        'DUQ', 'EKPC', 'JC', 'ME', 'PE', 'PEP', 'PL', 'PN', 'PS', 'RECO', 'RTO']
       - name: instantaneous_load_mw
+        description: "Raw point-in-time telemetry snapshot, MW. Not settled energy."
         tests: [not_null]

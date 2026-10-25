@@ -8,8 +8,10 @@ models:
       unverified rows through hour ending 14:00 ET on D.
     columns:
       - name: time
+        description: "Hour Ending, UTC."
         tests: [not_null]
       - name: pnode_id
+        description: "PJM pricing node id; join to stg_pnode_topology."
         tests:
           - not_null
           - relationships:
@@ -17,10 +19,17 @@ models:
                 to: ref('stg_pnode_topology')
                 field: pnode_id
       - name: lmp_total
+        description: "Total real-time hourly LMP, $/MWh (raw column: lmp)."
         tests: [not_null]
       - name: is_verified
         description: Train labels use verified rows only.
         tests: [not_null]
+      - name: system_energy_price
+        description: "Real-time system-wide energy component (lambda), $/MWh; identical for every pnode in an hour."
+      - name: congestion_price
+        description: "Congestion component of the LMP, $/MWh."
+      - name: marginal_loss_price
+        description: "Marginal loss component of the LMP, $/MWh."
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -32,8 +41,10 @@ models:
       14:30 ET cutoff on day D: through the end of D+1 (DA results post about 1:30pm ET).
     columns:
       - name: time
+        description: "Hour Ending, UTC."
         tests: [not_null]
       - name: pnode_id
+        description: "PJM pricing node id; join to stg_pnode_topology."
         tests:
           - not_null
           - relationships:
@@ -41,7 +52,14 @@ models:
                 to: ref('stg_pnode_topology')
                 field: pnode_id
       - name: lmp_total
+        description: "Total day-ahead LMP, $/MWh (raw column: lmp)."
         tests: [not_null]
+      - name: system_energy_price
+        description: "Day-ahead system-wide energy component (lambda), $/MWh; identical for every pnode in an hour."
+      - name: congestion_price
+        description: "Congestion component of the LMP, $/MWh."
+      - name: marginal_loss_price
+        description: "Marginal loss component of the LMP, $/MWh."
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -51,12 +69,34 @@ models:
     description: "GNN node set. Grain: one row per pnode_id. Static reference, rebuilt quarterly."
     columns:
       - name: pnode_id
+        description: "PJM pricing node id."
         tests: [not_null, unique]
       - name: role
+        description: "aggregate (ZONE/HUB/INTERFACE pnodes), attached (one representative bus per attached substation) or fill_in (nodes with price history but no edges yet)."
         tests:
           - accepted_values:
               arguments:
                 values: ['aggregate', 'attached', 'fill_in']
+      - name: pnode_name
+        description: "PJM pricing node name; the first 8 characters are the substation code."
+      - name: pnode_subtype
+        description: "LOAD, GEN or EXT for buses; ZONE, HUB or INTERFACE for aggregates."
+      - name: zone
+        description: "PJM zone name (COMED, PSEG, ...); ZONE aggregates use their own name."
+      - name: zone_id
+        description: "Project zone_id code; null for hubs, interfaces, PJM-RTO, MID-ATL/APS and OVEC."
+      - name: substation
+        description: "8-character substation code; null for aggregates."
+      - name: sub_key
+        description: "zone_id|substation, the join key to the topology edges; null for aggregates."
+      - name: voltage_kv
+        description: "Bus voltage, kV."
+      - name: lat
+        description: "Latitude; attached nodes only."
+      - name: lon
+        description: "Longitude; attached nodes only."
+      - name: conflict
+        description: "True when the GridSFM and HIFLD locations are more than 5 km apart; excluded from the edges."
 
   - name: stg_marginal_value_rt
     description: >
@@ -65,11 +105,19 @@ models:
       facility, not pnode. Available at the 14:30 ET cutoff on day D: through the end of D-2 (posts daily 11am-12pm ET).
     columns:
       - name: time
+        description: "Hour Ending, UTC: intervals beginning 10:00-10:55 are labelled 11:00."
         tests: [not_null]
       - name: monitored_facility
+        description: "Substation or line name of the binding constraint."
         tests: [not_null]
       - name: binding_intervals
         description: 5-min intervals this constraint bound in the hour (1-12).
+      - name: contingency_facility
+        description: "Contingency facility paired with the monitored facility."
+      - name: shadow_price_sum
+        description: "Sum of the 5-minute shadow prices in the hour, over the intervals the constraint bound. Negative in this feed."
+      - name: shadow_price_min
+        description: "Most negative (strongest) 5-minute shadow price in the hour."
 
   - name: stg_marginal_value_da
     description: >
@@ -79,19 +127,32 @@ models:
       2026-10-24 18:47 ET, DA LMPs already reached D+1), so D+1 values are NOT usable yet.
     columns:
       - name: time
+        description: "Hour Ending, UTC."
         tests: [not_null]
       - name: monitored_facility
+        description: "Substation or line name of the binding constraint."
         tests: [not_null]
       - name: shadow_price
+        description: "Day-ahead shadow price (mu) of the binding constraint: the congestion term of the LMP."
         tests: [not_null]
+      - name: contingency_facility
+        description: "Contingency facility paired with the monitored facility."
 
   - name: stg_lmp_da_zonal
     description: "DA zonal hourly LMP, Hour Ending UTC. Grain: one row per (time, zone). Observed only through D-1 at the cutoff."
     columns:
       - name: time
+        description: "Hour Ending, UTC."
         tests: [not_null]
       - name: zone
+        description: "Project zone_id code."
         tests: [not_null]
+      - name: lmp_total
+        description: "Total day-ahead zonal LMP, $/MWh (raw column: lmp)."
+      - name: congestion_price
+        description: "Congestion component of the LMP, $/MWh."
+      - name: marginal_loss_price
+        description: "Marginal loss component of the LMP, $/MWh."
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -103,7 +164,12 @@ models:
       Feed is hourly but the database reached only D-1 at 18:47 ET on 2026-10-24.
     columns:
       - name: time
+        description: "Hour, UTC."
         tests: [not_null]
+      - name: fuel_type
+        description: "Coal, Gas, Hydro, Multiple Fuels, Nuclear, Oil, Other Renewables, Solar, Storage or Wind."
+      - name: generation_mw
+        description: "Actual RTO-wide generation for the fuel, MW."
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -116,17 +182,31 @@ models:
       Observed only through D-1 at the cutoff, like stg_marginal_value_da.
     columns:
       - name: datetime_beginning_utc
+        description: "Start of the interval, UTC."
         tests: [not_null]
       - name: monitored_facility
+        description: "Substation or line name of the binding constraint."
         tests: [not_null]
+      - name: datetime_ending_utc
+        description: "End of the interval, UTC."
+      - name: duration_hours
+        description: "Hours the constraint bound in the day-ahead market."
+      - name: contingency_facility
+        description: "Contingency facility paired with the monitored facility."
 
   - name: stg_operator_initiated_commitments
     description: "Event-level out-of-merit commitments per zone. Not hourly. Posts monthly on the 20th; latest data 2026-09-30."
     columns:
       - name: event_time
+        description: "Event timestamp, UTC (irregular, sub-minute)."
         tests: [not_null]
       - name: zone
+        description: "Project zone_id code."
         tests: [not_null]
+      - name: economic_max_mw
+        description: "Economic maximum of the committed unit, MW."
+      - name: reason
+        description: "Why the unit was committed out of merit, e.g. Constraint Management or System Wide Capacity."
 
   - name: stg_scheduled_generation
     description: >
@@ -134,13 +214,23 @@ models:
       rt_ecomax is null under PJM suppression, not missing data.
     columns:
       - name: time
+        description: "Hour, UTC."
         tests: [not_null, unique]
+      - name: rt_ecomax
+        description: "Real-time economic maximum, MW. Null under PJM confidentiality suppression (~55% of rows)."
+      - name: self_ecomax
+        description: "Self-scheduled generation economic maximum, MW: must-run/contractual generation that runs regardless of price."
 
   - name: stg_generation_ehv_losses
     description: Hourly RTO-wide generation and EHV losses. Hour Ending UTC. Observed through D-1.
     columns:
       - name: time
+        description: "Hour Ending, UTC."
         tests: [not_null, unique]
+      - name: total_gen
+        description: "RTO-wide total generation, MW."
+      - name: total_losses
+        description: "RTO-wide EHV losses, MW."
 
   - name: stg_forecasted_generation_outages
     description: >
@@ -149,14 +239,26 @@ models:
       Available at the 14:30 ET cutoff on day D: executions through D (daily).
     columns:
       - name: forecast_execution_date
+        description: "When this forecast was posted."
         tests: [not_null]
       - name: forecast_date
+        description: "The date being forecast, within the 90-day horizon."
         tests: [not_null]
+      - name: outage_mw_rto
+        description: "Forecast generation outage, RTO-wide, MW."
+      - name: outage_mw_west
+        description: "Forecast generation outage, West region, MW."
+      - name: outage_mw_other
+        description: "Forecast generation outage, other regions, MW."
 
   - name: stg_natural_gas_fuel_cost
     description: "Monthly state-level gas cost. Grain: one row per (period, state). Null cost = no NG generation reported. EIA lags about 3 months; latest 2026-07."
     columns:
       - name: period
+        description: "First day of the month."
         tests: [not_null]
       - name: state
+        description: "Two-letter state postal code (raw column: location)."
         tests: [not_null]
+      - name: cost_per_mmbtu
+        description: "Natural gas cost, dollars per million BTU (EIA). Null means no gas generation was reported."
