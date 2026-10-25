@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
-from gridcast.config import PROCESSED_DATA_DIR, get_connection, setup_logging
+from gridcast.config import get_connection, setup_logging
+from lmp_model.config import PROCESSED_DATA_DIR
 
 setup_logging()
 
