@@ -2,31 +2,17 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
-from gridcast.config import get_connection, setup_logging
 from lmp_model.config import PROCESSED_DATA_DIR
-
-setup_logging()
+from lmp_model.dataset import CHUNK_DAYS, load_nodes, query
 
 NEIGHBORS = 3
 MIN_OVERLAP_HOURS = 500
 SPREAD_CLIP = 300
-CHUNK_DAYS = 30
-
-
-def _query(sql: str, params: tuple = ()) -> pd.DataFrame:
-    cur = get_connection().cursor()
-    cur.execute(sql, params)
-    return pd.DataFrame(cur.fetchall(), columns=[desc[0] for desc in cur.description])
-
-
-def load_nodes() -> pd.DataFrame:
-    nodes = _query("SELECT pnode_id, role, zone, sub_key FROM raw_lmp.pnode_topology_nodes;")
-    return nodes.set_index("pnode_id")
 
 
 def geographic_edges(nodes: pd.DataFrame) -> pd.DataFrame:
     """Substation edges from pnode_topology_edges, mapped to each substation's pnode."""
-    edges = _query("SELECT sub_a, sub_b FROM raw_lmp.pnode_topology_edges;")
+    edges = query("SELECT sub_a, sub_b FROM raw_lmp.pnode_topology_edges;")
     attached = nodes[nodes["role"] == "attached"]
     pnode_by_sub = pd.Series(attached.index, index=attached["sub_key"])
     return pd.DataFrame(
@@ -39,7 +25,7 @@ def geographic_edges(nodes: pd.DataFrame) -> pd.DataFrame:
 
 
 def _spread_chunk(start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
-    spread = _query(
+    spread = query(
         "SELECT time, pnode_id, spread FROM analytics_lmp.lmp_spread WHERE time >= %s AND time < %s;",
         (start, end),
     )
@@ -86,3 +72,10 @@ def build_edges(train_start: pd.Timestamp, train_end: pd.Timestamp) -> pd.DataFr
     path = PROCESSED_DATA_DIR / f"pnode_edges_{train_end:%Y%m%d}.parquet"
     edges.to_parquet(path, index=False)
     return edges
+
+
+def edge_index(edges: pd.DataFrame, pnode_ids: pd.Index) -> np.ndarray:
+    """[2, 2E] node-position pairs with both directions, for message passing."""
+    src = pnode_ids.get_indexer(edges["src"])
+    dst = pnode_ids.get_indexer(edges["dst"])
+    return np.stack([np.concatenate([src, dst]), np.concatenate([dst, src])])
