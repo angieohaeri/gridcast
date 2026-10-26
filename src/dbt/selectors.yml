@@ -1,4 +1,3 @@
-=======
 selectors:
   # the original load-forecasting stack: staging views/tables, features, weather zones seed
   - name: load
@@ -27,4 +26,3 @@ selectors:
         - "lmp_load_forecast_features"
         - "lmp_weather_forecast_features"
         - "lmp_baseline_features"
->>>>>>> 96367fcb7e86033de43e66c65b986cce1cd96966
