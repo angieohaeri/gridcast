@@ -521,3 +521,76 @@ DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,bac
 | `cost_per_mmbtu` | numeric | dollars per million BTU (fixed unit — EIA's `cost-per-btu-units` field, always this value, dropped); null = no NG generation reported |
 
 Unique constraint: `(period, location)`.
+
+---
+
+### `load_forecast`
+
+**Title: PJM load forecast by area, point in time, Author: Angie Ohaeri (assisted), Date: October 26, 7:35PM UTC**
+
+PJM's own load forecast (`load_frcstd_hist` Data Miner 2 feed), one row per forecast PJM issued,
+keyed by when it was issued so training can use the forecast that was actually available at the
+14:30 ET cutoff. 5 evaluations a day (~05:45, 09:45, 11:45, 17:45, 23:45 ET), each covering now
+through the end of tomorrow. Hypertable, 30-day chunks, not compressed. Loaded 2026-10-25:
+1,450,647 rows, 2024-10-22 → 2026-11-01. Rows are never revised, so inserts are `DO NOTHING`.
+
+| column | type | notes |
+|---|---|---|
+| `evaluated_at` | timestamptz, not null | when PJM issued the forecast (UTC) |
+| `time` | timestamptz, not null | Hour Ending UTC (feed's `forecast_hour_beginning_utc` + 1h), matching the LMP tables; partitioning column |
+| `forecast_area` | text, not null | 11 coarse areas: AEP, APS, ATSI, COMED, DAY, DEOK, DOM, DUQ, EKPC, MIDATL (all eleven mid-Atlantic zones combined), RTO |
+| `forecast_load_mw` | real, not null | |
+
+Unique `(evaluated_at, time, forecast_area)`. The history feed lags about a day, so
+`sync_load_forecast_live` snapshots the live `load_frcstd_7_day` feed (25 finer areas, only its
+latest evaluation) into the same table, renamed to the 11 coarse areas (`MID_ATLANTIC_REGION` →
+`MIDATL`, `AP` → `APS`, `DAYTON` → `DAY`, `DOMINION` → `DOM`, `DUQUESNE` → `DUQ`,
+`RTO_COMBINED` → `RTO`). PJM's history lacks the daytime evaluations around the March clock
+changes (see `decisions.md`). DDL: `src/consumers/lmp_model_schema.sql`.
+
+---
+
+### `weather_forecast`
+
+**Title: Open-Meteo zone weather forecasts, Author: Angie Ohaeri (assisted), Date: October 26, 7:35PM UTC**
+
+Hourly forecast per weather zone (the 30 stations of `pjm_weather_zones` averaged to their 20
+zones). Hypertable, 30-day chunks. Loaded 2026-10-26: 352,800 `previous_day1` rows
+(2024-10-22 → 2026-10-27) plus `live` snapshots. Inserts are `DO NOTHING`.
+
+| column | type | notes |
+|---|---|---|
+| `time` | timestamptz, not null | Hour Ending UTC: the reading's clock time + 1h, the alignment `weather_features` uses for observations |
+| `zone` | text, not null | project `zone_id` (AE, AEP, AP, ...) |
+| `source` | text, not null | `previous_day1` (Open-Meteo Previous Model Runs API, the forecast made a day before the hour; training) or `live` (daily snapshot of the hourly forecast; serving) |
+| `issued_at` | timestamptz, not null | snapshot time for `live`; nominal `time` - 24h for `previous_day1` |
+| `temperature` | real | °C |
+| `precipitation` | real | mm |
+| `wind_speed` | real | km/h |
+| `cloud_cover` | real | % |
+
+Unique `(time, zone, source, issued_at)`. Kept current by `sync_weather_forecast`
+(`backfill_weather_forecast` for gaps).
+
+---
+
+### `analytics_lmp` (dbt)
+
+**Title: dbt models behind the LMP model's inputs, Author: Angie Ohaeri (assisted), Date: October 26, 7:35PM UTC**
+
+Built by dbt into the `analytics_lmp` schema, separate from the load stack's `analytics`. Staging
+models (`stg_*`, in `models/lmp_staging/`) are views over `raw_lmp`; the feature models are in
+`models/lmp_features/`. Rows as of 2026-10-26. Built with `make features-lmp` or the
+`lmp_history` / `lmp_serving` selectors (`src/dbt/selectors.yml`). The three 26M-row tables have a
+`(time, pnode_id)` index (`ensure_time_pnode_index` macro).
+
+| model | grain | rows | contents |
+|---|---|---|---|
+| `lmp_spread` | `(time, pnode_id)` | 25.85M | the target: `rt_lmp`, `da_lmp`, `spread` = rt - da, `congestion_spread`; verified RT only. Incremental (7-day window) |
+| `lmp_spread_history` | `(time, pnode_id)` | 25.85M | `spread`, `congestion_spread` and trailing 7-day `spread_mean_7d`, `spread_std_7d`, `spike_share_7d` (share of hours with \|spread\| ≥ \$100, var `lmp_spike_threshold`), `congestion_spread_mean_7d`. Incremental |
+| `lmp_baseline_features` | `(time, pnode_id)` | 25.99M | DA-spined feature row per target hour: `da_lmp`, `da_congestion_price`, `da_marginal_loss_price`, the history columns above taken 72h earlier (`*_last_verified_day`, `*_7d`; lag derived from var `feature_availability_days.rt_lmp_verified`), and `spread` (null until the hour is verified). Incremental |
+| `lmp_load_forecast_features` | `(time, forecast_area)` | 194k | latest `load_forecast` evaluation issued by the cutoff (`forecast_cutoff_et`, 14:30 ET the day before the target day) |
+| `lmp_weather_forecast_features` | `(time, zone)` | 354k | live snapshot issued by the cutoff if there is one, else `previous_day1`; adds `hdd`, `cdd` (base 18.33 °C) and `source` |
+| `lmp_node_areas` | `pnode_id` | 1,505 | the load forecast area for each pnode (zoneless aggregates take `RTO`) |
+| `lmp_load_forecast_areas` (seed) | `zone_id` | 20 | zone → forecast area |
+

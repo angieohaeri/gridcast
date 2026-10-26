@@ -1,6 +1,6 @@
+from loguru import logger
 import numpy as np
 import pandas as pd
-from loguru import logger
 
 from lmp_model.config import PROCESSED_DATA_DIR
 from lmp_model.dataset import CHUNK_DAYS, load_nodes, query

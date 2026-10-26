@@ -1,0 +1,28 @@
+selectors:
+  # the original load-forecasting stack: staging views/tables, features, weather zones seed
+  - name: load
+    definition:
+      union:
+        - "path:models/staging"
+        - "path:models/features"
+        - "pjm_weather_zones"
+
+  # LMP model, history side: depends only on verified RT/DA LMPs (rt_hrl_lmps_nodal syncs at
+  # 12:40 ET), so it can run early and carries the slow uniqueness tests
+  - name: lmp_history
+    definition:
+      union:
+        - "path:models/lmp_staging"
+        - "lmp_spread"
+        - "lmp_spread_history"
+
+  # LMP model, serving side: needs the afternoon inputs (DA prices 14:05, load forecast
+  # 14:15/14:20, weather snapshot 14:25 ET), so it runs after them and before the 14:30 ET cutoff
+  - name: lmp_serving
+    definition:
+      union:
+        - "lmp_load_forecast_areas"
+        - "lmp_node_areas"
+        - "lmp_load_forecast_features"
+        - "lmp_weather_forecast_features"
+        - "lmp_baseline_features"

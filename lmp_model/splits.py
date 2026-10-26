@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+
 import pandas as pd
 
 TRAIN_START = pd.Timestamp("2024-10-23", tz="UTC")

@@ -322,3 +322,80 @@ knowable at the 14:30 ET cutoff (using it would leak the future). Open-Meteo has
   weather index of -1 in the loader.
 - **Train/serve difference**: at the cutoff the real lead for D+1 hours is 10-34h and
   `previous_day1` is ~24h, so evening hours are slightly fresher in training than in serving.
+
+## Walk-forward folds
+
+**Title: Four expanding-window folds with a validation block, Author: Angie Ohaeri (assisted), Date: October 26, 7:36PM UTC**
+
+Chosen so that as the model is retrained it always trains on newer data: an expanding window per fold,
+each test block following the last. `lmp_model/splits.py`, windows half-open: train
+[train_start, val_start), validation [val_start, test_start), test [test_start, test_end).
+Train starts 2024-10-23; test blocks are 3 months starting 2025-12-01 (moved from
+2025-11-01 by Angie), 2026-03-01, 2026-06-01 and 2026-09-01 (partial, data ends
+~2026-10-25); validation is the 2 months before each test block, held out of training for early stopping.
+Correlation edges are rebuilt per fold from the training span only (`build_edges(train_start,
+val_start)`), so neither validation nor test data shapes the graph. The edge file built for the
+first draft (train end 2026-04-01) matches fold 3's window exactly and leaks into folds 1 and 2.
+
+## Feature set for the first pnode model
+
+**Title: What a node-hour sees at the 14:30 ET cutoff, Author: Angie Ohaeri (assisted), Date: October 26, 7:36PM UTC**
+
+Four price columns were too thin and all from one source, so the first model gets: the DA LMP and its
+congestion and loss parts at the target hour; the spread and congestion spread 72h earlier (the last
+verified day's same hour); trailing 7-day mean, std and spike share of the verified spread (a spike is
+|spread| ≥ $100, dbt var `lmp_spike_threshold`) and mean congestion spread, all ending at that same
+hour; calendar (hour and month sin/cos, weekend, holiday; `holiday_flag` re-enabled in
+`gridcast/features.py`); the PJM load forecast for the node's area; the weather forecast for the node's
+zone. Plan the model as an ablation ladder (core price features, then history and calendar, then the
+forecasts) with a per-node model on identical inputs beside the GNN, so the graph's contribution is
+measurable. Still deferred, each a new dbt feature model: lagged binding-constraint count and shadow
+prices, fuel mix, forecasted outages, gas price.
+
+## dbt operations on the 26M-row tables
+
+**Title: Index macro, literal incremental window, profiler exclusions, Author: Angie Ohaeri (assisted), Date: October 26, 7:36PM UTC**
+
+- **Index survives `--full-refresh`**: dbt swaps a rebuilt table in by renaming the old one to a backup,
+  which keeps the index name, so `create index if not exists` was skipped and the index went with the
+  backup. `ensure_time_pnode_index()` (`src/dbt/macros/`) checks the table for the index and clears the
+  name first. The index barely helps big window loads (the database returns a month in ~3s; pulling it
+  into Python is ~15s) but makes single-day and single-node queries fast.
+- **Incremental window as a literal**: `lmp_baseline_features` once ran 23+ minutes spilling a 26M-row sort
+  to disk, because the planner cannot see how small a window taken from a subquery is, guessed 3.6M rows
+  and merge-joined all of `lmp_spread_history`. The window is now resolved with `run_query` into a
+  literal timestamp, so the planner uses the indexes (135s on the next run).
+- **OpenMetadata profiler**: it includes the `analytics_lmp` schema and excluded only hypertables, so it
+  ran percentile and uniqueness queries over every column of `lmp_spread`, `lmp_spread_history` and
+  `lmp_baseline_features` (10-17 min each), starving the database. Those three tables and the new
+  hypertables (`load_forecast`, `weather_forecast`) are now excluded in the profiler config. The
+  image bakes `src/` in (`COPY src/ src/`), so config changes need an image rebuild; containers built
+  before 2026-10-25 00:55 UTC had none of the exclusions.
+- **Tooling**: `pytest` is in the `dev` dependency group (it was only in the pip `dev` extra, which
+  `uv sync` ignores); ruff's config now covers `lmp_model` and treats it as first-party for import
+  sorting. The OpenMetadata scripts moved to `src/prefect/openmetadata/`; `deployments.py` adds that
+  folder to `sys.path` (same pattern as producers and consumers) so its bare sibling imports resolve.
+
+## dbt schedule for the LMP model
+
+**Title: Split dbt builds, one for the load stack and two for the LMP model, Author: Angie Ohaeri (assisted), Date: October 26, 7:53PM UTC**
+
+The single daily `dbt build` (12:55 ET, whole project) had two problems once the LMP models existed:
+it ran before the afternoon inputs for tomorrow (DA prices 14:05, load forecast 14:15/14:20, weather
+snapshot 14:25), so the tables read at the 14:30 ET cutoff would lack them, and it dragged in the
+slow uniqueness tests on the 26M-row tables. `src/dbt/selectors.yml` now defines three selectors,
+used by both the Prefect flow (`dbt_build`, parameter `selector`) and `make`:
+
+| selector | models | runs (ET) | why then |
+|---|---|---|---|
+| `load` | the original staging and features + `pjm_weather_zones` | 12:55 (`deployments.py`) | unchanged |
+| `lmp_history` | `lmp_staging` views, `lmp_spread`, `lmp_spread_history` | 13:05 (`lmp_deployments.py`) | needs only verified RT/DA LMPs (RT sync 12:40); carries the slow tests |
+| `lmp_serving` | `lmp_baseline_features`, load and weather forecast features, `lmp_node_areas`, areas seed | 14:26 (`lmp_deployments.py`) | needs the afternoon syncs, must finish before 14:30 |
+
+**Unproven timing**: the forecast and weather feature models took ~30s each and their tests passed
+when the `lmp_serving` selector was run by hand (2026-10-26), but `lmp_baseline_features` was still
+in its delete step after 29 minutes with the host under heavy load (a Docker image build,
+load average ~11). On a quiet host the same model ran in 135s. A 14:26 start leaves four minutes,
+so it will miss 14:30 whenever the host is busy or the model is slow. Options when the serving path
+exists: start the afternoon syncs earlier, run `lmp_serving` as soon as the last sync finishes
+(chain it instead of using a clock time), or move the cutoff later.

@@ -10,15 +10,16 @@ pull-and-upsert, no Kafka. (The one Kafka pair, the zonal 5-min unverified LMP, 
 2026-10-24; see decisions.md.)
 """
 
+from dbt_build import main as dbt_build_flow
 from prefect.schedules import Cron
 from raw_lmp_sync import (
     sync_da_hrl_lmps_nodal,
     sync_forecasted_generation_outages,
     sync_generation_by_fuel,
     sync_generation_ehv_losses,
+    sync_lmp_da_hourly,
     sync_load_forecast,
     sync_load_forecast_live,
-    sync_lmp_da_hourly,
     sync_marginal_value_da,
     sync_marginal_value_rt,
     sync_natural_gas_fuel_cost,
@@ -107,5 +108,18 @@ if __name__ == "__main__":
         # the live forecast shortly before the 14:30 ET cutoff. No PJM rate limit to stagger for.
         sync_weather_forecast.to_deployment(
             name="weather_forecast", schedule=Cron("25 14 * * *", timezone="America/New_York"),
+        ),
+        # dbt for the LMP model, split by what each side waits for (selectors.yml). History:
+        # spread target + 7-day stats, after the verified RT sync (12:40 ET); carries the slow
+        # uniqueness tests. Serving: DA-spined baseline, load/weather forecast features, ready
+        # before the 14:30 ET forecast, after the 14:05 DA, 14:15/14:20 load forecast and 14:25
+        # weather syncs. Run late enough for those, early enough that the models finish by 14:30.
+        dbt_build_flow.to_deployment(
+            name="dbt_build_lmp_history", parameters={"selector": "lmp_history"},
+            schedule=Cron("5 13 * * *", timezone="America/New_York"),
+        ),
+        dbt_build_flow.to_deployment(
+            name="dbt_build_lmp_serving", parameters={"selector": "lmp_serving"},
+            schedule=Cron("26 14 * * *", timezone="America/New_York"),
         ),
     )

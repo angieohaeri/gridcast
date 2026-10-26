@@ -18,10 +18,10 @@ DBT = Path(sys.executable).parent / "dbt"
 DBT_PROJECT_DIR = PROJ_ROOT / "src" / "dbt"
 
 
-@flow(name="dbt_build", description="Builds dbt seeds, staging views, and feature tables.", log_prints=True)
-def main():
+@flow(name="dbt_build", description="Builds one dbt selector from selectors.yml: load, lmp_history or lmp_serving.", log_prints=True)
+def main(selector: str = "load"):
     result = subprocess.run(
-        [DBT, "build", "--project-dir", DBT_PROJECT_DIR, "--profiles-dir", DBT_PROJECT_DIR],
+        [DBT, "build", "--selector", selector, "--project-dir", DBT_PROJECT_DIR, "--profiles-dir", DBT_PROJECT_DIR],
         capture_output=True,
         text=True,
         check=False,
@@ -30,9 +30,9 @@ def main():
 
     if result.returncode != 0:
         logger.error(result.stderr)
-        raise RuntimeError(f"dbt build exited with code {result.returncode}")
+        raise RuntimeError(f"dbt build --selector {selector} exited with code {result.returncode}")
 
-    logger.success("dbt build finished")
+    logger.success(f"dbt build --selector {selector} finished")
 
 
 if __name__ == "__main__":

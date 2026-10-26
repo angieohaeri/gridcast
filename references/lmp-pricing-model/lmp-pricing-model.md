@@ -67,11 +67,11 @@ accurate quantity to estimate anyway — see `decisions.md` for the tradeoffs.
 
 Stretch extension to the load-forecasting project (see `../architecture.md`).
 
-**Status: in progress.** Branch, `raw_lmp` schema, dbt scaffolding, and 13 raw tables
-exist: 10 data-source tables (all of Tier 1, no exceptions — see the table below), the
-2 transmission-graph tables (`transmission_nodes`/`transmission_edges`), and the
-`facilities` name/geo lookup (partial coverage, see above). No ingestion pipeline,
-features, or model built yet for any of it.
+**Status: in progress (data pipeline done, modeling not started).** Branch, `raw_lmp` schema, dbt
+(`analytics_lmp`), 19 raw tables (the 10 Tier 1 sources, the transmission and pnode graph tables, the
+`facilities` lookup, the nodal RT/DA LMPs, and the PJM load and Open-Meteo weather forecasts), their sync flows (`raw_lmp_sync.py`), the
+per-pnode feature models, the loader (`lmp_model/dataset.py`), walk-forward splits and the edge
+builder exist. No model is trained yet; `modeling-session-prompt.md` is the handoff for that work.
 
 ---
 
@@ -148,7 +148,10 @@ Caveat: 2013, toy sim, ignores losses, 6-8hr horizon only. Directionally right, 
 
 ## Data sources
 
-**Already ingested**: `load`, `lmp` (hourly `rt_hrl_lmps`), `weather`.
+**Already ingested**: `load`, `lmp` (hourly `rt_hrl_lmps`), `weather` (the load stack), plus the forecast
+feeds the pnode model uses: PJM load forecast by area (`raw_lmp.load_forecast`) and Open-Meteo zone
+weather forecasts (`raw_lmp.weather_forecast`), both point in time. Nodal RT and DA LMPs for the 1,505
+pnodes are `raw_lmp.rt_hrl_lmps_nodal` / `da_hrl_lmps_nodal`.
 
 Table structure, row counts, and date ranges for every backfilled `raw_lmp` table:
 `schema.md`. Deferred-source rationale: `decisions.md` ("Data source scope").
@@ -165,6 +168,8 @@ Table structure, row counts, and date ranges for every backfilled `raw_lmp` tabl
 | 1 | Day-Ahead Transmission Constraints (`raw_lmp.transmission_constraints_da`) | backfilled | the congestion pattern set — which facility/contingency pairs bound and for how long (duration, no price magnitude; pairs with `marginal_value_da`'s shadow price for the same facility) |
 | 1 | Day-Ahead Hourly LMPs (`raw_lmp.lmp_da_hourly`) | backfilled | enables a DA-RT basis feature (same zone×hour grain as `public.lmp`, DA market instead of RT) |
 | 1 | Generation and Extra High Voltage Losses (`raw_lmp.generation_ehv_losses`) | backfilled | the losses term, smallest of the three components — was the lowest priority, now sourced |
+| 1 | PJM load forecast by area (`raw_lmp.load_forecast`) | built — history `load_frcstd_hist` + live `load_frcstd_7_day` snapshot | system stress per area; the EIA forecast is RTO-only so was not used |
+| 1 | Open-Meteo weather forecast (`raw_lmp.weather_forecast`) | built — `previous_day1` history + live snapshot | temperature, wind, cloud, HDD/CDD per zone as forecast at the cutoff (observations would leak the future) |
 | 2 — renewable variability | Five Minute Solar/Wind Generation + forecasts | planned | duck-curve dynamics |
 | 3 — investigate first | Energy Market Generation Offers | not a live feature — 4-month posting delay (PJM's stated policy) | not useless though: genuinely rich bid-curve data (masked generator ID, MW/BID pairs, start costs, ECOMAX/ECOMIN). Heat rate is a slow-changing physical property, not something that needs to be fresh — use this (even 4mo stale) to back-calculate typical heat rate/markup per unit or fuel type (the primer's "effective heat rate"), then apply that calibration to **live** fuel cost to estimate a live marginal-cost curve. Freshness requirement moves from the bid (stale) to the heat rate (doesn't need to be fresh) |
 | 3 | Daily Cleared INCs, DECs, UTCs | checked, weak — posts daily 4am but only 1 row/day of RTO-wide MW totals (no price/location) | at best a blunt proxy for anticipated DA-RT congestion via UTC volume; low priority |
@@ -207,7 +212,8 @@ Graph-construction and zone-attribution-fallback decisions: `decisions.md`.
 
 ## Next steps
 
-- Build producer/loader + dbt models for all 10 raw data-source tables — all backfilled.
+- ~~Build producer/loader + dbt models for all 10 raw data-source tables~~ - all backfilled; the
+  sources the first model uses have staging and feature models (see `schema.md`).
 - Ship a simple zonal congestion baseline first (`operator_initiated_commitments` +
   system-wide binding-constraint count), then layer the empirical shift-factor
   regression on top and measure the lift — don't build the complex feature first.
@@ -216,15 +222,24 @@ Graph-construction and zone-attribution-fallback decisions: `decisions.md`.
 
 **Title: Next steps for the pnode-level GNN, Author: Angie Ohaeri (assisted), Date: October 24th Time: 11:06am CT**
 
-- Declare the `raw_lmp` tables as dbt sources (none are yet) and build staging models:
-  hour-ending UTC alignment, 5-min shadow prices rolled up to hourly, pnode → zone mapping.
-- Write a per-source availability table (when each feed is known) and enforce the 14:30 ET
-  feature cutoff in every feature model.
+- ~~Declare the `raw_lmp` tables as dbt sources and build staging models~~ - done 2026-10-24/26 for
+  the tables the first model uses.
+- ~~Write a per-source availability table and enforce the 14:30 ET feature cutoff in every feature
+  model~~ - done (`feature_availability_days`, `forecast_cutoff_et` in `dbt_project.yml`).
 - First GNN against the two baselines (spread = 0, last day's same-hour spread). Mask the 60
-  pnodes that start partway through the window; the 426 fill-in nodes have no edges yet.
+  pnodes that start partway through the window; ~~the 426 fill-in nodes have no edges yet~~ - they
+  now get correlation edges (`decisions.md`, "GNN edge set").
 - Deferred until after a first model: linking shadow prices to graph edges. Direct name
   matching covers ~43-47% of RT shadow-price weight; many binding constraints sit at
   switching stations with no pnode, only resolvable through the GridSFM network.
+
+**Title: Next steps after the data pipeline, Author: Angie Ohaeri (assisted), Date: October 26, 7:35PM UTC**
+
+- Normalization fit on each fold's training window, loss mask, per-fold edges
+  (`build_edges(fold.train_start, fold.val_start)`), a per-node reference model, then the GNN and
+  the ablation ladder; full list in `modeling-session-prompt.md`.
+- Add the deferred features as ablation steps: lagged binding-constraint count and shadow prices,
+  fuel mix, forecasted outages, gas price.
 
 Graph-distance matching (facility → `transmission_nodes` → shortest path to zone) is on
 hold, not deleted — `raw_lmp.facilities` + CEII ceiling means it can only ever cover

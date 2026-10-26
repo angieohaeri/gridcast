@@ -70,10 +70,16 @@ data: requirements
 	$(PYTHON_INTERPRETER) gridcast/dataset.py
 
 
-## Run dbt build (seeds + staging + features)
+## Run dbt build for the load stack (seeds + staging + features)
 .PHONY: features
 features:
-	set -a && . ./.env && set +a && .venv/bin/dbt build --project-dir src/dbt --profiles-dir src/dbt
+	set -a && . ./.env && set +a && .venv/bin/dbt build --selector load --project-dir src/dbt --profiles-dir src/dbt
+
+## Run dbt build for the LMP model (history, then serving)
+.PHONY: features-lmp
+features-lmp:
+	set -a && . ./.env && set +a && .venv/bin/dbt build --selector lmp_history --project-dir src/dbt --profiles-dir src/dbt
+	set -a && . ./.env && set +a && .venv/bin/dbt build --selector lmp_serving --project-dir src/dbt --profiles-dir src/dbt
 
 
 ## Start docker services

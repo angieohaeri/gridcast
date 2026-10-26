@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+
 from loguru import logger
 import numpy as np
 import pandas as pd
+
 from gridcast.config import get_connection, setup_logging
 from gridcast.features import cyclical_features, holiday_flag, weekend_flag
 
