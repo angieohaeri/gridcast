@@ -294,3 +294,31 @@ total only (`analytics.stg_load`: 4.5% of rows, all `zone = RTO`). PJM's own fee
   cutoff covers the next day. The newest hours are covered only once the live snapshot has run.
 - **Train/serve difference**: training uses the 11:45 ET evaluation (last hist one before the
   cutoff); serving uses the ~14:20 ET snapshot, slightly fresher.
+
+## Weather forecast feed
+
+**Title: Open-Meteo zone forecasts, previous-day history plus a live snapshot, Author: Angie Ohaeri (assisted), Date: October 26, 6:41PM UTC**
+
+`raw.weather` holds polled observations, not forecasts, so the weather at a target hour is not
+knowable at the 14:30 ET cutoff (using it would leak the future). Open-Meteo has the forecast:
+
+- **History (training)**: the [Previous Model Runs API](https://open-meteo.com/en/docs/previous-runs-api),
+  `*_previous_day1` variables: what the model forecast a day before each hour. Real values from
+  at least 2024-06, so it covers the whole LMP window. Checked on 5 days of 2025-07 against
+  observed temperature: MAE 1.0 C, bias +0.4 C.
+- **Live (serving)**: the forecast API's hourly forecast, snapshotted daily at 14:25 ET (before
+  the cutoff). Same default model selection as the history, same variables and units.
+- **Zones**: the 30 stations of `pjm_weather_zones` collapse to their 20 zones by mean, as the
+  weather producer does. `time` is Hour Ending UTC, the reading's clock time +1h, the same
+  alignment `weather_features` uses for observations (precipitation is the preceding hour's
+  total, so it is a little loose either way).
+- **Table**: `raw_lmp.weather_forecast` (`time`, `zone`, `source`, `issued_at`, 4 variables), a
+  hypertable. `issued_at` is the snapshot time for `live` and the nominal time (target - 24h)
+  for `previous_day1`. Backfilled from 2024-10-22: 352,800 rows. `sync_weather_forecast` also
+  refreshes the trailing 7 days of history. `backfill_weather_forecast(start, end)` for gaps.
+- **dbt**: `lmp_weather_forecast_features` takes, per target hour and zone, the live snapshot
+  issued by the cutoff when there is one, else `previous_day1`, and adds HDD/CDD (base 18.33 C).
+  Every training hour has all 20 zones. Zoneless nodes (hubs, interfaces, PJM-RTO, OVEC) get a
+  weather index of -1 in the loader.
+- **Train/serve difference**: at the cutoff the real lead for D+1 hours is 10-34h and
+  `previous_day1` is ~24h, so evening hours are slightly fresher in training than in serving.

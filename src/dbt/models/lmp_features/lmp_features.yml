@@ -62,3 +62,16 @@ models:
           - accepted_values:
               arguments:
                 values: [AEP, APS, ATSI, COMED, DAY, DEOK, DOM, DUQ, EKPC, MIDATL, RTO]
+
+  - name: lmp_weather_forecast_features
+    description: >
+      Weather forecast available at the cutoff, per target hour and weather zone. Grain: one
+      row per (time, zone). Live snapshot when one was taken before the cutoff, else the
+      previous_day1 forecast.
+    columns:
+      - name: temperature
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, zone]

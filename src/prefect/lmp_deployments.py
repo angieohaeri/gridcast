@@ -27,6 +27,7 @@ from raw_lmp_sync import (
     sync_rt_unverified_hrl_lmps_nodal,
     sync_scheduled_generation,
     sync_transmission_constraints_da,
+    sync_weather_forecast,
 )
 
 from prefect import serve
@@ -101,5 +102,10 @@ if __name__ == "__main__":
         ),
         sync_load_forecast_live.to_deployment(
             name="load_forecast_live", schedule=Cron("20 14 * * *", timezone="America/New_York"),
+        ),
+        # Open-Meteo zone forecasts: refreshes the trailing previous_day1 history and snapshots
+        # the live forecast shortly before the 14:30 ET cutoff. No PJM rate limit to stagger for.
+        sync_weather_forecast.to_deployment(
+            name="weather_forecast", schedule=Cron("25 14 * * *", timezone="America/New_York"),
         ),
     )

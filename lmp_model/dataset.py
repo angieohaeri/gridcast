@@ -18,6 +18,7 @@ FEATURES = [
     "spike_share_7d",
     "congestion_spread_mean_7d",
 ]
+WEATHER_FEATURES = ["temperature", "precipitation", "wind_speed", "cloud_cover", "hdd", "cdd"]
 SYSTEM_FEATURES = ["hour_sin", "hour_cos", "month_sin", "month_cos", "is_weekend", "is_holiday"]
 TARGET = "spread"
 CHUNK_DAYS = 30
@@ -36,6 +37,9 @@ class Window:
     areas: pd.Index  # PJM load forecast areas
     area_forecast: np.ndarray  # [time, area] forecast MW issued by the cutoff
     node_area: np.ndarray  # [node] position in areas of each node's forecast area
+    weather_zones: pd.Index  # PJM zones with a weather forecast
+    weather: np.ndarray  # [time, zone, weather feature] forecast available at the cutoff
+    node_weather_zone: np.ndarray  # [node] position in weather_zones, -1 for nodes without a zone
     y: np.ndarray  # [time, node]
     exists: np.ndarray  # [time, node] bool
 
@@ -71,6 +75,22 @@ def load_node_area(areas: pd.Index, pnode_ids: pd.Index) -> np.ndarray:
     return areas.get_indexer(by_node)
 
 
+def load_weather(times: pd.DatetimeIndex) -> tuple[pd.Index, np.ndarray]:
+    columns = ", ".join(WEATHER_FEATURES)
+    forecast = query(f"SELECT time, zone, {columns} FROM analytics_lmp.lmp_weather_forecast_features;")
+    forecast["time"] = pd.to_datetime(forecast["time"], utc=True)
+    zones = pd.Index(sorted(forecast["zone"].unique()))
+    grid = forecast.set_index(["time", "zone"])[WEATHER_FEATURES].astype("float32")
+    index = pd.MultiIndex.from_product([times, zones], names=["time", "zone"])
+    weather = grid.reindex(index).to_numpy().reshape(len(times), len(zones), len(WEATHER_FEATURES))
+    return zones, weather
+
+
+def load_node_weather_zone(zones: pd.Index, pnode_ids: pd.Index) -> np.ndarray:
+    nodes = query("SELECT pnode_id, zone_id FROM raw_lmp.pnode_topology_nodes;")
+    return zones.get_indexer(nodes.set_index("pnode_id")["zone_id"].reindex(pnode_ids))
+
+
 def load_window(start: pd.Timestamp, end: pd.Timestamp, pnode_ids: pd.Index) -> Window:
     """lmp_baseline_features for [start, end), scattered onto a fixed hours x nodes grid so
     node i here is node i in the edge index."""
@@ -96,4 +116,9 @@ def load_window(start: pd.Timestamp, end: pd.Timestamp, pnode_ids: pd.Index) -> 
     logger.info(f"{len(times)} hours x {len(pnode_ids)} nodes, {exists.mean():.1%} populated")
     areas, area_forecast = load_area_forecast(times)
     node_area = load_node_area(areas, pnode_ids)
-    return Window(times, pnode_ids, x, load_system(times), areas, area_forecast, node_area, y, exists)
+    weather_zones, weather = load_weather(times)
+    node_weather_zone = load_node_weather_zone(weather_zones, pnode_ids)
+    return Window(
+        times, pnode_ids, x, load_system(times), areas, area_forecast, node_area,
+        weather_zones, weather, node_weather_zone, y, exists,
+    )

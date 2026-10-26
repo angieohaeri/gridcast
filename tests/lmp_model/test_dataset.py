@@ -27,6 +27,10 @@ def test_load_window_scatters_rows_onto_the_grid(monkeypatch):
         dataset, "load_area_forecast", lambda times: (pd.Index(["AEP", "RTO"]), np.zeros((len(times), 2), "float32"))
     )
     monkeypatch.setattr(dataset, "load_node_area", lambda areas, pnode_ids: np.array([1, 0]))
+    monkeypatch.setattr(
+        dataset, "load_weather", lambda times: (pd.Index(["AEP"]), np.zeros((len(times), 1, 6), "float32"))
+    )
+    monkeypatch.setattr(dataset, "load_node_weather_zone", lambda zones, pnode_ids: np.array([0, -1]))
 
     window = dataset.load_window(
         pd.Timestamp("2026-01-01 01:00", tz="UTC"),
@@ -40,3 +44,4 @@ def test_load_window_scatters_rows_onto_the_grid(monkeypatch):
     assert window.y[0, 1] == 4.0
     assert pd.isna(window.y[1, 0]) and pd.isna(window.x[0, 1, 3])
     assert window.area_forecast.shape == (2, 2) and window.node_area.tolist() == [1, 0]
+    assert window.weather.shape == (2, 1, 6) and window.node_weather_zone.tolist() == [0, -1]
