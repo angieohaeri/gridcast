@@ -213,3 +213,189 @@ independent power producers too, matching PJM's competitive generation mix).
 
 This completes **every** Tier 1 source identified in this project, including the one
 explicitly out-of-scope PJM source.
+
+## Baselines for the next-day RT-DA spread
+
+**Title: Baseline MAE on the per-pnode spread: last day's spread is worse than predicting zero, Author: Angie Ohaeri (assisted), Date: October 25th Time: 2:42am UTC**
+
+Source: `analytics_lmp.lmp_baseline_features`, verified rows with a non-null
+`spread_last_verified_day`, test window 2026-04-01 onward (7,379,876 pnode-hours). Neither
+baseline is fit, so no train split is needed. Spike = top 1% of |spread| (≥ $342/MWh).
+
+| | spread = 0 | last verified day's spread |
+|---|---|---|
+| MAE ($/MWh) | 25.0 | 40.1 |
+| median AE | 7.8 | 11.6 |
+| spike MAE | 686 | 672 |
+
+- Last-day spread loses to zero in every month since 2024-10 (e.g. 2026-01: 54 vs 75),
+  so the spread has no day-to-day persistence; copying it adds the previous day's noise.
+- Spike hours are 1% of rows but 28% of total absolute error, so spike MAE matters as much
+  as overall MAE. Both baselines are equally bad there (~$680), the bar for the GNN.
+- The GNN's bar is spread = 0 on overall MAE and either baseline on spike MAE.
+
+## GNN edge set
+
+**Title: Correlation edges for nodes the topology data cannot connect, Author: Angie Ohaeri (assisted), Date: October 25, 4:49PM UTC**
+
+`pnode_topology_edges` links only the 1,037 attached substations. The 426 fill-ins (ComEd:
+277 fill-ins, 0 attached; DEOK 90/9; DAY 30/1; EKPC 29/5) and 42 aggregates had no edges, plus
+23 attached substations with no geographic edge.
+
+Check on hourly spread with the cross-node hourly median removed (so the system-wide λ
+component doesn't make every pair look correlated), last year of data:
+- Geographic edges are real: connected pairs median corr 0.96 vs 0.49 for random same-zone
+  non-edges.
+- Learned edges hold out of sample: top-3 correlated same-zone nodes picked on the first half
+  of the year have median corr 0.98-0.99 on the second half (zone median 0.78-0.92); 92% of
+  fill-ins stay above 0.8.
+
+Decision: keep the geographic edges; every node without one is linked to its top-3 most
+correlated real nodes in its zone (any zone when its zone has no real nodes: hubs, interfaces,
+PJM-RTO, OVEC). Built by `lmp_model/graph.py:build_edges` → `data/processed/pnode_edges_<train_end>.parquet`
+(undirected, `src < dst`, `kind` = geographic | correlation). Correlations use only
+`[train_start, train_end)`, so the graph never sees the evaluation period; rebuild when the
+train window changes. First build, train 2024-10-23 → 2026-04-01: 2,921 geographic + 1,091
+correlation edges, no isolated nodes.
+
+Caveat: top neighbors correlate ~0.99, so many fill-ins carry nearly the same price as a
+neighbor and add little independent signal.
+
+## PJM load forecast feed
+
+**Title: Point-in-time PJM load forecast by area, history plus a live snapshot, Author: Angie Ohaeri (assisted), Date: October 25, 11:47PM UTC**
+
+Replaces the EIA `demand_forecast_mw` idea: EIA publishes a day-ahead forecast for the RTO
+total only (`analytics.stg_load`: 4.5% of rows, all `zone = RTO`). PJM's own feeds are zonal.
+
+- **History**: `load_frcstd_hist` (Data Miner 2), back to 2011, one row per forecast PJM
+  issued with its `evaluated_at`. 5 evaluations a day (~05:45, 09:45, 11:45, 17:45, 23:45
+  ET), each covering now through the end of tomorrow. 11 areas: AEP, APS, ATSI, COMED, DAY,
+  DEOK, DOM, DUQ, EKPC, MIDATL (all eleven mid-Atlantic zones combined), RTO.
+- **Live**: `load_frcstd_7_day` has 25 areas (each mid-Atlantic zone separately) but only its
+  latest evaluation, refreshed twice an hour. History lags about a day (checked 2026-10-25:
+  newest evaluation 23:45 ET the night before), so at the 14:30 ET cutoff it has nothing
+  covering tomorrow. `sync_load_forecast_live` (14:20 ET) snapshots it into the same table,
+  mapped to the hist feed's 11 areas (`MID_ATLANTIC_REGION` = MIDATL). Checked against the
+  hist feed on overlapping hours despite a 19h gap between evaluations: median ratio 1.00-1.03
+  per area. Coarse areas are used for training and serving so they match.
+- **Table**: `raw_lmp.load_forecast` (`evaluated_at`, `time` Hour Ending UTC, `forecast_area`,
+  `forecast_load_mw`), a hypertable, never revised so DO NOTHING on conflict. Backfilled from
+  2024-10-22: 1,450,647 rows. `backfill_load_forecast(start, end)` in `raw_lmp_sync.py`.
+- **dbt**: `lmp_load_forecast_features` keeps, per target hour and area, the latest evaluation
+  issued at or before `forecast_cutoff_et` (14:30) on the ET day before the target day.
+  `lmp_node_areas` maps each pnode to an area through the `lmp_load_forecast_areas` seed
+  (hubs, interfaces and other zoneless aggregates take RTO). The loader indexes the area
+  forecast by node rather than repeating it across 1,505 nodes.
+- **Coverage**: every training hour has all 11 areas except 47 of ~17.6k (0.27%), left as NaN:
+  the target hours of the DST spring-forward day in 2025 (03-09) and 2026 (03-08), 23 hours
+  each, plus 1 hour on 2024-11-04. Checked at the source for 2025: PJM's history has only the
+  23:45 ET evaluation for 2025-03-08, none of the daytime ones, so nothing issued by the
+  cutoff covers the next day. The newest hours are covered only once the live snapshot has run.
+- **Train/serve difference**: training uses the 11:45 ET evaluation (last hist one before the
+  cutoff); serving uses the ~14:20 ET snapshot, slightly fresher.
+
+## Weather forecast feed
+
+**Title: Open-Meteo zone forecasts, previous-day history plus a live snapshot, Author: Angie Ohaeri (assisted), Date: October 26, 6:41PM UTC**
+
+`raw.weather` holds polled observations, not forecasts, so the weather at a target hour is not
+knowable at the 14:30 ET cutoff (using it would leak the future). Open-Meteo has the forecast:
+
+- **History (training)**: the [Previous Model Runs API](https://open-meteo.com/en/docs/previous-runs-api),
+  `*_previous_day1` variables: what the model forecast a day before each hour. Real values from
+  at least 2024-06, so it covers the whole LMP window. Checked on 5 days of 2025-07 against
+  observed temperature: MAE 1.0 C, bias +0.4 C.
+- **Live (serving)**: the forecast API's hourly forecast, snapshotted daily at 14:25 ET (before
+  the cutoff). Same default model selection as the history, same variables and units.
+- **Zones**: the 30 stations of `pjm_weather_zones` collapse to their 20 zones by mean, as the
+  weather producer does. `time` is Hour Ending UTC, the reading's clock time +1h, the same
+  alignment `weather_features` uses for observations (precipitation is the preceding hour's
+  total, so it is a little loose either way).
+- **Table**: `raw_lmp.weather_forecast` (`time`, `zone`, `source`, `issued_at`, 4 variables), a
+  hypertable. `issued_at` is the snapshot time for `live` and the nominal time (target - 24h)
+  for `previous_day1`. Backfilled from 2024-10-22: 352,800 rows. `sync_weather_forecast` also
+  refreshes the trailing 7 days of history. `backfill_weather_forecast(start, end)` for gaps.
+- **dbt**: `lmp_weather_forecast_features` takes, per target hour and zone, the live snapshot
+  issued by the cutoff when there is one, else `previous_day1`, and adds HDD/CDD (base 18.33 C).
+  Every training hour has all 20 zones. Zoneless nodes (hubs, interfaces, PJM-RTO, OVEC) get a
+  weather index of -1 in the loader.
+- **Train/serve difference**: at the cutoff the real lead for D+1 hours is 10-34h and
+  `previous_day1` is ~24h, so evening hours are slightly fresher in training than in serving.
+
+## Walk-forward folds
+
+**Title: Four expanding-window folds with a validation block, Author: Angie Ohaeri (assisted), Date: October 26, 7:36PM UTC**
+
+Chosen so that as the model is retrained it always trains on newer data: an expanding window per fold,
+each test block following the last. `lmp_model/splits.py`, windows half-open: train
+[train_start, val_start), validation [val_start, test_start), test [test_start, test_end).
+Train starts 2024-10-23; test blocks are 3 months starting 2025-12-01 (moved from
+2025-11-01 by Angie), 2026-03-01, 2026-06-01 and 2026-09-01 (partial, data ends
+~2026-10-25); validation is the 2 months before each test block, held out of training for early stopping.
+Correlation edges are rebuilt per fold from the training span only (`build_edges(train_start,
+val_start)`), so neither validation nor test data shapes the graph. The edge file built for the
+first draft (train end 2026-04-01) matches fold 3's window exactly and leaks into folds 1 and 2.
+
+## Feature set for the first pnode model
+
+**Title: What a node-hour sees at the 14:30 ET cutoff, Author: Angie Ohaeri (assisted), Date: October 26, 7:36PM UTC**
+
+Four price columns were too thin and all from one source, so the first model gets: the DA LMP and its
+congestion and loss parts at the target hour; the spread and congestion spread 72h earlier (the last
+verified day's same hour); trailing 7-day mean, std and spike share of the verified spread (a spike is
+|spread| ≥ $100, dbt var `lmp_spike_threshold`) and mean congestion spread, all ending at that same
+hour; calendar (hour and month sin/cos, weekend, holiday; `holiday_flag` re-enabled in
+`gridcast/features.py`); the PJM load forecast for the node's area; the weather forecast for the node's
+zone. Plan the model as an ablation ladder (core price features, then history and calendar, then the
+forecasts) with a per-node model on identical inputs beside the GNN, so the graph's contribution is
+measurable. Still deferred, each a new dbt feature model: lagged binding-constraint count and shadow
+prices, fuel mix, forecasted outages, gas price.
+
+## dbt operations on the 26M-row tables
+
+**Title: Index macro, literal incremental window, profiler exclusions, Author: Angie Ohaeri (assisted), Date: October 26, 7:36PM UTC**
+
+- **Index survives `--full-refresh`**: dbt swaps a rebuilt table in by renaming the old one to a backup,
+  which keeps the index name, so `create index if not exists` was skipped and the index went with the
+  backup. `ensure_time_pnode_index()` (`src/dbt/macros/`) checks the table for the index and clears the
+  name first. The index barely helps big window loads (the database returns a month in ~3s; pulling it
+  into Python is ~15s) but makes single-day and single-node queries fast.
+- **Incremental window as a literal**: `lmp_baseline_features` once ran 23+ minutes spilling a 26M-row sort
+  to disk, because the planner cannot see how small a window taken from a subquery is, guessed 3.6M rows
+  and merge-joined all of `lmp_spread_history`. The window is now resolved with `run_query` into a
+  literal timestamp, so the planner uses the indexes (135s on the next run).
+- **OpenMetadata profiler**: it includes the `analytics_lmp` schema and excluded only hypertables, so it
+  ran percentile and uniqueness queries over every column of `lmp_spread`, `lmp_spread_history` and
+  `lmp_baseline_features` (10-17 min each), starving the database. Those three tables and the new
+  hypertables (`load_forecast`, `weather_forecast`) are now excluded in the profiler config. The
+  image bakes `src/` in (`COPY src/ src/`), so config changes need an image rebuild; containers built
+  before 2026-10-25 00:55 UTC had none of the exclusions.
+- **Tooling**: `pytest` is in the `dev` dependency group (it was only in the pip `dev` extra, which
+  `uv sync` ignores); ruff's config now covers `lmp_model` and treats it as first-party for import
+  sorting. The OpenMetadata scripts moved to `src/prefect/openmetadata/`; `deployments.py` adds that
+  folder to `sys.path` (same pattern as producers and consumers) so its bare sibling imports resolve.
+
+## dbt schedule for the LMP model
+
+**Title: Split dbt builds, one for the load stack and two for the LMP model, Author: Angie Ohaeri (assisted), Date: October 26, 7:53PM UTC**
+
+The single daily `dbt build` (12:55 ET, whole project) had two problems once the LMP models existed:
+it ran before the afternoon inputs for tomorrow (DA prices 14:05, load forecast 14:15/14:20, weather
+snapshot 14:25), so the tables read at the 14:30 ET cutoff would lack them, and it dragged in the
+slow uniqueness tests on the 26M-row tables. `src/dbt/selectors.yml` now defines three selectors,
+used by both the Prefect flow (`dbt_build`, parameter `selector`) and `make`:
+
+| selector | models | runs (ET) | why then |
+|---|---|---|---|
+| `load` | the original staging and features + `pjm_weather_zones` | 12:55 (`deployments.py`) | unchanged |
+| `lmp_history` | `lmp_staging` views, `lmp_spread`, `lmp_spread_history` | 13:05 (`lmp_deployments.py`) | needs only verified RT/DA LMPs (RT sync 12:40); carries the slow tests |
+| `lmp_serving` | `lmp_baseline_features`, load and weather forecast features, `lmp_node_areas`, areas seed | 14:26 (`lmp_deployments.py`) | needs the afternoon syncs, must finish before 14:30 |
+
+**Unproven timing**: the forecast and weather feature models took ~30s each and their tests passed
+when the `lmp_serving` selector was run by hand (2026-10-26), but `lmp_baseline_features` was still
+in its delete step after 29 minutes with the host under heavy load (a Docker image build,
+load average ~11). On a quiet host the same model ran in 135s. A 14:26 start leaves four minutes,
+so it will miss 14:30 whenever the host is busy or the model is slow. Options when the serving path
+exists: start the afternoon syncs earlier, run `lmp_serving` as soon as the last sync finishes
+(chain it instead of using a clock time), or move the cutoff later.

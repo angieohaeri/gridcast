@@ -59,8 +59,8 @@ dev = [
 
 [tool.ruff]
 line-length = 99
-src = ["gridcast", "src"]
-include = ["pyproject.toml", "gridcast/**/*.py", "src/**/*.py"]
+src = ["gridcast", "lmp_model", "src"]
+include = ["pyproject.toml", "gridcast/**/*.py", "lmp_model/**/*.py", "src/**/*.py"]
 exclude = ["_archive"]
 force-exclude = true
 
@@ -68,10 +68,11 @@ force-exclude = true
 extend-select = ["I"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["gridcast"]
+known-first-party = ["gridcast", "lmp_model"]
 force-sort-within-sections = true
 
 [dependency-groups]
 dev = [
     "pre-commit>=4.6.1",
+    "pytest",
 ]

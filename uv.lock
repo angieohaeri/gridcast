@@ -2093,6 +2093,7 @@ dev = [
 [package.dev-dependencies]
 dev = [
     { name = "pre-commit" },
+    { name = "pytest" },
 ]
 
 [package.metadata]
@@ -2137,7 +2138,10 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pre-commit", specifier = ">=4.6.1" }]
+dev = [
+    { name = "pre-commit", specifier = ">=4.6.1" },
+    { name = "pytest" },
+]
 
 [[package]]
 name = "gridstatus"

@@ -233,6 +233,44 @@ alter table raw_lmp.da_hrl_lmps_nodal set (
 
 select add_compression_policy('raw_lmp.da_hrl_lmps_nodal', interval '30 days', if_not_exists => true);
 
+-- PJM load forecast (load_frcstd_hist), point in time: every forecast PJM issued, keyed by
+-- when it was issued (evaluated_at), so training can pick the forecast that was actually
+-- available at the 14:30 ET cutoff instead of a later revision. 5 evaluations a day
+-- (~05:45, 09:45, 11:45, 17:45, 23:45 ET), each covering now through the end of tomorrow.
+-- 11 coarse areas: 9 single zones, MIDATL (all other zones combined) and RTO. `time` is
+-- Hour Ending UTC (feed's forecast_hour_beginning_utc + 1h) like the LMP tables.
+-- Kept current by sync_load_forecast in raw_lmp_sync.py (backfill_load_forecast for history).
+create table if not exists raw_lmp.load_forecast (
+    evaluated_at timestamptz not null,
+    time timestamptz not null,
+    forecast_area text not null,
+    forecast_load_mw real not null,
+    unique (evaluated_at, time, forecast_area)
+);
+
+select create_hypertable('raw_lmp.load_forecast', 'time', chunk_time_interval => interval '30 days', if_not_exists => true);
+
+-- Open-Meteo weather forecast per zone (the 30 stations of pjm_weather_zones averaged to their
+-- zone, like the weather producer does). Two sources, so training and serving see the same
+-- kind of forecast: `previous_day1` is the forecast Open-Meteo made a day before each target
+-- hour (history back to 2024; issued_at is that nominal time, target - 24h), and `live` is a
+-- daily snapshot of the hourly forecast taken before the 14:30 ET cutoff. `time` is Hour
+-- Ending UTC, shifted +1h the same way weather_features aligns observations.
+-- Kept current by sync_weather_forecast in raw_lmp_sync.py (backfill_weather_forecast for history).
+create table if not exists raw_lmp.weather_forecast (
+    time timestamptz not null,
+    zone text not null,
+    source text not null,
+    issued_at timestamptz not null,
+    temperature real,
+    precipitation real,
+    wind_speed real,
+    cloud_cover real,
+    unique (time, zone, source, issued_at)
+);
+
+select create_hypertable('raw_lmp.weather_forecast', 'time', chunk_time_interval => interval '30 days', if_not_exists => true);
+
 -- Compression was tried and reverted (2026-08-23) on all 8 raw_lmp hypertables - see
 -- decisions.md ("Compression tried and reverted"). Reason: Postgres validates system
 -- columns across every chunk when planning a query against a hypertable, so a client

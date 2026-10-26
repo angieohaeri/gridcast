@@ -1,0 +1,19 @@
+source:
+  type: kafka
+  serviceName: gridcast-kafka
+  serviceConnection:
+    config:
+      type: Kafka
+      bootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS}
+  sourceConfig:
+    config:
+      type: MessagingMetadata
+sink:
+  type: metadata-rest
+  config: {}
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: ${OPENMETADATA_URL}/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: ${OPENMETADATA_JWT_TOKEN}

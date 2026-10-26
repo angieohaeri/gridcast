@@ -22,3 +22,18 @@ seeds:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [zone_id, city]
+
+  - name: lmp_load_forecast_areas
+    description: >
+      PJM load forecast area covering each zone. load_frcstd_hist has 9 single-zone areas
+      plus MIDATL (all eleven mid-Atlantic zones combined) and RTO; the live 7-day feed is
+      finer for MIDATL but history is not, so the coarse set is used for train and serve.
+    config:
+      column_types:
+        zone_id: text
+        forecast_area: text
+    columns:
+      - name: zone_id
+        tests: [unique, not_null]
+      - name: forecast_area
+        tests: [not_null]

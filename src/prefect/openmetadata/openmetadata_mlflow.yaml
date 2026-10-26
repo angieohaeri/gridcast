@@ -1,0 +1,20 @@
+source:
+  type: mlflow
+  serviceName: gridcast-mlflow
+  serviceConnection:
+    config:
+      type: Mlflow
+      trackingUri: ${MLFLOW_TRACKING_URI}
+      registryUri: postgresql+psycopg2://${TIMESCALEDB_USER}:${TIMESCALEDB_PASSWORD}@${TIMESCALEDB_HOST}:${TIMESCALEDB_PORT}/mlflow
+  sourceConfig:
+    config:
+      type: MlModelMetadata
+sink:
+  type: metadata-rest
+  config: {}
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: ${OPENMETADATA_URL}/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: ${OPENMETADATA_JWT_TOKEN}

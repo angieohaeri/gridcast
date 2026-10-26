@@ -1,0 +1,21 @@
+source:
+  type: prefect
+  serviceName: gridcast-prefect
+  serviceConnection:
+    config:
+      type: Prefect
+      hostPort: ${PREFECT_SERVER_URL}
+      authType:
+        authString: ""
+  sourceConfig:
+    config:
+      type: PipelineMetadata
+sink:
+  type: metadata-rest
+  config: {}
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: ${OPENMETADATA_URL}/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: ${OPENMETADATA_JWT_TOKEN}

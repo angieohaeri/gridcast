@@ -43,6 +43,10 @@ gridcast/           installable Python package (pip install -e .)
   modeling/
     train.py        reads processed features → trains → logs to MLflow
     predict.py      loads from MLflow registry → exposes predict()
+lmp_model/          installable Python package for the LMP pricing model (branch lmp-pricing-model)
+  dataset.py        load_window(): features onto an hours x nodes grid (Window)
+  splits.py         walk-forward folds
+  graph.py          build_edges(): pnode graph, correlation edges learned per training window
 src/
   producers/          Kafka producer scripts (poll EIA-930, PJM LMP, Open-Meteo, publish messages)
   consumers/          Kafka consumers (read topics, write to TimescaleDB)
@@ -79,7 +83,8 @@ and are joined explicitly in a named dbt model — never silently resampled.
 ```bash
 make install        # pip install -e . in active venv
 make data           # pull raw EIA-930 / PJM LMP extracts
-make features       # run dbt build
+make features       # run dbt build for the load stack (selector `load`)
+make features-lmp   # run dbt build for the LMP model (selectors `lmp_history`, then `lmp_serving`)
 make train          # train + log to MLflow
 make test           # pytest tests/
 make lint           # ruff check . --fix
@@ -118,6 +123,17 @@ make down           # docker compose down
 
 ---
 
+## LMP pricing model (branch `lmp-pricing-model`)
+Per-pnode next-day RT-minus-DA spread (a GNN over 1,505 pnodes), isolated from the load stack:
+`raw_lmp` and `analytics_lmp` schemas, `lmp_model/` package, `tests/lmp_model/`, its own Prefect
+deployments (`src/prefect/lmp_deployments.py`) and dbt selectors (`src/dbt/selectors.yml`: `load`,
+`lmp_history`, `lmp_serving`). The data pipeline is done; the model is not built yet. Start from
+`references/lmp-pricing-model/` (`lmp-pricing-model.md`, `decisions.md`, `schema.md`) and
+`modeling-session-prompt.md` for the modeling handoff. Every feature must respect the 14:30 ET
+cutoff (`feature_availability_days`, `forecast_cutoff_et` in `dbt_project.yml`).
+
+---
+
 ## Key Reference Files
 - `references/architecture.md` — full architecture and starting point
 - `references/schema.md` — TimescaleDB table definitions
@@ -147,4 +163,4 @@ How Angie wants things done, list might change in the future. Meant to maximize	
 
 ## Current Focus
 <!-- Update this section as you move between project phases -->
-PJM electricity demand forecasting — data source integration
+LMP pricing model: modeling (normalization, per-fold edges, per-node reference model, then the pnode GNN). The load-forecasting stack is in maintenance.

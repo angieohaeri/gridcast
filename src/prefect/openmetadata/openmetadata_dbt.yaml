@@ -1,0 +1,20 @@
+source:
+  type: dbt
+  serviceName: gridcast-timescaledb
+  sourceConfig:
+    config:
+      type: DBT
+      dbtConfigSource:
+        dbtConfigType: local
+        dbtCatalogFilePath: ${DBT_TARGET_DIR}/catalog.json
+        dbtManifestFilePath: ${DBT_TARGET_DIR}/manifest.json
+      dbtUpdateDescriptions: true
+sink:
+  type: metadata-rest
+  config: {}
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: ${OPENMETADATA_URL}/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: ${OPENMETADATA_JWT_TOKEN}

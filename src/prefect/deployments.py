@@ -10,10 +10,11 @@ from gridcast.monitoring.prediction_log import main as prediction_log_flow
 from prefect import serve
 
 # Producer/consumer scripts do a bare sibling import (e.g. `from kafka_client import
-# ...`) resolved via their own directory on sys.path - add both here so that works too.
+# ...`) resolved via their own directory on sys.path - add them here so that works too.
 SRC = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SRC / "producers"))
 sys.path.insert(0, str(SRC / "consumers"))
+sys.path.insert(0, str(SRC / "prefect" / "openmetadata"))
 
 from api_ping import main as api_ping_flow
 
@@ -27,6 +28,7 @@ from lmp_consumer import main as lmp_consumer_flow
 from lmp_producer import main as lmp_producer_flow
 from load_consumer import main as load_consumer_flow
 from load_producer import main as load_producer_flow
+from openmetadata_ingest import main as openmetadata_ingest_flow
 from weather_consumer import main as weather_consumer_flow
 from weather_producer import main as weather_producer_flow
 
@@ -42,9 +44,16 @@ if __name__ == "__main__":
         lmp_consumer_flow.to_deployment(name="lmp_consumer", schedule=Cron("40 12 * * *", timezone="America/New_York")),
         weather_consumer_flow.to_deployment(name="weather_consumer", interval=timedelta(minutes=20)),
         inst_load_consumer_flow.to_deployment(name="inst_load_consumer", interval=timedelta(minutes=10)),
-        # runs after lmp_consumer, the later of the two dependency pipelines
-        dbt_build_flow.to_deployment(name="dbt_build", schedule=Cron("55 12 * * *", timezone="America/New_York")),
+        # runs after lmp_consumer, the later of the two dependency pipelines. Load stack only;
+        # the LMP model's dbt builds are in lmp_deployments.py
+        dbt_build_flow.to_deployment(
+            name="dbt_build", parameters={"selector": "load"}, schedule=Cron("55 12 * * *", timezone="America/New_York"),
+        ),
         data_center_sync_flow.to_deployment(name="data_center_sync", cron="0 5 * * *"),
+        # after dbt_build (12:55 ET) so the dbt artifacts it ingests are fresh
+        openmetadata_ingest_flow.to_deployment(
+            name="openmetadata_ingest", schedule=Cron("30 13 * * *", timezone="America/New_York")
+        ),
         # db_backup_flow.to_deployment(name="db_backup", cron="0 3 * * *"),  # disabled until RCLONE_REMOTE/backup setup is done
         # weekly retrain - adjust cadence once there's a sense of actual weekly drift
         train_flow.to_deployment(name="train", cron="0 4 * * 0"),

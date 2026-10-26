@@ -7,14 +7,24 @@ models:
       Grain: one row per (time, zone).
     columns:
       - name: time
+        description: "Hour Ending, UTC. One row per zone-hour up to now, whether or not demand has settled."
         tests: [not_null]
       - name: zone
+        description: "PJM zone code."
         tests: [not_null]
       - name: demand_mw
         description: >
           Target (unlagged demand), never a model input. NULL wherever source demand is
           absent: every hour past the settlement edge (the model forecasts from "now"),
           plus any historical gap in PJM's feed. Training drops NULL-target rows.
+      - name: demand_lag_72h
+        description: "demand_mw 72 hours earlier (the settlement-lag floor); NULL if that hour is missing."
+      - name: demand_lag_168h
+        description: "demand_mw at the same hour one week earlier; NULL if that hour is missing."
+      - name: demand_roll_6h
+        description: "Trailing 6-hour mean of demand as of T-72h (window [T-78h, T-72h])."
+      - name: demand_roll_24h
+        description: "Trailing 24-hour mean of demand as of T-72h (window [T-96h, T-72h])."
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -24,9 +34,17 @@ models:
     description: "LMP at zone-hour grain. Grain: one row per (time, zone)."
     columns:
       - name: time
+        description: "Hour Ending, UTC."
         tests: [not_null]
       - name: zone
+        description: "PJM zone code."
         tests: [not_null]
+      - name: lmp_total
+        description: "Mean real-time hourly LMP across the zone's nodes, $/MWh."
+      - name: congestion_price
+        description: "Mean congestion component of the LMP, $/MWh."
+      - name: marginal_loss_price
+        description: "Mean marginal loss component of the LMP, $/MWh."
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -38,11 +56,21 @@ models:
       Grain: one row per (time, zone).
     columns:
       - name: time
+        description: "Hour Ending, UTC: polls from 14:00-14:59 are labelled 15:00, to match load_features."
         tests: [not_null]
       - name: zone
+        description: "PJM zone code."
         tests: [not_null]
       - name: observation_count
         description: Polls collapsed into this hour. Expect ~3; fewer means a producer gap or backfilled historical data.
+      - name: temperature
+        description: "Mean air temperature at 2 m over the polls in the hour, degrees C."
+      - name: precipitation
+        description: "Mean precipitation over the polls in the hour, mm. Each poll reports the preceding hour's total, so readings overlap and are averaged, not summed."
+      - name: wind_speed
+        description: "Mean wind speed at 10 m over the polls in the hour, km/h."
+      - name: cloud_cover
+        description: "Mean cloud cover over the polls in the hour, %."
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -55,9 +83,19 @@ models:
       (time, zone).
     columns:
       - name: time
+        description: "Hour Ending, UTC: readings from 14:00-14:59 are labelled 15:00, to match weather_features."
         tests: [not_null]
       - name: zone
+        description: "PJM zone code."
         tests: [not_null]
+      - name: inst_load_mw
+        description: "Mean instantaneous load over the hour, MW. A demand proxy, never the target."
+      - name: inst_load_lag_1h
+        description: "inst_load_mw 1 hour earlier; NULL if that hour is missing."
+      - name: inst_load_lag_3h
+        description: "inst_load_mw 3 hours earlier; NULL if that hour is missing."
+      - name: inst_load_lag_24h
+        description: "inst_load_mw 24 hours earlier; NULL if that hour is missing."
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -68,14 +106,46 @@ models:
       Join of load, lmp, weather, and inst_load features. Grain: one row per (time, zone).
     columns:
       - name: time
+        description: "Hour Ending, UTC."
         tests: [not_null]
       - name: zone
+        description: "PJM zone code."
         tests: [not_null]
       - name: demand_mw
         description: >
           Target (unlagged demand), never a model input. NULL wherever source demand is
           absent: every hour past the settlement edge (the model forecasts from "now"),
           plus any historical gap in PJM's feed. Training drops NULL-target rows.
+      - name: demand_lag_72h
+        description: "demand_mw 72 hours earlier (the settlement-lag floor); NULL if that hour is missing."
+      - name: demand_lag_168h
+        description: "demand_mw at the same hour one week earlier; NULL if that hour is missing."
+      - name: demand_roll_6h
+        description: "Trailing 6-hour mean of demand as of T-72h (window [T-78h, T-72h])."
+      - name: demand_roll_24h
+        description: "Trailing 24-hour mean of demand as of T-72h (window [T-96h, T-72h])."
+      - name: lmp_total_lag_48h
+        description: "Zone LMP 48 hours before the target hour, $/MWh. Real-time prices settle over ~2 days, so the contemporaneous price is not knowable at forecast time."
+      - name: congestion_price_lag_48h
+        description: "Congestion component of the LMP 48 hours before the target hour, $/MWh."
+      - name: marginal_loss_price_lag_48h
+        description: "Marginal loss component of the LMP 48 hours before the target hour, $/MWh."
+      - name: temperature
+        description: "Mean air temperature at 2 m over the polls in the hour, degrees C."
+      - name: precipitation
+        description: "Mean precipitation over the polls in the hour, mm. Each poll reports the preceding hour's total, so readings overlap and are averaged, not summed."
+      - name: wind_speed
+        description: "Mean wind speed at 10 m over the polls in the hour, km/h."
+      - name: cloud_cover
+        description: "Mean cloud cover over the polls in the hour, %."
+      - name: inst_load_mw
+        description: "Mean instantaneous load over the hour, MW. A demand proxy, never the target."
+      - name: inst_load_lag_1h
+        description: "inst_load_mw 1 hour earlier; NULL if that hour is missing."
+      - name: inst_load_lag_3h
+        description: "inst_load_mw 3 hours earlier; NULL if that hour is missing."
+      - name: inst_load_lag_24h
+        description: "inst_load_mw 24 hours earlier; NULL if that hour is missing."
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:

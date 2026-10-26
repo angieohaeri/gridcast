@@ -1,0 +1,77 @@
+version: 2
+
+models:
+  - name: lmp_spread
+    description: >
+      Per-pnode RT-DA spread target. Grain: one row per (time, pnode_id). Verified RT only.
+    columns:
+      - name: rt_lmp
+        tests: [not_null]
+      - name: da_lmp
+        tests: [not_null]
+      - name: spread
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, pnode_id]
+
+  - name: lmp_baseline_features
+    description: >
+      Baseline feature row per (time, pnode_id) for the next-day spread model. DA-spined, so
+      spread is null for hours not yet verified (the rows being forecast).
+      spread_last_verified_day is also the second baseline to beat.
+    columns:
+      - name: da_lmp
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, pnode_id]
+
+  - name: lmp_spread_history
+    description: >
+      Trailing 7-day stats of the verified per-pnode spread, as of each hour. Grain: one
+      row per (time, pnode_id). Joined into lmp_baseline_features at the last verified
+      day's hour.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, pnode_id]
+
+  - name: lmp_load_forecast_features
+    description: >
+      Latest PJM load forecast issued by the cutoff, per target hour and forecast area.
+      Grain: one row per (time, forecast_area).
+    columns:
+      - name: forecast_load_mw
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, forecast_area]
+
+  - name: lmp_node_areas
+    description: Load forecast area for each pnode.
+    columns:
+      - name: pnode_id
+        tests: [unique, not_null]
+      - name: forecast_area
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [AEP, APS, ATSI, COMED, DAY, DEOK, DOM, DUQ, EKPC, MIDATL, RTO]
+
+  - name: lmp_weather_forecast_features
+    description: >
+      Weather forecast available at the cutoff, per target hour and weather zone. Grain: one
+      row per (time, zone). Live snapshot when one was taken before the cutoff, else the
+      previous_day1 forecast.
+    columns:
+      - name: temperature
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, zone]

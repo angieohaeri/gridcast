@@ -1,0 +1,56 @@
+source:
+  type: postgres
+  serviceName: gridcast-timescaledb
+  serviceConnection:
+    config:
+      type: Postgres
+      hostPort: ${TIMESCALEDB_HOST}:${TIMESCALEDB_PORT}
+      username: ${TIMESCALEDB_USER}
+      authType:
+        password: ${TIMESCALEDB_PASSWORD}
+      database: ${TIMESCALEDB_DB}
+  sourceConfig:
+    config:
+      type: Profiler
+      schemaFilterPattern:
+        includes:
+          - ^analytics$
+          - ^analytics_lmp$
+          - ^public$
+          - ^raw_lmp$
+      # hypertables: the profiler reads the empty parent table (row count -1/0, no column stats)
+      tableFilterPattern:
+        excludes:
+          - ^instantaneous_load$
+          - ^lmp$
+          - ^load$
+          - ^weather$
+          - ^da_hrl_lmps_nodal$
+          - ^rt_hrl_lmps_nodal$
+          - ^lmp_da_hourly$
+          - ^generation_by_fuel$
+          - ^generation_ehv_losses$
+          - ^marginal_value_da$
+          - ^marginal_value_rt$
+          - ^operator_initiated_commitments$
+          - ^scheduled_generation$
+          - ^transmission_constraints_da$
+          - ^load_forecast$
+          - ^weather_forecast$
+      # 26M-row dbt tables: percentile and uniqueness profiling over every column runs for 10+
+      # minutes each and starves everything else on the database
+          - ^lmp_spread$
+          - ^lmp_spread_history$
+          - ^lmp_baseline_features$
+processor:
+  type: orm-profiler
+  config: {}
+sink:
+  type: metadata-rest
+  config: {}
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: ${OPENMETADATA_URL}/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: ${OPENMETADATA_JWT_TOKEN}
