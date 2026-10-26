@@ -15,6 +15,9 @@ clean-targets:
   - "dbt_packages"
 
 vars:
+  # |RT - DA| spread ($/MWh) counted as a spike in lmp_spread_history.spike_share_7d
+  lmp_spike_threshold: 100
+
   # every PJM zone except OVEC 
   in_scope_zones: ['AE', 'AEP', 'AP', 'ATSI', 'BC', 'CE', 'DAY', 'DEOK', 'DOM', 'DPL',
                    'DUQ', 'EKPC', 'JC', 'ME', 'PE', 'PEP', 'PL', 'PN', 'PS', 'RECO']

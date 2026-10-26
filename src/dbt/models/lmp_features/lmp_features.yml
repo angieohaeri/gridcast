@@ -29,6 +29,16 @@ models:
           arguments:
             combination_of_columns: [time, pnode_id]
 
+  - name: lmp_spread_history
+    description: >
+      Trailing 7-day stats of the verified per-pnode spread, as of each hour. Grain: one
+      row per (time, pnode_id). Joined into lmp_baseline_features at the last verified
+      day's hour.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, pnode_id]
+
   - name: lmp_load_forecast_features
     description: >
       Latest PJM load forecast issued by the cutoff, per target hour and forecast area.
