@@ -233,6 +233,23 @@ alter table raw_lmp.da_hrl_lmps_nodal set (
 
 select add_compression_policy('raw_lmp.da_hrl_lmps_nodal', interval '30 days', if_not_exists => true);
 
+-- PJM load forecast (load_frcstd_hist), point in time: every forecast PJM issued, keyed by
+-- when it was issued (evaluated_at), so training can pick the forecast that was actually
+-- available at the 14:30 ET cutoff instead of a later revision. 5 evaluations a day
+-- (~05:45, 09:45, 11:45, 17:45, 23:45 ET), each covering now through the end of tomorrow.
+-- 11 coarse areas: 9 single zones, MIDATL (all other zones combined) and RTO. `time` is
+-- Hour Ending UTC (feed's forecast_hour_beginning_utc + 1h) like the LMP tables.
+-- Kept current by sync_load_forecast in raw_lmp_sync.py (backfill_load_forecast for history).
+create table if not exists raw_lmp.load_forecast (
+    evaluated_at timestamptz not null,
+    time timestamptz not null,
+    forecast_area text not null,
+    forecast_load_mw real not null,
+    unique (evaluated_at, time, forecast_area)
+);
+
+select create_hypertable('raw_lmp.load_forecast', 'time', chunk_time_interval => interval '30 days', if_not_exists => true);
+
 -- Compression was tried and reverted (2026-08-23) on all 8 raw_lmp hypertables - see
 -- decisions.md ("Compression tried and reverted"). Reason: Postgres validates system
 -- columns across every chunk when planning a query against a hypertable, so a client

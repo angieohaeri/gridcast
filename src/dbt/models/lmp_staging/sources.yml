@@ -33,3 +33,8 @@ sources:
         description: 90-day-horizon outage forecasts (RTO/West/Other), one set per daily forecast execution.
       - name: natural_gas_fuel_cost
         description: EIA monthly natural gas cost by state. Lags real time by ~3 months.
+      - name: load_forecast
+        description: >
+          PJM load forecast by area (load_frcstd_hist), one row per forecast PJM issued
+          (evaluated_at), Hour Ending UTC. 5 evaluations a day, each covering now through the
+          end of tomorrow. 11 coarse areas: 9 single zones, MIDATL and RTO.

@@ -561,6 +561,83 @@ def sync_rt_unverified_hrl_lmps_nodal():
     logger.success(f"Upserted {len(rows)} unverified raw_lmp.rt_hrl_lmps_nodal rows ({raw['pnode_id'].nunique()} pnodes, latest {raw['time'].max()})")
 
 
+# --- load_forecast - PJM's own load forecast by area, 5 evaluations a day (~05:45, 09:45, ---
+# 11:45, 17:45, 23:45 ET). The hist feed keeps every evaluation, so the table is point in ---
+# time: no row is ever revised, hence DO NOTHING on conflict. ---------------------------
+
+LOAD_FORECAST_UPSERT = """
+INSERT INTO raw_lmp.load_forecast (evaluated_at, time, forecast_area, forecast_load_mw)
+VALUES %s
+ON CONFLICT (evaluated_at, time, forecast_area) DO NOTHING
+"""
+LOAD_FORECAST_BACKFILL_CHUNK_DAYS = 20
+
+
+def poll_load_forecast(pjm: gs.PJM, start: datetime, end: datetime) -> pd.DataFrame:
+    raw = pjm._get_pjm_json(
+        "load_frcstd_hist",
+        start=pd.Timestamp(start).tz_convert("US/Eastern"),
+        end=pd.Timestamp(end).tz_convert("US/Eastern"),
+        params={},
+        filter_timestamp_name="evaluated_at",
+    )
+    raw["evaluated_at"] = pd.to_datetime(raw["evaluated_at_utc"]).dt.tz_localize("UTC")
+    raw["time"] = pd.to_datetime(raw["forecast_hour_beginning_utc"]).dt.tz_localize("UTC") + pd.Timedelta(hours=1)
+    return raw.drop_duplicates(subset=["evaluated_at", "time", "forecast_area"])
+
+
+def _upsert_load_forecast(raw: pd.DataFrame) -> None:
+    rows = list(raw[["evaluated_at", "time", "forecast_area", "forecast_load_mw"]].itertuples(index=False, name=None))
+    _upsert(LOAD_FORECAST_UPSERT, rows)
+    logger.success(f"Upserted {len(rows)} raw_lmp.load_forecast rows (latest evaluation {raw['evaluated_at'].max()})")
+
+
+def backfill_load_forecast(start: datetime, end: datetime) -> None:
+    """History in chunks, spaced for PJM's shared 6 requests/min. Safe to re-run."""
+    pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
+    chunk_start = start
+    while chunk_start < end:
+        chunk_end = min(chunk_start + timedelta(days=LOAD_FORECAST_BACKFILL_CHUNK_DAYS), end)
+        _upsert_load_forecast(poll_load_forecast(pjm, chunk_start, chunk_end))
+        chunk_start = chunk_end
+        time.sleep(10.5)
+
+
+@flow(name="load_forecast", retries=3, retry_delay_seconds=60, log_prints=True)
+def sync_load_forecast():
+    end = datetime.now(UTC)
+    pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
+    _upsert_load_forecast(poll_load_forecast(pjm, end - timedelta(days=POLL_WINDOW_DAYS), end))
+
+
+# The hist feed lags about a day (checked 2026-10-25: newest evaluation was 23:45 ET the --
+# night before), so at the 14:30 ET cutoff it has nothing covering tomorrow. The live ------
+# 7-day feed has only its latest evaluation (refreshed twice an hour), so it is snapshotted -
+# into the same table, renamed to the hist feed's 11 coarse areas (live MIDATL is one ------
+# MID_ATLANTIC_REGION row, equal to hist MIDATL). ---------------------------------------
+
+LIVE_TO_HIST_AREA = {
+    "AEP": "AEP", "AP": "APS", "ATSI": "ATSI", "COMED": "COMED", "DAYTON": "DAY", "DEOK": "DEOK",
+    "DOMINION": "DOM", "DUQUESNE": "DUQ", "EKPC": "EKPC", "MID_ATLANTIC_REGION": "MIDATL",
+    "RTO_COMBINED": "RTO",
+}
+
+
+def poll_load_forecast_live(pjm: gs.PJM) -> pd.DataFrame:
+    raw = pjm._get_pjm_json("load_frcstd_7_day", start=None, params={})
+    raw = raw[raw["forecast_area"].isin(LIVE_TO_HIST_AREA)].copy()
+    raw["forecast_area"] = raw["forecast_area"].map(LIVE_TO_HIST_AREA)
+    raw["evaluated_at"] = pd.to_datetime(raw["evaluated_at_datetime_utc"]).dt.tz_localize("UTC")
+    raw["time"] = pd.to_datetime(raw["forecast_datetime_ending_utc"]).dt.tz_localize("UTC")
+    return raw.drop_duplicates(subset=["evaluated_at", "time", "forecast_area"])
+
+
+@flow(name="load_forecast_live", retries=3, retry_delay_seconds=60, log_prints=True)
+def sync_load_forecast_live():
+    pjm = gs.PJM(api_key=os.environ["PJM_API_KEY"], retries=6)
+    _upsert_load_forecast(poll_load_forecast_live(pjm))
+
+
 if __name__ == "__main__":
     sync_marginal_value_rt()
     sync_marginal_value_da()
@@ -575,3 +652,5 @@ if __name__ == "__main__":
     sync_rt_hrl_lmps_nodal()
     sync_rt_unverified_hrl_lmps_nodal()
     sync_da_hrl_lmps_nodal()
+    sync_load_forecast()
+    sync_load_forecast_live()

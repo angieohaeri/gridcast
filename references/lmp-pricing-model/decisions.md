@@ -260,3 +260,37 @@ correlation edges, no isolated nodes.
 
 Caveat: top neighbors correlate ~0.99, so many fill-ins carry nearly the same price as a
 neighbor and add little independent signal.
+
+## PJM load forecast feed
+
+**Title: Point-in-time PJM load forecast by area, history plus a live snapshot, Author: Angie Ohaeri (assisted), Date: October 25, 11:47PM UTC**
+
+Replaces the EIA `demand_forecast_mw` idea: EIA publishes a day-ahead forecast for the RTO
+total only (`analytics.stg_load`: 4.5% of rows, all `zone = RTO`). PJM's own feeds are zonal.
+
+- **History**: `load_frcstd_hist` (Data Miner 2), back to 2011, one row per forecast PJM
+  issued with its `evaluated_at`. 5 evaluations a day (~05:45, 09:45, 11:45, 17:45, 23:45
+  ET), each covering now through the end of tomorrow. 11 areas: AEP, APS, ATSI, COMED, DAY,
+  DEOK, DOM, DUQ, EKPC, MIDATL (all eleven mid-Atlantic zones combined), RTO.
+- **Live**: `load_frcstd_7_day` has 25 areas (each mid-Atlantic zone separately) but only its
+  latest evaluation, refreshed twice an hour. History lags about a day (checked 2026-10-25:
+  newest evaluation 23:45 ET the night before), so at the 14:30 ET cutoff it has nothing
+  covering tomorrow. `sync_load_forecast_live` (14:20 ET) snapshots it into the same table,
+  mapped to the hist feed's 11 areas (`MID_ATLANTIC_REGION` = MIDATL). Checked against the
+  hist feed on overlapping hours despite a 19h gap between evaluations: median ratio 1.00-1.03
+  per area. Coarse areas are used for training and serving so they match.
+- **Table**: `raw_lmp.load_forecast` (`evaluated_at`, `time` Hour Ending UTC, `forecast_area`,
+  `forecast_load_mw`), a hypertable, never revised so DO NOTHING on conflict. Backfilled from
+  2024-10-22: 1,450,647 rows. `backfill_load_forecast(start, end)` in `raw_lmp_sync.py`.
+- **dbt**: `lmp_load_forecast_features` keeps, per target hour and area, the latest evaluation
+  issued at or before `forecast_cutoff_et` (14:30) on the ET day before the target day.
+  `lmp_node_areas` maps each pnode to an area through the `lmp_load_forecast_areas` seed
+  (hubs, interfaces and other zoneless aggregates take RTO). The loader indexes the area
+  forecast by node rather than repeating it across 1,505 nodes.
+- **Coverage**: every training hour has all 11 areas except 47 of ~17.6k (0.27%), left as NaN:
+  the target hours of the DST spring-forward day in 2025 (03-09) and 2026 (03-08), 23 hours
+  each, plus 1 hour on 2024-11-04. Checked at the source for 2025: PJM's history has only the
+  23:45 ET evaluation for 2025-03-08, none of the daytime ones, so nothing issued by the
+  cutoff covers the next day. The newest hours are covered only once the live snapshot has run.
+- **Train/serve difference**: training uses the 11:45 ET evaluation (last hist one before the
+  cutoff); serving uses the ~14:20 ET snapshot, slightly fresher.

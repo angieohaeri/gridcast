@@ -28,3 +28,27 @@ models:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [time, pnode_id]
+
+  - name: lmp_load_forecast_features
+    description: >
+      Latest PJM load forecast issued by the cutoff, per target hour and forecast area.
+      Grain: one row per (time, forecast_area).
+    columns:
+      - name: forecast_load_mw
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [time, forecast_area]
+
+  - name: lmp_node_areas
+    description: Load forecast area for each pnode.
+    columns:
+      - name: pnode_id
+        tests: [unique, not_null]
+      - name: forecast_area
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [AEP, APS, ATSI, COMED, DAY, DEOK, DOM, DUQ, EKPC, MIDATL, RTO]

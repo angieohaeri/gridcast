@@ -34,6 +34,13 @@ vars:
     generation_ehv_losses: -1
     forecasted_generation_outages: 0
   rt_unverified_last_hour_ending_et: 14
+  # time of day (ET, on the day before the target day) the daily forecast is issued
+  forecast_cutoff_et: '14 hours 30 minutes'
+
+seeds:
+  gridcast:
+    lmp_load_forecast_areas:
+      +schema: lmp
 
 models:
   gridcast:

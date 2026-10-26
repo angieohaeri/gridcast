@@ -16,6 +16,8 @@ from raw_lmp_sync import (
     sync_forecasted_generation_outages,
     sync_generation_by_fuel,
     sync_generation_ehv_losses,
+    sync_load_forecast,
+    sync_load_forecast_live,
     sync_lmp_da_hourly,
     sync_marginal_value_da,
     sync_marginal_value_rt,
@@ -90,5 +92,14 @@ if __name__ == "__main__":
         # ET, so this runs after, ahead of the 14:30 ET forecast; window runs through tomorrow.
         sync_da_hrl_lmps_nodal.to_deployment(
             name="da_hrl_lmps_nodal", schedule=Cron("5 14 * * *", timezone="America/New_York"),
+        ),
+        # PJM load forecast by area, point in time. The hist feed trails by about a day, so it
+        # fills training history; the live 7-day feed is snapshotted before the 14:30 ET
+        # forecast for the day-ahead hours. Staggered after the DA flows for the shared rate limit.
+        sync_load_forecast.to_deployment(
+            name="load_forecast", schedule=Cron("15 14 * * *", timezone="America/New_York"),
+        ),
+        sync_load_forecast_live.to_deployment(
+            name="load_forecast_live", schedule=Cron("20 14 * * *", timezone="America/New_York"),
         ),
     )
