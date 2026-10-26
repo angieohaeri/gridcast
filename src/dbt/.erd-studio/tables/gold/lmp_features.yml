@@ -1,0 +1,8 @@
+name: lmp_features
+schema: analytics
+description: "LMP at zone-hour grain. Grain: one row per (time, zone)."
+columns:
+  - name: time
+    dataType: ""
+  - name: zone
+    dataType: ""

@@ -1,0 +1,10 @@
+name: stg_weather
+schema: analytics
+description: Cleaned weather observations at native sub-hourly grain.
+columns:
+  - name: time
+    dataType: ""
+  - name: zone
+    dataType: ""
+  - name: temperature
+    dataType: ""

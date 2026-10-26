@@ -1,0 +1,8 @@
+name: stg_natural_gas_fuel_cost
+schema: analytics_lmp
+description: "Monthly state-level gas cost. Grain: one row per (period, state). Null cost = no NG generation reported. EIA lags about 3 months; latest 2026-07."
+columns:
+  - name: period
+    dataType: ""
+  - name: state
+    dataType: ""

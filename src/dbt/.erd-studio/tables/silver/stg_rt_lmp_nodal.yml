@@ -1,0 +1,20 @@
+name: stg_rt_lmp_nodal
+schema: analytics_lmp
+description: |
+  Real-time hourly LMP per pnode. Grain: one row per (time, pnode_id). Available at the 14:30 ET cutoff on day D: verified rows through the end of D-2 (settlement lag); unverified rows through hour ending 14:00 ET on D.
+columns:
+  - name: time
+    dataType: ""
+  - name: pnode_id
+    dataType: ""
+    isForeignKey: true
+  - name: lmp_total
+    dataType: ""
+  - name: is_verified
+    dataType: ""
+    description: Train labels use verified rows only.
+relationships:
+  - fromColumn: pnode_id
+    toTable: stg_pnode_topology
+    toColumn: pnode_id
+    cardinality: many-to-one

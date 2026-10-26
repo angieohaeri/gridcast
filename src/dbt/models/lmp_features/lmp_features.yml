@@ -29,6 +29,12 @@ models:
           arguments:
             combination_of_columns: [time, pnode_id]
 
+  - name: lmp_model_features
+    description: >
+      View over lmp_baseline_features with each node's area load forecast and weather-zone
+      forecast joined on. Grain: one row per (time, pnode_id). Weather columns are null for
+      zoneless nodes (hubs, interfaces, PJM-RTO, OVEC).
+
   - name: lmp_spread_history
     description: >
       Trailing 7-day stats of the verified per-pnode spread, as of each hour. Grain: one

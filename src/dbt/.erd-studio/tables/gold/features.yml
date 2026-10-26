@@ -1,0 +1,13 @@
+name: features
+schema: analytics
+description: |
+  Join of load, lmp, weather, and inst_load features. Grain: one row per (time, zone).
+columns:
+  - name: time
+    dataType: ""
+  - name: zone
+    dataType: ""
+  - name: demand_mw
+    dataType: ""
+    description: |
+      Target (unlagged demand), never a model input. NULL wherever source demand is absent: every hour past the settlement edge (the model forecasts from "now"), plus any historical gap in PJM's feed. Training drops NULL-target rows.

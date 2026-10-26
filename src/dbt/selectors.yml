@@ -26,3 +26,4 @@ selectors:
         - "lmp_load_forecast_features"
         - "lmp_weather_forecast_features"
         - "lmp_baseline_features"
+        - "lmp_model_features"

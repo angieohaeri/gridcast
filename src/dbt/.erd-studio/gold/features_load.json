@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 6,
+  "subjectArea": "features_load",
+  "layer": "gold",
+  "description": "Drawn from dbt: features.",
+  "logical": {
+    "tables": [
+      "features",
+      "inst_load_features",
+      "lmp_features",
+      "load_features",
+      "weather_features"
+    ],
+    "relationships": []
+  },
+  "viewConfig": {
+    "positions": {
+      "features": {
+        "x": 492,
+        "y": 12
+      },
+      "inst_load_features": {
+        "x": 12,
+        "y": 12
+      },
+      "lmp_features": {
+        "x": 252,
+        "y": 12
+      },
+      "load_features": {
+        "x": 12,
+        "y": 169
+      },
+      "weather_features": {
+        "x": 252,
+        "y": 169
+      }
+    }
+  }
+}

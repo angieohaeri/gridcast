@@ -1,0 +1,8 @@
+name: stg_scheduled_generation
+schema: analytics_lmp
+description: |
+  Hourly RTO-wide self-scheduled generation. Hour Ending UTC. Observed through D-2. rt_ecomax is null under PJM suppression, not missing data.
+columns:
+  - name: time
+    dataType: ""
+    isPrimaryKey: true

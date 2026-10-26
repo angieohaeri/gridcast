@@ -1,0 +1,17 @@
+name: stg_da_lmp_nodal
+schema: analytics_lmp
+description: |
+  Day-ahead hourly LMP per pnode. Grain: one row per (time, pnode_id). Available at the 14:30 ET cutoff on day D: through the end of D+1 (DA results post about 1:30pm ET).
+columns:
+  - name: time
+    dataType: ""
+  - name: pnode_id
+    dataType: ""
+    isForeignKey: true
+  - name: lmp_total
+    dataType: ""
+relationships:
+  - fromColumn: pnode_id
+    toTable: stg_pnode_topology
+    toColumn: pnode_id
+    cardinality: many-to-one

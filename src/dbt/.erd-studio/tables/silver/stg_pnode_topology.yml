@@ -1,0 +1,9 @@
+name: stg_pnode_topology
+schema: analytics_lmp
+description: "GNN node set. Grain: one row per pnode_id. Static reference, rebuilt quarterly."
+columns:
+  - name: pnode_id
+    dataType: ""
+    isPrimaryKey: true
+  - name: role
+    dataType: ""

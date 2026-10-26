@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 6,
+  "subjectArea": "lmp_staging",
+  "layer": "silver",
+  "description": "Drawn from dbt: lmp_staging.",
+  "logical": {
+    "tables": [
+      "stg_pnode_topology",
+      "stg_da_lmp_nodal",
+      "stg_rt_lmp_nodal",
+      "stg_forecasted_generation_outages",
+      "stg_generation_by_fuel",
+      "stg_generation_ehv_losses",
+      "stg_lmp_da_zonal",
+      "stg_marginal_value_da",
+      "stg_marginal_value_rt",
+      "stg_natural_gas_fuel_cost",
+      "stg_operator_initiated_commitments",
+      "stg_scheduled_generation",
+      "stg_transmission_constraints_da"
+    ],
+    "relationships": []
+  },
+  "viewConfig": {
+    "positions": {
+      "stg_pnode_topology": {
+        "x": 392,
+        "y": 370
+      },
+      "stg_da_lmp_nodal": {
+        "x": 152,
+        "y": 558
+      },
+      "stg_rt_lmp_nodal": {
+        "x": 12,
+        "y": 326
+      },
+      "stg_forecasted_generation_outages": {
+        "x": 603,
+        "y": 169
+      },
+      "stg_generation_by_fuel": {
+        "x": 12,
+        "y": 12
+      },
+      "stg_generation_ehv_losses": {
+        "x": 557,
+        "y": 12
+      },
+      "stg_lmp_da_zonal": {
+        "x": 834,
+        "y": 17
+      },
+      "stg_marginal_value_da": {
+        "x": 1373,
+        "y": 12
+      },
+      "stg_marginal_value_rt": {
+        "x": 12,
+        "y": 169
+      },
+      "stg_natural_gas_fuel_cost": {
+        "x": 1085,
+        "y": 12
+      },
+      "stg_operator_initiated_commitments": {
+        "x": 951,
+        "y": 169
+      },
+      "stg_scheduled_generation": {
+        "x": 277,
+        "y": 12
+      },
+      "stg_transmission_constraints_da": {
+        "x": 270,
+        "y": 169
+      }
+    }
+  }
+}

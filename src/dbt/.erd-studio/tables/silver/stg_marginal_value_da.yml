@@ -1,0 +1,11 @@
+name: stg_marginal_value_da
+schema: analytics_lmp
+description: |
+  DA shadow price per binding constraint, hourly, Hour Ending UTC. Grain: one row per (time, monitored_facility, contingency_facility). Available at the 14:30 ET cutoff on day D: only through D-1 in the database (checked 2026-10-24 18:47 ET, DA LMPs already reached D+1), so D+1 values are NOT usable yet.
+columns:
+  - name: time
+    dataType: ""
+  - name: monitored_facility
+    dataType: ""
+  - name: shadow_price
+    dataType: ""
