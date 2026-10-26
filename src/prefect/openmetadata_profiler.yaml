@@ -35,6 +35,13 @@ source:
           - ^operator_initiated_commitments$
           - ^scheduled_generation$
           - ^transmission_constraints_da$
+          - ^load_forecast$
+          - ^weather_forecast$
+      # 26M-row dbt tables: percentile and uniqueness profiling over every column runs for 10+
+      # minutes each and starves everything else on the database
+          - ^lmp_spread$
+          - ^lmp_spread_history$
+          - ^lmp_baseline_features$
 processor:
   type: orm-profiler
   config: {}
