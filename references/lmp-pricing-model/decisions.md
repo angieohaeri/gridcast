@@ -392,12 +392,13 @@ used by both the Prefect flow (`dbt_build`, parameter `selector`) and `make`:
 | `lmp_history` | `lmp_staging` views, `lmp_spread`, `lmp_spread_history` | 13:05 (`lmp_deployments.py`) | needs only verified RT/DA LMPs (RT sync 12:40); carries the slow tests |
 | `lmp_serving` | `lmp_baseline_features`, load and weather forecast features, `lmp_node_areas`, areas seed | 14:26 (`lmp_deployments.py`) | needs the afternoon syncs, must finish before 14:30 |
 
-**Unproven timing**: the forecast and weather feature models took ~30s each and their tests passed
-when the `lmp_serving` selector was run by hand (2026-10-26), but `lmp_baseline_features` was still
-in its delete step after 29 minutes with the host under heavy load (a Docker image build,
-load average ~11). On a quiet host the same model ran in 135s. A 14:26 start leaves four minutes,
-so it will miss 14:30 whenever the host is busy or the model is slow. Options when the serving path
-exists: start the afternoon syncs earlier, run `lmp_serving` as soon as the last sync finishes
+**Unproven timing**: run by hand on 2026-10-26 the forecast and weather feature models took ~30s each
+and their tests passed, but `lmp_baseline_features` took 3,674s (61 min) for 290k rows, most of it in the
+delete step, while the host was under heavy load (a Docker image build, load average ~11). The same model
+ran in 135s on a quiet host earlier that day. Not table bloat (2% dead tuples, normal sizes), so
+contention is the likely cause but is not proven; re-time on a quiet host. A 14:26 start leaves four
+minutes, so it will miss 14:30 whenever the host is busy or the model is slow. Options when the serving
+path exists: start the afternoon syncs earlier, run `lmp_serving` as soon as the last sync finishes
 (chain it instead of using a clock time), or move the cutoff later.
 
 ## Cells with missing input features
