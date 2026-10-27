@@ -47,6 +47,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+gnn = [
+    "torch",
+    "torch_geometric",
+]
 dev = [
     "ipython",
     "jupyterlab",
