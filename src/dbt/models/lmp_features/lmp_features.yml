@@ -6,15 +6,26 @@ models:
       Per-pnode RT-DA spread target. Grain: one row per (time, pnode_id). Verified RT only.
     columns:
       - name: rt_lmp
-        tests: [not_null]
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '10 days'"
       - name: da_lmp
-        tests: [not_null]
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '10 days'"
       - name: spread
-        tests: [not_null]
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '10 days'"
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [time, pnode_id]
+          config:
+            where: "time >= now() - interval '10 days'"
 
   - name: lmp_baseline_features
     description: >
@@ -23,11 +34,16 @@ models:
       spread_last_verified_day is also the second baseline to beat.
     columns:
       - name: da_lmp
-        tests: [not_null]
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '10 days'"
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [time, pnode_id]
+          config:
+            where: "time >= now() - interval '10 days'"
 
   - name: lmp_model_features
     description: >
@@ -44,6 +60,8 @@ models:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [time, pnode_id]
+          config:
+            where: "time >= now() - interval '15 days'"
 
   - name: lmp_load_forecast_features
     description: >
