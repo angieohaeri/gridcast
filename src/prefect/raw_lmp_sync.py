@@ -20,12 +20,12 @@ from dotenv import load_dotenv
 import gridstatus as gs
 from loguru import logger
 import pandas as pd
+from prefect.cache_policies import NO_CACHE
 import psycopg2.extras
 import requests
 
 from gridcast.config import PROCESSED_DATA_DIR, get_connection, setup_logging
 from prefect import flow, task
-from prefect.cache_policies import NO_CACHE
 
 load_dotenv()
 setup_logging()

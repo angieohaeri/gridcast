@@ -2,10 +2,10 @@ import os
 
 from dotenv import load_dotenv
 from loguru import logger
+from openmetadata_column_descriptions import DESCRIPTIONS
 import requests
 
 from gridcast.config import setup_logging
-from openmetadata_column_descriptions import DESCRIPTIONS
 
 load_dotenv()
 setup_logging()

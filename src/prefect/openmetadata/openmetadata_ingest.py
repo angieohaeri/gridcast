@@ -1,14 +1,14 @@
-from pathlib import Path
 import os
+from pathlib import Path
 import shutil
 import subprocess
 import sys
 
 from dotenv import load_dotenv
 from loguru import logger
+from openmetadata_lineage import main as write_lineage
 
 from gridcast.config import PROJ_ROOT, setup_logging
-from openmetadata_lineage import main as write_lineage
 from prefect import flow
 
 load_dotenv()

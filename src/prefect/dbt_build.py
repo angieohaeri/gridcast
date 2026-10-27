@@ -1,10 +1,10 @@
 from dotenv import load_dotenv
 from loguru import logger
+from prefect.concurrency.sync import concurrency
+from prefect_dbt import PrefectDbtRunner, PrefectDbtSettings
 
 from gridcast.config import PROJ_ROOT, setup_logging
 from prefect import flow
-from prefect.concurrency.sync import concurrency
-from prefect_dbt import PrefectDbtRunner, PrefectDbtSettings
 
 load_dotenv()
 setup_logging()
