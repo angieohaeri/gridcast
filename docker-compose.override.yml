@@ -1,0 +1,14 @@
+# Dev override, picked up automatically by `docker compose`. Mounts the Prefect flows and the
+# dbt project from the checkout so a change there needs a restart (flows) or nothing (dbt
+# models/macros), not an image rebuild. Rebuild only for dependency or gridcast/ changes.
+# The host's src/dbt/dbt_packages is mounted with the project, so run `dbt deps` there if
+# packages.yml changes.
+services:
+  prefect-deployments:
+    volumes:
+      - ./src/prefect:/app/src/prefect
+      - ./src/dbt:/app/src/dbt
+  lmp-prefect-deployments:
+    volumes:
+      - ./src/prefect:/app/src/prefect
+      - ./src/dbt:/app/src/dbt

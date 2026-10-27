@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, lmp-pricing-model]
   pull_request:
     branches: [main]
 
@@ -15,7 +15,7 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
-          python-version: "3.13"
+          python-version: "3.12"
 
       - run: uv sync --extra dev
 

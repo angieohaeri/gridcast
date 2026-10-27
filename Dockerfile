@@ -10,12 +10,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends postgresql-clie
 WORKDIR /app
 
 COPY pyproject.toml uv.lock README.md ./
-COPY gridcast/ gridcast/
 # --compile-bytecode: bakes .pyc files into this layer at build time. Without it,
 # every container recreate (fresh writable layer, nothing persists) recompiles
 # pandas/mlflow's many submodules from scratch on first import - normally a minor
 # one-time cost, but under disk I/O contention from the rest of the stack on this
 # host it stretched into minutes and looked identical to a startup deadlock.
+# Dependencies only, so a change under gridcast/ or lmp_model/ doesn't reinstall them.
+RUN uv sync --frozen --no-dev --no-install-project --compile-bytecode
+
+COPY gridcast/ gridcast/
 RUN uv sync --frozen --no-dev --compile-bytecode
 
 # OpenMetadata's ingestion CLI in its own isolated tool env - its pins downgrade dbt's
