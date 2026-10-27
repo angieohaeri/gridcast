@@ -119,6 +119,8 @@ Settles the open "forecast horizon N" question for the pnode-level GNN.
   D-1 (posts daily for the prior day); hourly fuel mix through ~13:00 ET. DA constraints /
   DA shadow prices for D+1 post around the same time as DA LMPs - confirm they are in by
   14:30 before using them for D+1. Every feature model filters on this cutoff.
+  (The shadow-price and fuel-mix lags above were measured on a sync that stopped at D-1; see
+  "The one-day lag in the PJM feeds" below.)
 - **Evaluation**: walk-forward splits; metrics on RT LMP in $/MWh (MAE overall, plus error
   on spike hours, e.g. top 1% of |spread|) so any target choice stays comparable.
   Baselines to beat: spread = 0 (RT = DA), and same-hour spread from the most recent
@@ -422,3 +424,44 @@ Not measured: how the 0.9% splits between window-start cells and new-node cells.
 
 Revisit if new nodes matter at serving time: a node in its first ~10 days gets 0-filled history the model
 never trained on, so its forecast should be flagged unreliable or given a missing-value flag.
+
+## Source lag in the raw_lmp feeds
+
+**Title: The one-day lag in the PJM feeds came from our sync window, not PJM, Author: Angie Ohaeri (assisted), Date: October 26, 10:55PM ET**
+
+Every raw_lmp flow built its request window with a date-only end string (`end = now()`). gridstatus and
+PJM treat that end date as exclusive, midnight at the start of the day, so today's rows were never
+requested and each feed stopped at D-1. Pulling the same windows from PJM directly at 18:55 ET showed the
+data exists: with a later end date, day-ahead shadow prices reached the end of D+1 (613 rows vs 210) and
+fuel mix reached 18:00 ET the same day. The Prefect runs all showed COMPLETED because they succeeded on
+the window they asked for, so nothing flagged it.
+
+Fix, commit `7b66260` (2026-10-24): day-ahead flows poll through today + 2 days, near-real-time and RT flows
+through today + 1; the day-ahead flows moved to 13:50-14:05 ET (after DA results post ~13:30 ET, before the
+14:30 ET cutoff) and `da_hrl_lmps_nodal` from 14:30 to 14:05.
+
+What is stale and what to do:
+- `feature_availability_days` in `src/dbt/dbt_project.yml` was recorded from the DB on 2026-10-24 18:47 ET,
+  before the fix. Its day-ahead values (-1) and the fuel-mix lag describe the lagging sync, not PJM. Not
+  changed yet.
+- Before building a feature on any source, check the newest timestamp per source in the DB at ~14:30 ET on a
+  day after the fix has run, and set the var from that. Do not use PJM's nominal posting times or an earlier
+  reading of the DB.
+- Checked in the DB at 22:50 ET on 2026-10-26 (day D): `marginal_value_da`, `transmission_constraints_da` and
+  `da_hrl_lmps_nodal` reach the end of D+1; `marginal_value_rt` reaches the end of D-1 (not D-2);
+  `rt_hrl_lmps_nodal` reaches 22:00 ET on D. So the fix works and the day-ahead sources would be +1 and RT
+  shadow prices -1. That is the state 8 hours after the cutoff and the raw tables have no load timestamp, so
+  it does not prove the data was in by 14:30 ET: confirm with the completion times of that day's Prefect runs
+  (day-ahead flows are scheduled 13:50-14:05 ET) before changing `feature_availability_days`.
+- Prefect runs on 2026-10-26 (all Completed, one run each): `marginal_value_rt` 12:15:00-12:15:07,
+  `marginal_value_da` 13:50:01-13:50:05, `lmp_da_hourly` 13:55:01-13:55:19, `transmission_constraints_da`
+  14:00:00-14:00:12, `da_hrl_lmps_nodal` 14:05:00-14:09:15 ET, all before the 14:30 cutoff. The run logs have
+  no row counts, but with one run each and D+1 rows in the DB, those runs loaded them. One day of
+  evidence: the first full day of the new schedule is 2026-10-27, since `load_forecast`, `load_forecast_live`,
+  `weather_forecast` and `dbt_build_lmp_serving` did not run on 10-26 (their deployments were added later
+  that day).
+- `marginal_value_rt`: its ~2-day settlement lag is not borne out by the check above; recheck at 14:30 ET.
+- Schedules live in code (`src/prefect/lmp_deployments.py`, run by `serve()`). Restart the
+  `lmp-prefect-deployments` process on the Mac Mini after pulling to apply them. Do not edit them in the
+  Prefect UI: a restart re-registers from the file.
+- The PJM API key was printed in plaintext by gridstatus in the session that found this; rotate it.
