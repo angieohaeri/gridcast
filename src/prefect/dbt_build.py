@@ -1,40 +1,27 @@
-from pathlib import Path
-import subprocess
-import sys
-
 from dotenv import load_dotenv
 from loguru import logger
 
 from gridcast.config import PROJ_ROOT, setup_logging
 from prefect import flow
 from prefect.concurrency.sync import concurrency
+from prefect_dbt import PrefectDbtRunner, PrefectDbtSettings
 
 load_dotenv()
 setup_logging()
 
-# dbt's profiles.yml reads TIMESCALEDB_* via env_var(), so the subprocess needs those
-# on os.environ - it inherits them from load_dotenv() here, or straight from compose
-# when this runs in the prefect-deployments container.
-DBT = Path(sys.executable).parent / "dbt"
+# dbt's profiles.yml reads TIMESCALEDB_* via env_var(); dbt runs in this process, so it
+# sees them from load_dotenv() here, or straight from compose when this runs in the
+# prefect-deployments container.
 DBT_PROJECT_DIR = PROJ_ROOT / "src" / "dbt"
 
 
 @flow(name="dbt_build", description="Builds one dbt selector from selectors.yml: load, lmp_history or lmp_serving.", log_prints=True)
 def main(selector: str = "load"):
+    runner = PrefectDbtRunner(settings=PrefectDbtSettings(project_dir=DBT_PROJECT_DIR, profiles_dir=DBT_PROJECT_DIR))
     # one dbt build at a time: overlapping builds lock each other's tables (lmp_baseline_features
     # reads what lmp_spread rewrites) and share the project's target/ dir
     with concurrency("dbt-build", occupy=1, strict=True):
-        result = subprocess.run(
-            [DBT, "build", "--selector", selector, "--project-dir", DBT_PROJECT_DIR, "--profiles-dir", DBT_PROJECT_DIR],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    logger.info(result.stdout)
-
-    if result.returncode != 0:
-        logger.error(result.stderr)
-        raise RuntimeError(f"dbt build --selector {selector} exited with code {result.returncode}")
+        runner.invoke(["build", "--selector", selector])
 
     logger.success(f"dbt build --selector {selector} finished")
 

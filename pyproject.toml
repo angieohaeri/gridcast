@@ -32,6 +32,7 @@ dependencies = [
     "gridstatus>=0.36.0",
     "confluent-kafka",
     "prefect",
+    "prefect-dbt",
     "psycopg2-binary>=2.9.12",
     "dbt-core",
     "dbt-postgres",
