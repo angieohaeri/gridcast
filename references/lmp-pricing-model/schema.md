@@ -372,7 +372,7 @@ Two syncs write this table, both in `src/prefect/raw_lmp_sync.py`:
   marginal_loss_price`; identical at all 14,504 locations in an hour, checked
   2026-10-23), and no pnode filter - each run pulls every location for a 3-hour window
   (~43k rows, one request).
-- `sync_rt_hrl_lmps_nodal` - **daily** (12:40 ET), verified, 7-day trailing window. Writes
+- `sync_rt_hrl_lmps_nodal` - **daily** (first step of `lmp_morning`, 12:15 ET start), verified, 7-day trailing window. Writes
   `is_verified = true` and overwrites unverified rows for the same hours. Verification does
   revise prices: 20 of 3,008 re-pulled pnode-hours differed by more than $0.01.
 
@@ -391,7 +391,7 @@ than 30 days). DA clears the day before, so these prices are known ahead of the 
 hour they cover - a leakage-safe input - and DA minus RT at each node is a congestion
 signal. No `is_verified`: DA prices are final when published. Loaded 2026-10-24:
 25,883,242 rows, 1,505 pnodes, 2024-10-23 01:00 ET → 2026-10-24 00:00 ET; 0.71 GB
-compressed. Kept current by `sync_da_hrl_lmps_nodal` in `raw_lmp_sync.py` (daily, 14:30 ET,
+compressed. Kept current by `sync_da_hrl_lmps_nodal` in `raw_lmp_sync.py` (daily, first step of `lmp_afternoon`, 13:50 ET start,
 7 days back through tomorrow). The earlier empty draft `raw_lmp.lmp_da_hourly_nodal` was
 dropped 2026-10-24.
 
@@ -569,8 +569,7 @@ zones). Hypertable, 30-day chunks. Loaded 2026-10-26: 352,800 `previous_day1` ro
 | `wind_speed` | real | km/h |
 | `cloud_cover` | real | % |
 
-Unique `(time, zone, source, issued_at)`. Kept current by `sync_weather_forecast`
-(`backfill_weather_forecast` for gaps).
+Unique `(time, zone, source, issued_at)`. Kept current by `sync_weather_forecast`.
 
 ---
 

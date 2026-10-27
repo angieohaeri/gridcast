@@ -22,7 +22,8 @@ Built instead: `src/prefect/raw_lmp_sync.py` - one file, one `@flow` function pe
 source (pull PJM/EIA API, upsert straight to Postgres), same trailing-window-for-
 settlement-revisions pattern as the Kafka producers would have used. Deployments live
 in their own `src/prefect/lmp_deployments.py` (separate `serve()` process from the
-working pipeline's `deployments.py`) - own Cron per source matching the cadence above,
+working pipeline's `deployments.py`) - own Cron for the hourly, weekly and monthly syncs (the daily ones run in order inside `lmp_morning` and
+`lmp_afternoon`, `lmp_daily.py`; see decisions.md, 2026-10-27),
 `paused=True` on all of them per decisions.md, until each has a validated run. No Kafka
 topics, no docker-compose producer/consumer services - the only new compose service is
 `lmp-prefect-deployments`, running `lmp_deployments.py`.

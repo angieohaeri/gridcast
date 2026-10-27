@@ -283,7 +283,7 @@ total only (`analytics.stg_load`: 4.5% of rows, all `zone = RTO`). PJM's own fee
   per area. Coarse areas are used for training and serving so they match.
 - **Table**: `raw_lmp.load_forecast` (`evaluated_at`, `time` Hour Ending UTC, `forecast_area`,
   `forecast_load_mw`), a hypertable, never revised so DO NOTHING on conflict. Backfilled from
-  2024-10-22: 1,450,647 rows. `backfill_load_forecast(start, end)` in `raw_lmp_sync.py`.
+  2024-10-22: 1,450,647 rows (one-time load; the backfill code was removed from `raw_lmp_sync.py`).
 - **dbt**: `lmp_load_forecast_features` keeps, per target hour and area, the latest evaluation
   issued at or before `forecast_cutoff_et` (14:30) on the ET day before the target day.
   `lmp_node_areas` maps each pnode to an area through the `lmp_load_forecast_areas` seed
@@ -317,7 +317,7 @@ knowable at the 14:30 ET cutoff (using it would leak the future). Open-Meteo has
 - **Table**: `raw_lmp.weather_forecast` (`time`, `zone`, `source`, `issued_at`, 4 variables), a
   hypertable. `issued_at` is the snapshot time for `live` and the nominal time (target - 24h)
   for `previous_day1`. Backfilled from 2024-10-22: 352,800 rows. `sync_weather_forecast` also
-  refreshes the trailing 7 days of history. `backfill_weather_forecast(start, end)` for gaps.
+  refreshes the trailing 7 days of history. The backfill code was removed from `raw_lmp_sync.py`.
 - **dbt**: `lmp_weather_forecast_features` takes, per target hour and zone, the live snapshot
   issued by the cutoff when there is one, else `previous_day1`, and adds HDD/CDD (base 18.33 C).
   Every training hour has all 20 zones. Zoneless nodes (hubs, interfaces, PJM-RTO, OVEC) get a
@@ -391,8 +391,8 @@ used by both the Prefect flow (`dbt_build`, parameter `selector`) and `make`:
 | selector | models | runs (ET) | why then |
 |---|---|---|---|
 | `load` | the original staging and features + `pjm_weather_zones` | 12:55 (`deployments.py`) | unchanged |
-| `lmp_history` | `lmp_staging` views, `lmp_spread`, `lmp_spread_history` | 13:05 (`lmp_deployments.py`) | needs only verified RT/DA LMPs (RT sync 12:40); carries the slow tests |
-| `lmp_serving` | `lmp_baseline_features`, load and weather forecast features, `lmp_node_areas`, areas seed | 14:26 (`lmp_deployments.py`) | needs the afternoon syncs, must finish before 14:30 |
+| `lmp_history` | `lmp_staging` views, `lmp_spread`, `lmp_spread_history` | `lmp_morning` flow, after the RT sync (12:15 start) | needs only verified RT/DA LMPs (RT sync 12:40); carries the slow tests |
+| `lmp_serving` | `lmp_baseline_features`, load and weather forecast features, `lmp_node_areas`, areas seed | `lmp_afternoon` flow, after its syncs (13:50 start) | needs the afternoon syncs, must finish before 14:30 |
 
 **Unproven timing**: run by hand on 2026-10-26 the forecast and weather feature models took ~30s each
 and their tests passed, but `lmp_baseline_features` took 3,674s (61 min) for 290k rows, most of it in the
@@ -465,3 +465,39 @@ What is stale and what to do:
   `lmp-prefect-deployments` process on the Mac Mini after pulling to apply them. Do not edit them in the
   Prefect UI: a restart re-registers from the file.
 - The PJM API key was printed in plaintext by gridstatus in the session that found this; rotate it.
+
+## Daily orchestration
+
+**Title: Daily LMP syncs and dbt builds run as two sequential flows; dbt runs through prefect-dbt, Author: Angie Ohaeri (assisted), Date: October 27, 5:14PM**
+
+- `lmp_morning` (12:15 ET): `rt_hrl_lmps_nodal` -> dbt `lmp_history` -> optional RT syncs (marginal value RT,
+  scheduled generation, EHV losses, forecasted outages). `lmp_afternoon` (13:50 ET): `da_hrl_lmps_nodal`,
+  `load_forecast`, `load_forecast_live` -> `weather_forecast` (optional) -> dbt `lmp_serving` -> optional DA
+  syncs (marginal value DA, `lmp_da_hourly`, transmission constraints). Code: `src/prefect/lmp_daily.py`.
+- A failed critical sync stops the flow before the dbt build that needs it. Optional syncs run with
+  `return_state=True`: a failure logs a warning and the flow continues. Hourly, weekly and monthly syncs keep
+  their own Cron. The two dbt deployments stay as unscheduled manual triggers.
+- Why: cron times were the only ordering. A manual run of both dbt deployments overlapped, `lmp_spread`'s
+  index post-hook blocked on `lmp_baseline_features`, and three runs had to be cancelled (cancelling a Prefect
+  run does not end the Postgres query; it was ended with `pg_terminate_backend`).
+- `dbt-build` global concurrency limit of 1 (`strict=True`, so a missing limit fails the run). It also covers the
+  load build, which shares `target/`. Create once on the server: `prefect gcl create dbt-build --limit 1
+  --slot-decay-per-second 0`.
+- Uniqueness and `not_null` tests on `lmp_spread`, `lmp_baseline_features` (10 days) and `lmp_spread_history`
+  (15 days) are limited to `time >= now() - interval 'N days'`, wider than each model's incremental lookback.
+  Old history is no longer checked: run the tests unfiltered after any `--full-refresh`.
+- `dbt_build.py` uses `PrefectDbtRunner` (in-process, per-node tasks) instead of a subprocess; `prefect-dbt`
+  added to `pyproject.toml`. The cutoff expression is the `forecast_cutoff()` macro.
+- `raw_lmp_sync.py`: each `poll_*` and `_upsert` is a task (retries on the call, not the whole flow); flows take
+  `lookback_*` parameters (a backfill is a manual run with a larger value); `_pjm()` and `_eia()` build the
+  clients. The backfill functions were removed.
+- Dockerfile installs dependencies before copying `gridcast/`; `docker-compose.override.yml` mounts `src/prefect`
+  and `src/dbt` from the checkout.
+
+Not verified: none of this has run on its schedule yet, and the new test filters, `prefect-dbt` and the macro
+have not been through a full `dbt build`. `lmp_baseline_features` has not been re-timed on a quiet host with
+nothing else running. The live load-forecast and weather snapshots now happen about 13:55 instead of
+14:20-14:25: earlier, still before the cutoff.
+
+Declined for now: `prefect.yaml` with a worker (little gain on one box), Prefect failure notifications
+(`prefect-email` would need installing on the server), a self-hosted GitHub runner for deploys.

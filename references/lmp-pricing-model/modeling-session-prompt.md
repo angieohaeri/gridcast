@@ -78,7 +78,7 @@ forecast (real lead 10-34h), so evening hours are a little fresher in training.
   tests/lmp_model`. dbt: `make features` (load stack) and `make features-lmp` (LMP model: selectors
   `lmp_history` then `lmp_serving` in `src/dbt/selectors.yml`). The `analytics_lmp.lmp_*` tables are large
   (26M rows); avoid heavy queries around 13:30 ET when the OpenMetadata ingest runs.
-- Daily schedule (ET): verified RT sync 12:40, dbt lmp_history 13:05, DA sync 14:05, load forecast 14:15 and
-  14:20 (live), weather forecast 14:25, dbt lmp_serving 14:26, forecast cutoff 14:30.
+- Daily schedule (ET): `lmp_morning` 12:15 (verified RT sync, then dbt lmp_history); `lmp_afternoon` 13:50 (DA sync,
+  load forecast hist and live, weather forecast, then dbt lmp_serving); forecast cutoff 14:30.
 - PJM Data Miner allows 6 requests/min on one shared key; do not hammer it.
 - Nothing is pushed; commit only when asked.
