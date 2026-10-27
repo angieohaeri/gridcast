@@ -9,6 +9,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends postgresql-clie
 
 WORKDIR /app
 
+# OpenMetadata's ingestion CLI in its own isolated tool env - its pins downgrade dbt's
+# metricflow/sqlglot, so it can't go in pyproject. UV_TOOL_BIN_DIR puts `metadata` on PATH.
+# Above the project's dependency layers: it doesn't depend on pyproject.toml or uv.lock, so
+# this layer stays cached (and isn't re-pulled) when they change.
+RUN UV_TOOL_BIN_DIR=/usr/local/bin uv tool install --with alembic "openmetadata-ingestion[postgres,dbt,mlflow,kafka]==2.0.6"
+
 COPY pyproject.toml uv.lock README.md ./
 # --compile-bytecode: bakes .pyc files into this layer at build time. Without it,
 # every container recreate (fresh writable layer, nothing persists) recompiles
@@ -20,10 +26,6 @@ RUN uv sync --frozen --no-dev --no-install-project --compile-bytecode
 
 COPY gridcast/ gridcast/
 RUN uv sync --frozen --no-dev --compile-bytecode
-
-# OpenMetadata's ingestion CLI in its own isolated tool env - its pins downgrade dbt's
-# metricflow/sqlglot, so it can't go in pyproject. UV_TOOL_BIN_DIR puts `metadata` on PATH.
-RUN UV_TOOL_BIN_DIR=/usr/local/bin uv tool install --with alembic "openmetadata-ingestion[postgres,dbt,mlflow,kafka]==2.0.6"
 
 ENV PATH="/app/.venv/bin:$PATH"
 
