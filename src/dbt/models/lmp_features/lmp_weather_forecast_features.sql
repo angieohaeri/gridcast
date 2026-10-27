@@ -14,9 +14,7 @@ with sources as (
         cloud_cover,
         source,
         issued_at,
-        (date_trunc('day', (time - interval '1 hour') at time zone 'America/New_York')
-            - interval '1 day' + interval '{{ var("forecast_cutoff_et") }}')
-            at time zone 'America/New_York' as cutoff
+        {{ forecast_cutoff() }} as cutoff
     from {{ ref('stg_weather_forecast') }}
 ),
 

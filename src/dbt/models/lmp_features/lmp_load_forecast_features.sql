@@ -10,9 +10,7 @@ with cutoffs as (
         time,
         forecast_area,
         forecast_load_mw,
-        (date_trunc('day', (time - interval '1 hour') at time zone 'America/New_York')
-            - interval '1 day' + interval '{{ var("forecast_cutoff_et") }}')
-            at time zone 'America/New_York' as cutoff
+        {{ forecast_cutoff() }} as cutoff
     from {{ ref('stg_load_forecast') }}
 )
 
