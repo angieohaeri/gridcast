@@ -6,6 +6,7 @@ import pandas as pd
 
 from gridcast.config import get_connection, setup_logging
 from gridcast.features import cyclical_features, holiday_flag, weekend_flag
+from lmp_model.config import PROCESSED_DATA_DIR
 
 setup_logging()
 
@@ -24,6 +25,7 @@ WEATHER_FEATURES = ["temperature", "precipitation", "wind_speed", "cloud_cover",
 SYSTEM_FEATURES = ["hour_sin", "hour_cos", "month_sin", "month_cos", "is_weekend", "is_holiday"]
 TARGET = "spread"
 CHUNK_DAYS = 30
+CACHE_PATH = PROCESSED_DATA_DIR / "train_npz" / "window.npz"
 
 
 @dataclass(frozen=True)
@@ -124,3 +126,19 @@ def load_window(start: pd.Timestamp, end: pd.Timestamp, pnode_ids: pd.Index) -> 
         times, pnode_ids, x, load_system(times), areas, area_forecast, node_area,
         weather_zones, weather, node_weather_zone, y, exists,
     )
+
+
+def build_cache(start: pd.Timestamp, end: pd.Timestamp, pnode_ids: pd.Index) -> None:
+    """Raw, unscaled window for the whole period, written once and sliced per fold."""
+    window = load_window(start, end, pnode_ids)
+    np.savez_compressed(
+        CACHE_PATH,
+        times=window.times.asi8, x=window.x, y=window.y, exists=window.exists, system=window.system,
+        area_forecast=window.area_forecast, node_area=window.node_area, weather=window.weather,
+        node_weather_zone=window.node_weather_zone, areas=window.areas.to_numpy(dtype=str),
+        weather_zones=window.weather_zones.to_numpy(dtype=str),
+    )
+
+
+def load_cache() -> dict[str, np.ndarray]:
+    return dict(np.load(CACHE_PATH))

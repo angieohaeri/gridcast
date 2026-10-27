@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+import numpy as np
 import pandas as pd
 
 TRAIN_START = pd.Timestamp("2024-10-23", tz="UTC")
@@ -35,3 +36,14 @@ def walk_forward_folds() -> list[Fold]:
             )
         )
     return folds
+
+
+def split_masks(times: np.ndarray, fold: Fold) -> dict[str, np.ndarray]:
+    """Boolean masks over the cache's hours for a fold's train, val and test blocks. `times`
+    is the cache's int64 nanosecond UTC array."""
+    times = pd.DatetimeIndex(times, tz="UTC")
+    return {
+        "train": (times >= fold.train_start) & (times < fold.val_start),
+        "val": (times >= fold.val_start) & (times < fold.test_start),
+        "test": (times >= fold.test_start) & (times < fold.test_end),
+    }

@@ -399,3 +399,25 @@ load average ~11). On a quiet host the same model ran in 135s. A 14:26 start lea
 so it will miss 14:30 whenever the host is busy or the model is slow. Options when the serving path
 exists: start the afternoon syncs earlier, run `lmp_serving` as soon as the last sync finishes
 (chain it instead of using a clock time), or move the cutoff later.
+
+## Cells with missing input features
+
+**Title: Cells with any missing input feature are dropped from the loss, Author: Angie Ohaeri (assisted), Date: October 26, 7:17PM CT**
+
+A (hour, node) cell is excluded from the loss, and from evaluation, when `exists` is false, `y` is NaN, or
+any of the 9 raw input features is NaN (`loss_mask` in `prepare`, `models/model.ipynb`). Fold 0 coverage:
+train 96.1%, validation 97.9%, test 98.0%. The cells stay in the arrays and still pass messages to
+neighbours in the GNN; their NaN inputs are filled with 0 (the train mean after standardizing). Both
+baselines (spread = 0, last verified day) are scored on the same mask, with no fill-in on the baseline:
+filling `spread_last_verified_day` with 0 made that baseline partly copy the zero baseline.
+
+Why drop: the missing history is mostly the first ~10 days of the window (no 7-day history yet, never
+happens at serving time) and a new node's first ~10 days. Those cells still have a real `y`, so dropping
+them loses about 0.9% of labelled train rows. A missing-value flag was considered and rejected: it would be
+an input the model sees in under 1% of rows. The spread does not persist day to day (zero beats last day),
+so the history features probably carry little signal anyway.
+
+Not measured: how the 0.9% splits between window-start cells and new-node cells.
+
+Revisit if new nodes matter at serving time: a node in its first ~10 days gets 0-filled history the model
+never trained on, so its forecast should be flagged unreliable or given a missing-value flag.
