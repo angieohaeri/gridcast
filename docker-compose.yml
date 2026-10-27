@@ -27,6 +27,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      # crash recovery on this HDD took ~77s (fsync of the data dir, then WAL replay), longer
+      # than interval x retries - without this, dependents with service_healthy never start
+      start_period: 3m
+    # give postgres time to checkpoint on shutdown instead of being killed after 10s
+    stop_grace_period: 2m
     networks:
       - kafka-net
 
