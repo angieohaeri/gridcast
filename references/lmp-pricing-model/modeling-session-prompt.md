@@ -60,10 +60,11 @@ pnode graph. Metrics are MAE in $/MWh, overall and on spike hours (top 1% of |sp
    GNN does not beat a per-node model with identical inputs, say so before more graph work.
 5. Training loop, early stopping on the validation block, evaluation vs the two baselines, MLflow logging
    (run naming `{model}_{feature_set}_{YYYYMMDD}`), walk-forward over all folds.
-6. **torch and torch_geometric are NOT installed** (nor in pyproject); the Docker image installs with
-   `--no-dev`, so put them in an optional group, not the main dependencies.
-7. Deferred features, ranked high in the docs: lagged binding-constraint count and shadow prices (DA shadow
-   prices only reach D-1 at the cutoff), fuel mix, forecasted outages, gas price, and linking shadow prices to
+6. **torch and torch_geometric** are in the optional `gnn` group in pyproject, not the main dependencies (the
+   Docker image installs with `--no-dev`). The Mac Mini has the CPU build of torch and no GPU.
+7. Deferred features, ranked high in the docs: lagged binding-constraint count and shadow prices (availability
+   at the cutoff is unverified: the D-1 limit seen earlier was our sync window, fixed in `7b66260`; re-check the DB
+   before building on them, see `decisions.md`), fuel mix, forecasted outages, gas price, and linking shadow prices to
    graph edges (name matching covers only ~43-47% of RT shadow-price weight). Add them as ablation steps,
    each as a new dbt feature model.
 
