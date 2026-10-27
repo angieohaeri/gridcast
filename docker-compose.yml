@@ -31,7 +31,7 @@ services:
       - kafka-net
 
   mlflow:
-    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-lmp-pricing-model}
+    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-latest}
     container_name: gridcast-mlflow
     restart: unless-stopped
     # Backend store (run/metric/param metadata) is the `mlflow` db on the shared
@@ -208,7 +208,7 @@ services:
       - kafka-net
 
   load-producer:
-    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-lmp-pricing-model}
+    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-latest}
     container_name: gridcast-load-producer
     restart: "no"
     command: python src/producers/load_producer.py
@@ -227,7 +227,7 @@ services:
       - ./data/processed/pjm_weather_zones.csv:/app/data/processed/pjm_weather_zones.csv:ro
 
   lmp-producer:
-    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-lmp-pricing-model}
+    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-latest}
     container_name: gridcast-lmp-producer
     restart: "no"
     command: python src/producers/lmp_producer.py
@@ -246,7 +246,7 @@ services:
       - ./data/processed/pjm_weather_zones.csv:/app/data/processed/pjm_weather_zones.csv:ro
 
   weather-producer:
-    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-lmp-pricing-model}
+    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-latest}
     container_name: gridcast-weather-producer
     restart: "no"
     command: python src/producers/weather_producer.py
@@ -265,7 +265,7 @@ services:
       - ./data/processed/pjm_weather_zones.csv:/app/data/processed/pjm_weather_zones.csv:ro
 
   inst-load-producer:
-    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-lmp-pricing-model}
+    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-latest}
     container_name: gridcast-inst-load-producer
     restart: "no"
     command: python src/producers/inst_load_producer.py
@@ -284,7 +284,7 @@ services:
       - ./data/processed/pjm_weather_zones.csv:/app/data/processed/pjm_weather_zones.csv:ro
 
   load-consumer:
-    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-lmp-pricing-model}
+    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-latest}
     container_name: gridcast-load-consumer
     restart: "no"
     command: python src/consumers/load_consumer.py
@@ -303,7 +303,7 @@ services:
       - kafka-net
 
   lmp-consumer:
-    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-lmp-pricing-model}
+    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-latest}
     container_name: gridcast-lmp-consumer
     restart: "no"
     command: python src/consumers/lmp_consumer.py
@@ -322,7 +322,7 @@ services:
       - kafka-net
 
   weather-consumer:
-    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-lmp-pricing-model}
+    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-latest}
     container_name: gridcast-weather-consumer
     restart: "no"
     command: python src/consumers/weather_consumer.py
@@ -341,7 +341,7 @@ services:
       - kafka-net
 
   inst-load-consumer:
-    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-lmp-pricing-model}
+    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-latest}
     container_name: gridcast-inst-load-consumer
     restart: "no"
     command: python src/consumers/inst_load_consumer.py
@@ -360,7 +360,7 @@ services:
       - kafka-net
 
   prefect-deployments:
-    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-lmp-pricing-model}
+    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-latest}
     container_name: gridcast-prefect-deployments
     restart: unless-stopped
     command: python src/prefect/deployments.py
@@ -402,7 +402,7 @@ services:
   # schedules (see decisions.md's Isolation section). No Kafka dependency - these flows
   # pull-and-upsert straight to Postgres.
   lmp-prefect-deployments:
-    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-lmp-pricing-model}
+    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-latest}
     container_name: gridcast-lmp-prefect-deployments
     restart: unless-stopped
     command: python src/prefect/lmp_deployments.py
@@ -422,7 +422,7 @@ services:
       - ./data/processed/pjm_weather_zones.csv:/app/data/processed/pjm_weather_zones.csv:ro
 
   api:
-    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-lmp-pricing-model}
+    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-latest}
     container_name: gridcast-api
     restart: unless-stopped
     command: python src/api/main.py
@@ -452,7 +452,7 @@ services:
       - mlflow_artifacts:/app/mlflow-artifacts
 
   dashboard:
-    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-lmp-pricing-model}
+    image: ghcr.io/angieohaeri/gridcast:${GRIDCAST_TAG:-latest}
     container_name: gridcast-dashboard
     restart: unless-stopped
     # container-internal hostname, not localhost:8000 (API_URL default in app.py) -
