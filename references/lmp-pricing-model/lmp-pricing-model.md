@@ -14,7 +14,7 @@ is 5-min-native, but the feed itself only refreshes once a day), `transmission_c
 (12-2pm ET) and `forecasted_generation_outages` (4am ET); confirmed **hourly** (not
 daily) for `generation_by_fuel` (:15 past the hour); confirmed monthly for
 `operator_initiated_commitments` (posts the 20th). No PJM feed page found for
-`marginal_value_da`, `lmp_da_hourly`, `scheduled_generation`, or `generation_ehv_losses` -
+`marginal_value_da`, `lmp_da_zonal`, `scheduled_generation`, or `generation_ehv_losses` -
 treated as daily, same family as their confirmed siblings. None of the 10 are genuinely
 streaming, so none needed Kafka.
 
@@ -89,8 +89,8 @@ target, MLflow naming, Prefect deployments, Kafka usage) — see `decisions.md`.
 
 **Current**: pnode-level **RT minus DA spread**, hourly, forecast **next-day** - issued at
 14:30 ET on day D for every hour of D+1 at all 1,505 nodes (11-35h ahead); RT reported as
-DA + predicted spread. Data: `raw_lmp.rt_hrl_lmps_nodal` (labels: `is_verified` rows) and
-`raw_lmp.da_hrl_lmps_nodal`. Feature cutoff, baselines and metrics: `decisions.md`
+DA + predicted spread. Data: `raw_lmp.lmp_rt` (labels: `is_verified` rows) and
+`raw_lmp.lmp_da`. Feature cutoff, baselines and metrics: `decisions.md`
 ("First GNN: next-day 24-hour horizon, RT minus DA spread target"). The zonal two-target
 plan below is the original framing, kept for history - its 5-min RT target was superseded
 (`decisions.md`, 2026-10-22 and 2026-10-23 entries).
@@ -152,7 +152,7 @@ Caveat: 2013, toy sim, ignores losses, 6-8hr horizon only. Directionally right, 
 **Already ingested**: `load`, `lmp` (hourly `rt_hrl_lmps`), `weather` (the load stack), plus the forecast
 feeds the pnode model uses: PJM load forecast by area (`raw_lmp.load_forecast`) and Open-Meteo zone
 weather forecasts (`raw_lmp.weather_forecast`), both point in time. Nodal RT and DA LMPs for the 1,505
-pnodes are `raw_lmp.rt_hrl_lmps_nodal` / `da_hrl_lmps_nodal`.
+pnodes are `raw_lmp.lmp_rt` / `lmp_da`.
 
 Table structure, row counts, and date ranges for every backfilled `raw_lmp` table:
 `schema.md`. Deferred-source rationale: `decisions.md` ("Data source scope").
@@ -160,14 +160,14 @@ Table structure, row counts, and date ranges for every backfilled `raw_lmp` tabl
 | Tier | Source | Status | Contributes |
 |---|---|---|---|
 | 1 — LMP decomposition | Real-Time Marginal Value (`raw_lmp.marginal_value_rt`) | backfilled | shadow price µ per binding constraint (`Monitored Facility`/`Contingency Facility`, not pnode/zone) — the congestion term. 5-min native since 2018, posts daily 11am-12pm ET |
-| 1 | Day-Ahead Marginal Value (`raw_lmp.marginal_value_da`) | backfilled | same congestion term, for the day-ahead target — no penalty factor/limit control fields (RT-only) |
+| 1 | Day-Ahead Marginal Value (`raw_lmp.marginal_value_da`) | backfilled | same congestion term, for the day-ahead target — no penalty factor/limit control fields (RT-only), posts daily 12pm-2pm ET |
 | 1 | Forecasted Generation Outages (`raw_lmp.forecasted_generation_outages`) | backfilled | daily, 90-day horizon, RTO/West/Other only (not zonal) — weaker than hoped, still useful |
 | 1 | Operator Initiated Commitments (`raw_lmp.operator_initiated_commitments`) | backfilled | zonal(!) out-of-merit unit commitments with a `Reason` field — "Constraint Management" reason ties directly to congestion. Irregular event-level timestamps, not monthly snapshots — narrow: only reliability-driven commitments, not general economic unit commitment |
 | 1 | Scheduled Generation (`raw_lmp.scheduled_generation`) | backfilled | self-scheduled generation (runs regardless of price — must-run/contractual, not operator-directed) distorts normal dispatch, causes uplift charges. RTO-wide only (2 MW numbers, no zone field), so it can only inform λ, not the congestion term — same bucket as fuel mix/gas cost, not a second zonal signal |
 | 1 | Generation by Fuel Type (`raw_lmp.generation_by_fuel`) | backfilled | what fuel's on the margin; informs λ, RTO-wide by design (see mechanism above, not a limitation) |
 | 1 | EIA natural gas fuel cost (`raw_lmp.natural_gas_fuel_cost`) | backfilled | how expensive that margin is; pairs with fuel type to approximate λ (the "spark spread" signal). Not a PJM source — separate EIA API pull, ~3-month reporting lag unlike the PJM feeds |
 | 1 | Day-Ahead Transmission Constraints (`raw_lmp.transmission_constraints_da`) | backfilled | the congestion pattern set — which facility/contingency pairs bound and for how long (duration, no price magnitude; pairs with `marginal_value_da`'s shadow price for the same facility) |
-| 1 | Day-Ahead Hourly LMPs (`raw_lmp.lmp_da_hourly`) | backfilled | enables a DA-RT basis feature (same zone×hour grain as `public.lmp`, DA market instead of RT) |
+| 1 | Day-Ahead Hourly LMPs (`raw_lmp.lmp_da_zonal`) | backfilled | enables a DA-RT basis feature (same zone×hour grain as `public.lmp`, DA market instead of RT) |
 | 1 | Generation and Extra High Voltage Losses (`raw_lmp.generation_ehv_losses`) | backfilled | the losses term, smallest of the three components — was the lowest priority, now sourced |
 | 1 | PJM load forecast by area (`raw_lmp.load_forecast`) | built — history `load_frcstd_hist` + live `load_frcstd_7_day` snapshot | system stress per area; the EIA forecast is RTO-only so was not used |
 | 1 | Open-Meteo weather forecast (`raw_lmp.weather_forecast`) | built — `previous_day1` history + live snapshot | temperature, wind, cloud, HDD/CDD per zone as forecast at the cutoff (observations would leak the future) |

@@ -47,9 +47,9 @@ SOURCES = {
     "public.instantaneous_load": ["PJM"],
     "public.weather": ["Open-Meteo"],
     "public.datacenters": ["FracTracker"],
-    "raw_lmp.da_hrl_lmps_nodal": ["PJM"],
-    "raw_lmp.rt_hrl_lmps_nodal": ["PJM"],
-    "raw_lmp.lmp_da_hourly": ["PJM"],
+    "raw_lmp.lmp_da": ["PJM"],
+    "raw_lmp.lmp_rt": ["PJM"],
+    "raw_lmp.lmp_da_zonal": ["PJM"],
     "raw_lmp.marginal_value_da": ["PJM"],
     "raw_lmp.marginal_value_rt": ["PJM"],
     "raw_lmp.transmission_constraints_da": ["PJM"],
@@ -71,7 +71,7 @@ REFERENCE = {
     "raw_lmp.pnode_topology_nodes", "raw_lmp.pnode_topology_edges", "analytics.pjm_weather_zones",
 }
 
-TIER1_TABLES = {"analytics.features", "public.load", "raw_lmp.rt_hrl_lmps_nodal", "raw_lmp.da_hrl_lmps_nodal"}
+TIER1_TABLES = {"analytics.features", "public.load", "raw_lmp.lmp_rt", "raw_lmp.lmp_da"}
 TIER2_TABLES = {"analytics.load_features", "analytics.weather_features", "analytics.lmp_features", "analytics.inst_load_features"}
 MODELS = ["gridcast-lgbm-1h", "gridcast-lgbm-24h", "gridcast-lgbm-72h"]
 

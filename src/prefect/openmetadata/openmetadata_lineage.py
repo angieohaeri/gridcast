@@ -22,7 +22,7 @@ MLFLOW = "gridcast-mlflow"
 RAW_LMP_SYNCS = {
     "marginal_value_rt": "marginal_value_rt",
     "marginal_value_da": "marginal_value_da",
-    "lmp_da_hourly": "lmp_da_hourly",
+    "lmp_da_zonal": "lmp_da_zonal",
     "generation_by_fuel": "generation_by_fuel",
     "transmission_constraints_da": "transmission_constraints_da",
     "operator_initiated_commitments": "operator_initiated_commitments",
@@ -30,9 +30,9 @@ RAW_LMP_SYNCS = {
     "generation_ehv_losses": "generation_ehv_losses",
     "forecasted_generation_outages": "forecasted_generation_outages",
     "natural_gas_fuel_cost": "natural_gas_fuel_cost",
-    "rt_hrl_lmps_nodal": "rt_hrl_lmps_nodal",
-    "rt_unverified_hrl_lmps_nodal": "rt_hrl_lmps_nodal",
-    "da_hrl_lmps_nodal": "da_hrl_lmps_nodal",
+    "lmp_rt": "lmp_rt",
+    "lmp_rt_unverified": "lmp_rt",
+    "lmp_da": "lmp_da",
 }
 
 # topic -> (producer flow, consumer flow, table the consumer writes)

@@ -25,9 +25,9 @@ source:
           - ^lmp$
           - ^load$
           - ^weather$
-          - ^da_hrl_lmps_nodal$
-          - ^rt_hrl_lmps_nodal$
-          - ^lmp_da_hourly$
+          - ^lmp_da$
+          - ^lmp_rt$
+          - ^lmp_da_zonal$
           - ^generation_by_fuel$
           - ^generation_ehv_losses$
           - ^marginal_value_da$
@@ -39,9 +39,8 @@ source:
           - ^weather_forecast$
       # 26M-row dbt tables: percentile and uniqueness profiling over every column runs for 10+
       # minutes each and starves everything else on the database
-          - ^lmp_spread$
-          - ^lmp_spread_history$
-          - ^lmp_baseline_features$
+          - ^spread$
+          - ^baseline_features$
 processor:
   type: orm-profiler
   config: {}

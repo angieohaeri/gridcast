@@ -29,8 +29,8 @@ pnode graph. Metrics are MAE in $/MWh, overall and on spike hours (top 1% of |sp
   `node_area [node]` (PJM load forecast MW by area, indexed per node), `weather_zones`+`weather
   [time,20,6]`+`node_weather_zone [node]` (temperature, precipitation, wind_speed, cloud_cover, hdd,
   cdd; -1 for the 22 zoneless nodes: hubs, interfaces, PJM-RTO, OVEC). Tables are in the `analytics_lmp`
-  schema (lmp_baseline_features, lmp_spread, lmp_spread_history, lmp_load_forecast_features,
-  lmp_weather_forecast_features, lmp_node_areas). All features respect the 14:30 ET cutoff; the 7-day
+  schema (baseline_features, spread, spread, load_forecast_features,
+  weather_forecast_features, node_areas). All features respect the 14:30 ET cutoff; the 7-day
   stats end at the same hour as spread_last_verified_day (72h before the target hour).
 - **Splits** `lmp_model/splits.py`: 4 expanding-window walk-forward folds, windows half-open, each with a
   2-month validation block before its 3-month test block. Train starts 2024-10-23; fold test blocks start

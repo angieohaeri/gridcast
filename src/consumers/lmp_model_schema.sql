@@ -85,7 +85,7 @@ create index if not exists transmission_constraints_da_facility_time_idx
 -- this project's zone_id codes via the same mapping as public.lmp's producer; MID-ATL/APS
 -- (aggregate), OVEC (out of scope), and PJM-RTO (hub) are dropped at ingestion, same as
 -- public.lmp. time = Interval End (Hour Ending), matching public.lmp's convention.
-create table if not exists raw_lmp.lmp_da_hourly (
+create table if not exists raw_lmp.lmp_da_zonal (
     time timestamptz not null,
     zone text not null,
     lmp numeric not null,
@@ -94,10 +94,10 @@ create table if not exists raw_lmp.lmp_da_hourly (
     unique (time, zone)
 );
 
-select create_hypertable('raw_lmp.lmp_da_hourly', 'time', if_not_exists => true);
+select create_hypertable('raw_lmp.lmp_da_zonal', 'time', if_not_exists => true);
 
-create index if not exists lmp_da_hourly_zone_time_idx
-    on raw_lmp.lmp_da_hourly (zone, time desc);
+create index if not exists lmp_da_zonal_zone_time_idx
+    on raw_lmp.lmp_da_zonal (zone, time desc);
 
 -- The following 3 tables have no gridstatus wrapper method - pulled by calling
 -- gridstatus's PJM._get_pjm_json() directly against the raw Data Miner 2 feed name
@@ -110,7 +110,7 @@ create index if not exists lmp_da_hourly_zone_time_idx
 -- collapse on upsert - confirmed empirically that rows sharing (time, zone, reason,
 -- economic_max_mw) are re-posts of the same event, not distinct simultaneous
 -- commitments (those differ in economic_max_mw). zone uses this project's zone_id
--- codes via the same mapping as public.lmp/lmp_da_hourly; OVEC (out of scope) dropped.
+-- codes via the same mapping as public.lmp/lmp_da_zonal; OVEC (out of scope) dropped.
 create table if not exists raw_lmp.operator_initiated_commitments (
     datetime_beginning_utc timestamptz not null,
     zone text not null,
@@ -168,12 +168,12 @@ create table if not exists raw_lmp.natural_gas_fuel_cost (
 
 -- rt_hrl_lmps (verified real-time hourly LMP) at pnode level, for the GNN node set in
 -- pnode_topology_nodes - not zonal like every other LMP table here. time = Interval End
--- (Hour Ending, UTC), matching public.lmp / lmp_da_hourly. Lean on purpose: ~25.7M rows,
+-- (Hour Ending, UTC), matching public.lmp / lmp_da_zonal. Lean on purpose: ~25.7M rows,
 -- so no per-row text (names/zone/voltage live in pnode_topology_nodes) and real (float4)
 -- prices - the feed's values fit float4 to the cent. lmp = system_energy_price +
 -- congestion_price + marginal_loss_price (to $0.01). Backfill:
 -- _archive/scripts/backfill_rt_hrl_lmps_nodal.py -> load_rt_hrl_lmps_nodal.py.
-create table if not exists raw_lmp.rt_hrl_lmps_nodal (
+create table if not exists raw_lmp.lmp_rt (
     time timestamptz not null,
     pnode_id bigint not null,
     system_energy_price real not null,
@@ -186,29 +186,29 @@ create table if not exists raw_lmp.rt_hrl_lmps_nodal (
     unique (time, pnode_id)
 );
 
-select create_hypertable('raw_lmp.rt_hrl_lmps_nodal', 'time', chunk_time_interval => interval '30 days', if_not_exists => true);
+select create_hypertable('raw_lmp.lmp_rt', 'time', chunk_time_interval => interval '30 days', if_not_exists => true);
 
-create index if not exists rt_hrl_lmps_nodal_pnode_time_idx
-    on raw_lmp.rt_hrl_lmps_nodal (pnode_id, time desc);
+create index if not exists lmp_rt_pnode_time_idx
+    on raw_lmp.lmp_rt (pnode_id, time desc);
 
 -- The one compressed raw_lmp hypertable - exception to the revert noted below, accepted
 -- 2026-10-22: at ~26M rows the size difference is worth losing Postico's row browser for
 -- this table (query it with SQL instead). Chunks older than 30 days compress via policy.
-alter table raw_lmp.rt_hrl_lmps_nodal set (
+alter table raw_lmp.lmp_rt set (
     timescaledb.compress,
     timescaledb.compress_segmentby = 'pnode_id',
     timescaledb.compress_orderby = 'time desc'
 );
 
-select add_compression_policy('raw_lmp.rt_hrl_lmps_nodal', interval '30 days', if_not_exists => true);
+select add_compression_policy('raw_lmp.lmp_rt', interval '30 days', if_not_exists => true);
 
 -- da_hrl_lmps (day-ahead hourly LMP) for the same GNN node set - the DA counterpart of
--- rt_hrl_lmps_nodal, same lean shape, hour-ending time and compression. No is_verified:
+-- lmp_rt, same lean shape, hour-ending time and compression. No is_verified:
 -- DA prices are final when the market clears the day before, so they're known ahead of the
 -- RT hour they price - a leakage-safe input, and the DA-RT spread is a congestion signal.
 -- Backfill: _archive/scripts/backfill_da_hrl_lmps_nodal.py -> load_da_hrl_lmps_nodal.py;
--- kept current by sync_da_hrl_lmps_nodal in raw_lmp_sync.py.
-create table if not exists raw_lmp.da_hrl_lmps_nodal (
+-- kept current by sync_lmp_da in raw_lmp_sync.py.
+create table if not exists raw_lmp.lmp_da (
     time timestamptz not null,
     pnode_id bigint not null,
     system_energy_price real not null,
@@ -218,20 +218,20 @@ create table if not exists raw_lmp.da_hrl_lmps_nodal (
     unique (time, pnode_id)
 );
 
-select create_hypertable('raw_lmp.da_hrl_lmps_nodal', 'time', chunk_time_interval => interval '30 days', if_not_exists => true);
+select create_hypertable('raw_lmp.lmp_da', 'time', chunk_time_interval => interval '30 days', if_not_exists => true);
 
-create index if not exists da_hrl_lmps_nodal_pnode_time_idx
-    on raw_lmp.da_hrl_lmps_nodal (pnode_id, time desc);
+create index if not exists lmp_da_pnode_time_idx
+    on raw_lmp.lmp_da (pnode_id, time desc);
 
--- Compressed for the same reason as rt_hrl_lmps_nodal (size; query with SQL, not Postico's
+-- Compressed for the same reason as lmp_rt (size; query with SQL, not Postico's
 -- row browser).
-alter table raw_lmp.da_hrl_lmps_nodal set (
+alter table raw_lmp.lmp_da set (
     timescaledb.compress,
     timescaledb.compress_segmentby = 'pnode_id',
     timescaledb.compress_orderby = 'time desc'
 );
 
-select add_compression_policy('raw_lmp.da_hrl_lmps_nodal', interval '30 days', if_not_exists => true);
+select add_compression_policy('raw_lmp.lmp_da', interval '30 days', if_not_exists => true);
 
 -- PJM load forecast (load_frcstd_hist), point in time: every forecast PJM issued, keyed by
 -- when it was issued (evaluated_at), so training can pick the forecast that was actually
@@ -277,5 +277,5 @@ select create_hypertable('raw_lmp.weather_forecast', 'time', chunk_time_interval
 -- requesting ctid (Postico's row-browser grid does this) fails against the WHOLE table
 -- the moment even one chunk anywhere in it is compressed - there's no partial-compression
 -- state that keeps a GUI row browser working. Not reflected in this file: compression
--- was applied and fully undone directly against the live DB. Exceptions: rt_hrl_lmps_nodal
--- and da_hrl_lmps_nodal (added later, above) are compressed on purpose.
+-- was applied and fully undone directly against the live DB. Exceptions: lmp_rt
+-- and lmp_da (added later, above) are compressed on purpose.

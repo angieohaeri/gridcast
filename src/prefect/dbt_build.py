@@ -18,8 +18,8 @@ DBT_PROJECT_DIR = PROJ_ROOT / "src" / "dbt"
 @flow(name="dbt_build", description="Builds one dbt selector from selectors.yml: load, lmp_history or lmp_serving.", log_prints=True)
 def main(selector: str = "load"):
     runner = PrefectDbtRunner(settings=PrefectDbtSettings(project_dir=DBT_PROJECT_DIR, profiles_dir=DBT_PROJECT_DIR))
-    # one dbt build at a time: overlapping builds lock each other's tables (lmp_baseline_features
-    # reads what lmp_spread rewrites) and share the project's target/ dir
+    # one dbt build at a time: overlapping builds lock each other's tables (baseline_features
+    # reads what spread rewrites) and share the project's target/ dir
     with concurrency("dbt-build", occupy=1, strict=True):
         runner.invoke(["build", "--selector", selector])
 
