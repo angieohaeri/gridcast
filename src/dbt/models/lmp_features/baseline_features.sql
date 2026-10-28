@@ -24,7 +24,7 @@
 select
     d.time,
     d.pnode_id,
-    d.lmp_total as da_lmp,
+    d.lmp as da_lmp,
     d.congestion_price as da_congestion_price,
     d.marginal_loss_price as da_marginal_loss_price,
     h.spread as spread_last_verified_day,
@@ -34,7 +34,7 @@ select
     h.spike_share_7d,
     h.congestion_spread_mean_7d,
     t.spread
-from {{ ref('stg_lmp_da') }} d
+from {{ source('raw_lmp', 'lmp_da') }} d
 left join {{ ref('spread') }} h
     on h.time = d.time - interval '{{ lag_hours }} hours' and h.pnode_id = d.pnode_id
     {% if is_incremental() %}

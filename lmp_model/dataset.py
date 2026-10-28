@@ -21,8 +21,21 @@ FEATURES = [
     "spike_share_7d",
     "congestion_spread_mean_7d",
 ]
-WEATHER_FEATURES = ["temperature", "precipitation", "wind_speed", "cloud_cover", "hdd", "cdd"]
-SYSTEM_FEATURES = ["hour_sin", "hour_cos", "month_sin", "month_cos", "is_weekend", "is_holiday"]
+ZONE_FEATURES = [
+    "temperature", "precipitation", "wind_speed", "cloud_cover", "hdd", "cdd",
+    "commitment_count", "commitment_mw", "constraint_commitment_count", "constraint_commitment_mw",
+]
+CALENDAR_FEATURES = ["hour_sin", "hour_cos", "month_sin", "month_cos", "is_weekend", "is_holiday"]
+SYSTEM_TABLE_FEATURES = [
+    "da_constraint_count", "da_shadow_total", "da_shadow_min",
+    "rt_constraint_count_prev_day", "rt_shadow_total_prev_day", "rt_shadow_min_prev_day",
+    "rt_constraint_count_mean_7d", "rt_shadow_total_mean_7d",
+    "da_constraint_count_prev_day", "da_constraint_hours_prev_day",
+    "generation_mw_prev_day", "gas_share_prev_day", "coal_share_prev_day", "nuclear_share_prev_day",
+    "wind_share_prev_day", "solar_share_prev_day", "self_scheduled_mw_prev_day", "loss_ratio_prev_day",
+    "outage_mw_rto", "outage_mw_west", "outage_mw_other", "gas_cost_per_mmbtu",
+]
+SYSTEM_FEATURES = CALENDAR_FEATURES + SYSTEM_TABLE_FEATURES
 TARGET = "spread"
 CHUNK_DAYS = 30
 CACHE_PATH = PROCESSED_DATA_DIR / "train_npz" / "window.npz"
@@ -41,9 +54,9 @@ class Window:
     areas: pd.Index  # PJM load forecast areas
     area_forecast: np.ndarray  # [time, area] forecast MW issued by the cutoff
     node_area: np.ndarray  # [node] position in areas of each node's forecast area
-    weather_zones: pd.Index  # PJM zones with a weather forecast
-    weather: np.ndarray  # [time, zone, weather feature] forecast available at the cutoff
-    node_weather_zone: np.ndarray  # [node] position in weather_zones, -1 for nodes without a zone
+    zones: pd.Index  # PJM zones in zone_features
+    zone_features: np.ndarray  # [time, zone, zone feature] as of the cutoff
+    node_zone: np.ndarray  # [node] position in zones, -1 for nodes without a zone
     y: np.ndarray  # [time, node]
     exists: np.ndarray  # [time, node] bool
 
@@ -55,14 +68,16 @@ def query(sql: str, params: tuple = ()) -> pd.DataFrame:
 
 
 def load_nodes() -> pd.DataFrame:
-    nodes = query("SELECT pnode_id, role, zone, sub_key FROM raw_lmp.pnode_topology_nodes;")
+    nodes = query("SELECT pnode_id, role, zone, zone_id, sub_key, forecast_area FROM analytics_lmp.nodes;")
     return nodes.set_index("pnode_id").sort_index()
 
 
 def load_system(times: pd.DatetimeIndex) -> np.ndarray:
-    """Calendar features (ET) for each hour."""
-    system = holiday_flag(weekend_flag(cyclical_features(pd.DataFrame({"time": times}))))
-    return system[SYSTEM_FEATURES].astype("float32").to_numpy()
+    """Calendar features (ET) and system_features for each hour."""
+    calendar = holiday_flag(weekend_flag(cyclical_features(pd.DataFrame({"time": times}))))
+    table = query(f"SELECT time, {', '.join(SYSTEM_TABLE_FEATURES)} FROM analytics_lmp.system_features;")
+    table = table.set_index(pd.to_datetime(table["time"], utc=True))[SYSTEM_TABLE_FEATURES].reindex(times)
+    return np.hstack([calendar[CALENDAR_FEATURES].to_numpy(), table.to_numpy()]).astype("float32")
 
 
 def load_area_forecast(times: pd.DatetimeIndex) -> tuple[pd.Index, np.ndarray]:
@@ -73,26 +88,14 @@ def load_area_forecast(times: pd.DatetimeIndex) -> tuple[pd.Index, np.ndarray]:
     return wide.columns, wide.to_numpy()
 
 
-def load_node_area(areas: pd.Index, pnode_ids: pd.Index) -> np.ndarray:
-    node_areas = query("SELECT pnode_id, forecast_area FROM analytics_lmp.node_areas;")
-    by_node = node_areas.set_index("pnode_id")["forecast_area"].reindex(pnode_ids)
-    return areas.get_indexer(by_node)
-
-
-def load_weather(times: pd.DatetimeIndex) -> tuple[pd.Index, np.ndarray]:
-    columns = ", ".join(WEATHER_FEATURES)
-    forecast = query(f"SELECT time, zone, {columns} FROM analytics_lmp.weather_forecast_features;")
-    forecast["time"] = pd.to_datetime(forecast["time"], utc=True)
-    zones = pd.Index(sorted(forecast["zone"].unique()))
-    grid = forecast.set_index(["time", "zone"])[WEATHER_FEATURES].astype("float32")
+def load_zone_features(times: pd.DatetimeIndex) -> tuple[pd.Index, np.ndarray]:
+    rows = query(f"SELECT time, zone, {', '.join(ZONE_FEATURES)} FROM analytics_lmp.zone_features;")
+    rows["time"] = pd.to_datetime(rows["time"], utc=True)
+    zones = pd.Index(sorted(rows["zone"].unique()))
+    grid = rows.set_index(["time", "zone"])[ZONE_FEATURES].astype("float32")
     index = pd.MultiIndex.from_product([times, zones], names=["time", "zone"])
-    weather = grid.reindex(index).to_numpy().reshape(len(times), len(zones), len(WEATHER_FEATURES))
-    return zones, weather
-
-
-def load_node_weather_zone(zones: pd.Index, pnode_ids: pd.Index) -> np.ndarray:
-    nodes = query("SELECT pnode_id, zone_id FROM raw_lmp.pnode_topology_nodes;")
-    return zones.get_indexer(nodes.set_index("pnode_id")["zone_id"].reindex(pnode_ids))
+    values = grid.reindex(index).to_numpy().reshape(len(times), len(zones), len(ZONE_FEATURES))
+    return zones, values
 
 
 def load_window(start: pd.Timestamp, end: pd.Timestamp, pnode_ids: pd.Index) -> Window:
@@ -118,13 +121,12 @@ def load_window(start: pd.Timestamp, end: pd.Timestamp, pnode_ids: pd.Index) -> 
         exists[t, n] = True
 
     logger.info(f"{len(times)} hours x {len(pnode_ids)} nodes, {exists.mean():.1%} populated")
+    nodes = load_nodes().reindex(pnode_ids)
     areas, area_forecast = load_area_forecast(times)
-    node_area = load_node_area(areas, pnode_ids)
-    weather_zones, weather = load_weather(times)
-    node_weather_zone = load_node_weather_zone(weather_zones, pnode_ids)
+    zones, zone_features = load_zone_features(times)
     return Window(
-        times, pnode_ids, x, load_system(times), areas, area_forecast, node_area,
-        weather_zones, weather, node_weather_zone, y, exists,
+        times, pnode_ids, x, load_system(times), areas, area_forecast, areas.get_indexer(nodes["forecast_area"]),
+        zones, zone_features, zones.get_indexer(nodes["zone_id"]), y, exists,
     )
 
 
@@ -134,9 +136,9 @@ def build_cache(start: pd.Timestamp, end: pd.Timestamp, pnode_ids: pd.Index) -> 
     np.savez_compressed(
         CACHE_PATH,
         times=window.times.asi8, x=window.x, y=window.y, exists=window.exists, system=window.system,
-        area_forecast=window.area_forecast, node_area=window.node_area, weather=window.weather,
-        node_weather_zone=window.node_weather_zone, areas=window.areas.to_numpy(dtype=str),
-        weather_zones=window.weather_zones.to_numpy(dtype=str),
+        area_forecast=window.area_forecast, node_area=window.node_area, zone_features=window.zone_features,
+        node_zone=window.node_zone, areas=window.areas.to_numpy(dtype=str),
+        zones=window.zones.to_numpy(dtype=str),
     )
 
 

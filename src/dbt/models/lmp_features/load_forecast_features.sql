@@ -11,7 +11,7 @@ with cutoffs as (
         forecast_area,
         forecast_load_mw,
         {{ forecast_cutoff() }} as cutoff
-    from {{ ref('stg_load_forecast') }}
+    from {{ source('raw_lmp', 'load_forecast') }}
 )
 
 select distinct on (time, forecast_area)

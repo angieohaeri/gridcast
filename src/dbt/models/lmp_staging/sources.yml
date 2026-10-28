@@ -1,5 +1,7 @@
 version: 2
 
+# tables read straight from source by the feature models have their tests here; tables with a
+# staging view (time alignment or 5-min roll-up) are tested on the view in lmp_staging.yml.
 sources:
   - name: raw_lmp
     description: Landing tables for the LMP pricing model, isolated from public.* (see references/lmp-pricing-model/).
@@ -7,32 +9,235 @@ sources:
     tables:
       - name: lmp_rt
         description: >
-          Real-time hourly LMP per pnode, Hour Ending UTC. is_verified=false rows are
-          from the unverified hourly feed; verified rows overwrite them.
+          Real-time hourly LMP per pnode, Hour Ending UTC. Grain: one row per (time, pnode_id).
+          is_verified=false rows are from the unverified hourly feed; verified rows overwrite them.
+          Available at the 14:30 ET cutoff on day D: verified rows through the end of D-2
+          (settlement lag); unverified rows through hour ending 14:00 ET on D.
+        columns:
+          - name: time
+            description: "Hour Ending, UTC."
+            tests:
+              - not_null:
+                  config:
+                    where: "time >= now() - interval '10 days'"
+          - name: pnode_id
+            description: "PJM pricing node id; join to pnode_topology_nodes."
+            tests:
+              - not_null:
+                  config:
+                    where: "time >= now() - interval '10 days'"
+              - relationships:
+                  arguments:
+                    to: source('raw_lmp', 'pnode_topology_nodes')
+                    field: pnode_id
+                  config:
+                    where: "time >= now() - interval '10 days'"
+          - name: lmp
+            description: "Total real-time hourly LMP, $/MWh."
+            tests:
+              - not_null:
+                  config:
+                    where: "time >= now() - interval '10 days'"
+          - name: is_verified
+            description: Train labels use verified rows only.
+            tests:
+              - not_null:
+                  config:
+                    where: "time >= now() - interval '10 days'"
+          - name: system_energy_price
+            description: "Real-time system-wide energy component (lambda), $/MWh; identical for every pnode in an hour."
+          - name: congestion_price
+            description: "Congestion component of the LMP, $/MWh."
+          - name: marginal_loss_price
+            description: "Marginal loss component of the LMP, $/MWh."
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [time, pnode_id]
+              config:
+                where: "time >= now() - interval '10 days'"
+
       - name: lmp_da
-        description: Day-ahead hourly LMP per pnode, Hour Ending UTC. Final once the market clears.
+        description: >
+          Day-ahead hourly LMP per pnode, Hour Ending UTC. Grain: one row per (time, pnode_id).
+          Final once the market clears. Available at the 14:30 ET cutoff on day D: through the
+          end of D+1 (DA results post about 1:30pm ET).
+        columns:
+          - name: time
+            description: "Hour Ending, UTC."
+            tests:
+              - not_null:
+                  config:
+                    where: "time >= now() - interval '10 days'"
+          - name: pnode_id
+            description: "PJM pricing node id; join to pnode_topology_nodes."
+            tests:
+              - not_null:
+                  config:
+                    where: "time >= now() - interval '10 days'"
+              - relationships:
+                  arguments:
+                    to: source('raw_lmp', 'pnode_topology_nodes')
+                    field: pnode_id
+                  config:
+                    where: "time >= now() - interval '10 days'"
+          - name: lmp
+            description: "Total day-ahead LMP, $/MWh."
+            tests:
+              - not_null:
+                  config:
+                    where: "time >= now() - interval '10 days'"
+          - name: system_energy_price
+            description: "Day-ahead system-wide energy component (lambda), $/MWh; identical for every pnode in an hour."
+          - name: congestion_price
+            description: "Congestion component of the LMP, $/MWh."
+          - name: marginal_loss_price
+            description: "Marginal loss component of the LMP, $/MWh."
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [time, pnode_id]
+              config:
+                where: "time >= now() - interval '10 days'"
+
       - name: pnode_topology_nodes
-        description: The 1,505 pnodes in the GNN node set, with zone and substation attribution.
+        description: >
+          GNN node set. Grain: one row per pnode_id. Static reference: the original 1,505 nodes
+          plus the constraint nodes added by network_reference/constraint_nodes.py.
+        columns:
+          - name: pnode_id
+            description: "PJM pricing node id."
+            tests: [not_null, unique]
+          - name: role
+            description: >
+              aggregate (ZONE/HUB/INTERFACE pnodes), attached (one representative bus per attached
+              substation), fill_in (zones the topology barely covers) or constraint (stations of
+              heavily constrained facilities with no other GNN node).
+            tests:
+              - accepted_values:
+                  arguments:
+                    values: ['aggregate', 'attached', 'fill_in', 'constraint']
+          - name: pnode_name
+            description: "PJM pricing node name; the first 8 characters are the substation code."
+          - name: pnode_subtype
+            description: "LOAD, GEN, EHV or EXT for buses; ZONE, HUB or INTERFACE for aggregates."
+          - name: zone
+            description: "PJM zone name (COMED, PSEG, ...); ZONE aggregates use their own name."
+          - name: zone_id
+            description: "Project zone_id code; null for hubs, interfaces, PJM-RTO, MID-ATL/APS and OVEC."
+          - name: substation
+            description: "Substation code; null for aggregates."
+          - name: sub_key
+            description: "zone_id|substation, the join key to the topology edges; null for aggregates."
+          - name: voltage_kv
+            description: "Bus voltage, kV."
+          - name: lat
+            description: "Latitude; attached nodes only."
+          - name: lon
+            description: "Longitude; attached nodes only."
+          - name: conflict
+            description: "True when the GridSFM and HIFLD locations are more than 5 km apart; excluded from the edges."
+
       - name: marginal_value_rt
         description: RT shadow price per binding constraint, 5-min native, posts daily 11am-12pm ET. Keyed by facility name.
       - name: marginal_value_da
         description: DA shadow price per binding constraint, hourly. Keyed by facility name.
+
       - name: lmp_da_zonal
-        description: DA zonal hourly LMP (20 zones), Hour Ending UTC.
+        description: >
+          DA zonal hourly LMP, Hour Ending UTC. Grain: one row per (time, zone). Observed only
+          through D-1 at the cutoff.
+        columns:
+          - name: time
+            description: "Hour Ending, UTC."
+            tests: [not_null]
+          - name: zone
+            description: "Project zone_id code."
+            tests: [not_null]
+          - name: lmp
+            description: "Total day-ahead zonal LMP, $/MWh."
+          - name: congestion_price
+            description: "Congestion component of the LMP, $/MWh."
+          - name: marginal_loss_price
+            description: "Marginal loss component of the LMP, $/MWh."
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [time, zone]
+
       - name: generation_by_fuel
         description: Hourly RTO-wide generation by fuel type, long format.
-      - name: transmission_constraints_da
-        description: DA constraints that bound, with duration in hours. No price.
-      - name: operator_initiated_commitments
-        description: Zonal out-of-merit unit commitments, event-level timestamps. Posts monthly on the 20th.
       - name: scheduled_generation
         description: Hourly RTO-wide self-scheduled generation. rt_ecomax is null under PJM confidentiality suppression.
       - name: generation_ehv_losses
         description: Hourly RTO-wide generation and EHV losses.
+
+      - name: transmission_constraints_da
+        description: >
+          DA constraints that bound, with duration. No price. Grain: one row per
+          (datetime_beginning_utc, monitored_facility, contingency_facility).
+          Observed only through D-1 at the cutoff, like marginal_value_da.
+        columns:
+          - name: datetime_beginning_utc
+            description: "Start of the interval, UTC."
+            tests: [not_null]
+          - name: monitored_facility
+            description: "Substation or line name of the binding constraint."
+            tests: [not_null]
+          - name: datetime_ending_utc
+            description: "End of the interval, UTC."
+          - name: duration_hours
+            description: "Hours the constraint bound in the day-ahead market."
+          - name: contingency_facility
+            description: "Contingency facility paired with the monitored facility."
+
+      - name: operator_initiated_commitments
+        description: "Event-level out-of-merit commitments per zone. Not hourly. Posts monthly on the 20th."
+        columns:
+          - name: datetime_beginning_utc
+            description: "Event timestamp, UTC (irregular, sub-minute)."
+            tests: [not_null]
+          - name: zone
+            description: "Project zone_id code."
+            tests: [not_null]
+          - name: economic_max_mw
+            description: "Economic maximum of the committed unit, MW."
+          - name: reason
+            description: "Why the unit was committed out of merit, e.g. Constraint Management or System Wide Capacity."
+
       - name: forecasted_generation_outages
-        description: 90-day-horizon outage forecasts (RTO/West/Other), one set per daily forecast execution.
+        description: >
+          90-day-horizon outage forecasts (RTO/West/Other). Grain: one row per
+          (forecast_execution_date, forecast_date). Filter on forecast_execution_date, not
+          forecast_date, to avoid leakage. Available at the 14:30 ET cutoff on day D: executions through D.
+        columns:
+          - name: forecast_execution_date
+            description: "When this forecast was posted."
+            tests: [not_null]
+          - name: forecast_date
+            description: "The date being forecast, within the 90-day horizon."
+            tests: [not_null]
+          - name: outage_mw_rto
+            description: "Forecast generation outage, RTO-wide, MW."
+          - name: outage_mw_west
+            description: "Forecast generation outage, West region, MW."
+          - name: outage_mw_other
+            description: "Forecast generation outage, other regions, MW."
+
       - name: natural_gas_fuel_cost
-        description: EIA monthly natural gas cost by state. Lags real time by ~3 months.
+        description: >
+          EIA monthly natural gas cost by state. Grain: one row per (period, location). Null cost =
+          no NG generation reported. Lags real time by about 3 months.
+        columns:
+          - name: period
+            description: "First day of the month."
+            tests: [not_null]
+          - name: location
+            description: "Two-letter state postal code."
+            tests: [not_null]
+          - name: cost_per_mmbtu
+            description: "Natural gas cost, dollars per million BTU (EIA). Null means no gas generation was reported."
+
       - name: load_forecast
         description: >
           PJM load forecast by area (load_frcstd_hist), one row per forecast PJM issued

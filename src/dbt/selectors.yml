@@ -21,31 +21,15 @@ selectors:
     definition:
       union:
         - method: fqn
-          value: stg_pnode_topology
-        - method: fqn
-          value: stg_lmp_da
-        - method: fqn
-          value: stg_lmp_rt
-        - method: fqn
-          value: stg_forecasted_generation_outages
-        - method: fqn
           value: stg_generation_by_fuel
         - method: fqn
           value: stg_generation_ehv_losses
-        - method: fqn
-          value: stg_lmp_da_zonal
         - method: fqn
           value: stg_marginal_value_da
         - method: fqn
           value: stg_marginal_value_rt
         - method: fqn
-          value: stg_natural_gas_fuel_cost
-        - method: fqn
-          value: stg_operator_initiated_commitments
-        - method: fqn
           value: stg_scheduled_generation
-        - method: fqn
-          value: stg_transmission_constraints_da
   - name: domain_silver_staging
     description: All models in the staging domain (silver layer). Managed by ERD Studio.
     definition:
@@ -72,7 +56,7 @@ selectors:
     definition:
       union:
         - "+spread"
-        - "stg_pnode_topology"
+        - "source:raw_lmp.pnode_topology_nodes"
 
   # every lmp_staging view and its tests, not scheduled: the views no feature model reads yet
   - name: lmp_staging
@@ -83,15 +67,13 @@ selectors:
   - name: lmp_serving
     definition:
       union:
-        - "stg_load_forecast"
         - "stg_marginal_value_rt"
         - "stg_marginal_value_da"
-        - "stg_lmp_da_zonal"
-        - "shadow_price_features"
-        - "stg_weather_forecast"
+        - "source:raw_lmp.lmp_da_zonal"
+        - "system_features"
         - "load_forecast_areas"
-        - "node_areas"
+        - "nodes"
         - "load_forecast_features"
-        - "weather_forecast_features"
+        - "zone_features"
         - "baseline_features"
         - "model_features"

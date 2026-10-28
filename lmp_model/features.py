@@ -21,7 +21,8 @@ def fit_scalers(data: dict[str, np.ndarray], mask: np.ndarray) -> dict[str, tupl
     return {
         "x": fit_scaler(data["x"][mask]),
         "area": fit_scaler(data["area_forecast"][mask]),
-        "weather": fit_scaler(data["weather"][mask]),
+        "zone": fit_scaler(data["zone_features"][mask]),
+        "system": fit_scaler(data["system"][mask]),
     }
 
 
@@ -37,8 +38,8 @@ def prepare(data: dict[str, np.ndarray], mask: np.ndarray, scalers: dict) -> dic
     return {
         "x": scaled("x", scalers["x"]),
         "area": scaled("area_forecast", scalers["area"]),
-        "weather": scaled("weather", scalers["weather"]),
-        "system": data["system"][mask],
+        "zone": scaled("zone_features", scalers["zone"]),
+        "system": scaled("system", scalers["system"]),
         "y": y,
         "loss_mask": data["exists"][mask] & ~np.isnan(y) & has_features,
     }
