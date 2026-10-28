@@ -37,6 +37,13 @@ vars:
     scheduled_generation: -2
     generation_ehv_losses: -1
     forecasted_generation_outages: 0
+  # monthly sources, by the month of the cutoff day: EIA gas cost for month M is used from the
+  # start of month M + lag (on 2026-10-28 the latest was 2026-08); operator-initiated commitments
+  # for month M post on this day of month M+1 (on 2026-10-28 the latest event was 2026-09-30)
+  natural_gas_fuel_cost_lag_months: 3
+  commitments_posting_day: 20
+  # states PJM serves, for the EIA gas cost average (states EIA leaves blank drop out)
+  pjm_states: ['DC', 'DE', 'IL', 'IN', 'KY', 'MD', 'MI', 'NC', 'NJ', 'OH', 'PA', 'TN', 'VA', 'WV']
   rt_unverified_last_hour_ending_et: 14
   # time of day (ET, on the day before the target day) the daily forecast is issued
   forecast_cutoff_et: '14 hours 30 minutes'

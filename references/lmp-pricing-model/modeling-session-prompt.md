@@ -26,11 +26,12 @@ pnode graph. Metrics are MAE in $/MWh, overall and on spike hours (top 1% of |sp
   spike_share_7d, congestion_spread_mean_7d), `y [time,node]` (NaN where RT is not verified yet),
   `exists [time,node]` (False for the 60 late-starting nodes before they trade), `system [time,6]` (hour
   and month sin/cos, is_weekend, is_holiday; same for all nodes), `areas`+`area_forecast [time,11]`+
-  `node_area [node]` (PJM load forecast MW by area, indexed per node), `weather_zones`+`weather
-  [time,20,6]`+`node_weather_zone [node]` (temperature, precipitation, wind_speed, cloud_cover, hdd,
-  cdd; -1 for the 22 zoneless nodes: hubs, interfaces, PJM-RTO, OVEC). Tables are in the `analytics_lmp`
-  schema (baseline_features, spread, spread, load_forecast_features,
-  weather_forecast_features, node_areas). All features respect the 14:30 ET cutoff; the 7-day
+  `node_area [node]` (PJM load forecast MW by area, indexed per node), `zones`+`zone_features
+  [time,20,10]`+`node_zone [node]` (weather and operator-initiated commitments, `ZONE_FEATURES`; -1 for
+  the 22 zoneless nodes: hubs, interfaces, PJM-RTO, OVEC). `system` also carries the
+  `system_features` columns (shadow prices, fuel mix, losses, outages, gas cost; `SYSTEM_FEATURES`). Tables are in the `analytics_lmp`
+  schema (baseline_features, spread, load_forecast_features, zone_features,
+  system_features, nodes). All features respect the 14:30 ET cutoff; the 7-day
   stats end at the same hour as spread_last_verified_day (72h before the target hour).
 - **Splits** `lmp_model/splits.py`: 4 expanding-window walk-forward folds, windows half-open, each with a
   2-month validation block before its 3-month test block. Train starts 2024-10-23; fold test blocks start

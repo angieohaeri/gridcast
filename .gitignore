@@ -87,6 +87,7 @@ docs/site/
 # PyBuilder
 .pybuilder/
 target/
+target-cli/
 
 # dbt
 src/dbt/logs/

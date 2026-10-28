@@ -578,8 +578,10 @@ Unique `(time, zone, source, issued_at)`. Kept current by `sync_weather_forecast
 **Title: dbt models behind the LMP model's inputs, Author: Angie Ohaeri (assisted), Date: October 26, 7:35PM UTC**
 
 Built by dbt into the `analytics_lmp` schema, separate from the load stack's `analytics`. Staging
-models (`stg_*`, in `models/lmp_staging/`) are views over `raw_lmp`; the feature models are in
-`models/lmp_features/`. Rows as of 2026-10-26. Built with `make features-lmp` or the
+views (`stg_*`, in `models/lmp_staging/`) exist only where they change the data (the 5-min RT shadow
+price roll-up and the hour-beginning to hour-ending shifts); other feature models read `raw_lmp`
+sources directly. The feature models are in `models/lmp_features/`. Updated October 28th, Angie
+Ohaeri (assisted). Rows as of 2026-10-26. Built with `make features-lmp` or the
 `lmp_history` / `lmp_serving` selectors (`src/dbt/selectors.yml`). The three 26M-row tables have a
 `(time, pnode_id)` index (`ensure_time_pnode_index` macro).
 
@@ -587,9 +589,10 @@ models (`stg_*`, in `models/lmp_staging/`) are views over `raw_lmp`; the feature
 |---|---|---|---|
 | `spread` | `(time, pnode_id)` | 25.85M | the target and its history: `rt_lmp`, `da_lmp`, `spread` = rt - da, `congestion_spread` (verified RT only), plus trailing 7-day `spread_mean_7d`, `spread_std_7d`, `spike_share_7d` (share of hours with \|spread\| ≥ \$100, var `lmp_spike_threshold`), `congestion_spread_mean_7d`. Incremental (7-day window, stats computed over 14) |
 | `baseline_features` | `(time, pnode_id)` | 25.99M | DA-spined feature row per target hour: `da_lmp`, `da_congestion_price`, `da_marginal_loss_price`, the history columns above taken 72h earlier (`*_last_verified_day`, `*_7d`; lag derived from var `feature_availability_days.rt_lmp_verified`), and `spread` (null until the hour is verified). Incremental |
-| `model_features` (view) | `(time, pnode_id)` | same as baseline | `baseline_features` plus each node's `forecast_area`, `forecast_load_mw` and its zone's weather columns, joined at query time for flat consumers (reference model, serving); weather is null for the 22 zoneless nodes; calendar features not included. Added October 26, 5:45PM CT, Angie Ohaeri (assisted) |
-| `load_forecast_features` | `(time, forecast_area)` | 194k | latest `load_forecast` evaluation issued by the cutoff (`forecast_cutoff_et`, 14:30 ET the day before the target day) |
-| `weather_forecast_features` | `(time, zone)` | 354k | live snapshot issued by the cutoff if there is one, else `previous_day1`; adds `hdd`, `cdd` (base 18.33 °C) and `source` |
-| `node_areas` | `pnode_id` | 1,505 | the load forecast area for each pnode (zoneless aggregates take `RTO`) |
+| `model_features` (view) | `(time, pnode_id)` | same as baseline | `baseline_features` plus each node's `forecast_area` and `forecast_load_mw`, its zone's `zone_features` and the hour's `system_features`, joined at query time for flat consumers (reference model, serving); zone columns are null for the 22 zoneless nodes; calendar features not included |
+| `load_forecast_features` | `(time, forecast_area)` | 195k | latest `load_forecast` evaluation issued by the cutoff (`forecast_cutoff_et`, 14:30 ET the day before the target day) |
+| `zone_features` | `(time, zone)` | 354k | weather: live snapshot issued by the cutoff if there is one, else `previous_day1`, plus `hdd`, `cdd` (base 18.33 °C) and `weather_source`; operator-initiated commitments over the latest month posted by the cutoff (`commitment_count`, `commitment_mw`, and the Constraint Management subset `constraint_commitment_count`, `constraint_commitment_mw`) |
+| `system_features` | `time` | 33.5k | one row per hour, the same for every node: DA and RT shadow prices (`da_*` target hour, `rt_*_prev_day`, `rt_*_mean_7d`), `da_constraint_count_prev_day`, `da_constraint_hours_prev_day`, fuel mix (`generation_mw_prev_day`, gas/coal/nuclear/wind/solar `*_share_prev_day`), `self_scheduled_mw_prev_day`, `loss_ratio_prev_day`, the target day's `outage_mw_rto/west/other`, `gas_cost_per_mmbtu` (EIA, PJM-state average, 3-month lag) |
+| `nodes` | `pnode_id` | 1,580 | the GNN node set (`raw_lmp.pnode_topology_nodes` columns) plus each node's `forecast_area` (zoneless aggregates take `RTO`) |
 | `load_forecast_areas` (seed) | `zone_id` | 20 | zone → forecast area |
 

@@ -17,12 +17,12 @@ with joined as (
     select
         r.time,
         r.pnode_id,
-        r.lmp_total as rt_lmp,
-        d.lmp_total as da_lmp,
-        r.lmp_total - d.lmp_total as spread,
+        r.lmp as rt_lmp,
+        d.lmp as da_lmp,
+        r.lmp - d.lmp as spread,
         r.congestion_price - d.congestion_price as congestion_spread
-    from {{ ref('stg_lmp_rt') }} r
-    join {{ ref('stg_lmp_da') }} d
+    from {{ source('raw_lmp', 'lmp_rt') }} r
+    join {{ source('raw_lmp', 'lmp_da') }} d
         on r.time = d.time and r.pnode_id = d.pnode_id
     where r.is_verified
     {% if is_incremental() %}

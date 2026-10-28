@@ -49,25 +49,37 @@ models:
 
   - name: model_features
     description: >
-      View over baseline_features with each node's area load forecast and weather-zone
-      forecast joined on. Grain: one row per (time, pnode_id). Weather columns are null for
+      View over baseline_features with each node's area load forecast, zone features and system
+      features joined on. Grain: one row per (time, pnode_id). Zone columns are null for
       zoneless nodes (hubs, interfaces, PJM-RTO, OVEC).
 
-  - name: shadow_price_features
+  - name: system_features
     description: >
-      System-wide congestion state per hour from the RT and DA shadow prices (binding constraint
-      count, total and strongest shadow price). Grain: one row per time, the same for every node.
-      da_* is the target hour's day-ahead constraints; rt_* is the last verified day's hour and a
-      trailing 7-day mean. Null where a feed has not loaded that day yet.
+      System-wide state per target hour as of the cutoff, the same for every node. Grain: one row
+      per time. Shadow prices (da_* the target hour's day-ahead constraints, rt_* the last
+      available day's hour and a trailing 7-day mean), day-ahead binding constraints, fuel mix,
+      self-scheduled generation and loss ratio at the last available day's hour, the outage
+      forecast for the target day, and the EIA gas cost averaged over PJM states. Null where a
+      feed has not loaded that day yet.
     columns:
       - name: time
         tests: [unique, not_null]
-      - name: rt_constraint_count_last_day
+      - name: rt_constraint_count_prev_day
         tests:
           - not_null:
               config:
                 where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
       - name: rt_shadow_total_mean_7d
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
+      - name: gas_share_prev_day
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
+      - name: gas_cost_per_mmbtu
         tests:
           - not_null:
               config:
@@ -85,8 +97,10 @@ models:
           arguments:
             combination_of_columns: [time, forecast_area]
 
-  - name: node_areas
-    description: Load forecast area for each pnode.
+  - name: nodes
+    description: >
+      GNN node set with every per-node attribute the model reads. Grain: one row per pnode_id.
+      zone_id is the weather and commitments zone; forecast_area the load forecast area.
     columns:
       - name: pnode_id
         tests: [unique, not_null]
@@ -97,14 +111,20 @@ models:
               arguments:
                 values: [AEP, APS, ATSI, COMED, DAY, DEOK, DOM, DUQ, EKPC, MIDATL, RTO]
 
-  - name: weather_forecast_features
+  - name: zone_features
     description: >
-      Weather forecast available at the cutoff, per target hour and weather zone. Grain: one
-      row per (time, zone). Live snapshot when one was taken before the cutoff, else the
-      previous_day1 forecast.
+      Per target hour and zone as of the cutoff. Grain: one row per (time, zone). Weather: the
+      live snapshot when one was taken before the cutoff, else the previous_day1 forecast.
+      Commitments: operator-initiated commitments in the zone over the latest month posted by the
+      cutoff, overall and for Constraint Management; null for months not loaded yet.
     columns:
       - name: temperature
         tests: [not_null]
+      - name: commitment_count
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:

@@ -1,0 +1,80 @@
+-- per target hour and zone (zone_id code), as of the 14:30 ET cutoff on the day before.
+-- weather: a live snapshot taken at or before the cutoff wins (what serving sees); otherwise the
+-- previous_day1 forecast stands in (history, back to 2024). previous_day1 is the forecast ~24h
+-- before the hour; at the cutoff the true lead is 10-34h, so evening hours of the target day are
+-- a little fresher in training than in serving.
+-- commitments: operator-initiated commitments in the zone over the latest month posted by the
+-- cutoff (month M posts on commitments_posting_day of M+1). 0 when the zone had none; null for
+-- months not loaded yet, so a late sync shows up as nulls instead of silent zeros.
+
+with sources as (
+    select
+        time,
+        zone,
+        temperature,
+        precipitation,
+        wind_speed,
+        cloud_cover,
+        source,
+        issued_at,
+        {{ forecast_cutoff() }} as cutoff
+    from {{ source('raw_lmp', 'weather_forecast') }}
+),
+
+eligible as (
+    select *, case source when 'live' then 1 else 2 end as priority
+    from sources
+    where source = 'previous_day1' or issued_at <= cutoff
+),
+
+chosen as (
+    select distinct on (time, zone) *
+    from eligible
+    order by time, zone, priority, issued_at desc
+),
+
+-- the latest commitments month posted by each row's cutoff
+posted as (
+    select
+        *,
+        (date_trunc('month', cutoff at time zone 'America/New_York')
+            - case when extract(day from cutoff at time zone 'America/New_York') >= {{ var('commitments_posting_day') }}
+                then interval '1 month' else interval '2 months' end)::date as commitment_month
+    from chosen
+),
+
+commitments as (
+    select
+        zone,
+        date_trunc('month', datetime_beginning_utc at time zone 'America/New_York')::date as month,
+        count(*) as commitment_count,
+        sum(economic_max_mw) as commitment_mw,
+        count(*) filter (where reason = 'Constraint Management') as constraint_commitment_count,
+        coalesce(sum(economic_max_mw) filter (where reason = 'Constraint Management'), 0) as constraint_commitment_mw
+    from {{ source('raw_lmp', 'operator_initiated_commitments') }}
+    group by 1, 2
+),
+
+commitments_through as (
+    select date_trunc('month', max(datetime_beginning_utc) at time zone 'America/New_York')::date as month
+    from {{ source('raw_lmp', 'operator_initiated_commitments') }}
+)
+
+-- base 18.33C (65F) is the utility HDD/CDD reference, same as gridcast.features
+select
+    p.time,
+    p.zone,
+    p.temperature,
+    p.precipitation,
+    p.wind_speed,
+    p.cloud_cover,
+    greatest(18.33 - p.temperature, 0) as hdd,
+    greatest(p.temperature - 18.33, 0) as cdd,
+    p.source as weather_source,
+    case when p.commitment_month <= t.month then coalesce(c.commitment_count, 0) end as commitment_count,
+    case when p.commitment_month <= t.month then coalesce(c.commitment_mw, 0) end as commitment_mw,
+    case when p.commitment_month <= t.month then coalesce(c.constraint_commitment_count, 0) end as constraint_commitment_count,
+    case when p.commitment_month <= t.month then coalesce(c.constraint_commitment_mw, 0) end as constraint_commitment_mw
+from posted p
+cross join commitments_through t
+left join commitments c on c.zone = p.zone and c.month = p.commitment_month
