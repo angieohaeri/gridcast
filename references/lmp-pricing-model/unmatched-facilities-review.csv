@@ -1,0 +1,218 @@
+rt_weight_rank,weight_pct,facility_id,name,category,equipment_type,parse_status,end1_code,end1_matched,end1_same_first4_codes,end2_code,end2_matched,end2_same_first4_codes,comments,angie_end1,angie_end2
+23,1.144,1645,MAHANS LANE-TIDD            B  138 KV,line,,no_match,MAHANS LANE,FALSE,MAHANSLA,TIDD,FALSE,TIDD_AEP,,MAHANSLA,TIDD_AEP
+39,0.637,482,BURNHAM-MUNSTER2  NIP  TIE  B  345 KV,line,,one_end,BURNHAM,FALSE,BURNAUGH; BURNWRTH,MUNSTER2,TRUE,,,BURNHAM,MUNSTER2
+74,0.302,481,BURNHAM-MUNSTER2  NIP  TIE  A  345 KV,line,,one_end,BURNHAM,FALSE,BURNAUGH; BURNWRTH,MUNSTER2,TRUE,,,BURNHAM,MUNSTER2
+134,0.13,738,DOEX530-PIERCE1             A  345 KV,line,,one_end,DOEX530,TRUE,,PIERCE1,FALSE,PIERCE; PIERCEBR; PIERC_DK; PIERPON2; PIERPONT; PIERSOAV,,DOEX530,PIERCE
+153,0.107,985,HAMSHIR-RIDGELEY            B  138 KV,line,,one_end,HAMSHIR,FALSE,,RIDGELEY,TRUE,,,HAMPSHIR,RIDGELEY
+178,0.081,803,EDWSF-DICERSO2311/203A TIE  A  230 KV,line,,no_match,EDWSF,FALSE,EDWSFERY,DICERSO2,FALSE,,,EDWSFERY,DICKERSO
+196,0.067,968,GRIFFIN-PLSNTVLY Q4         B  138 KV,line,,one_end,GRIFFIN,FALSE,GRIFFIN2; GRIFFN,PLSNTVLY,TRUE,,,GRIFFN,PLSNTVLY
+226,0.05,804,EDWSF-DICERSO2311/203A TIE  B  230 KV,line,,no_match,EDWSF,FALSE,EDWSFERY,DICERSO2,FALSE,,,EDWSFERY,DICKERSO
+232,0.049,954,GOUDEY-LAURLAKE115 KVTIE    A  115 KV,line,,one_end,GOUDEY,TRUE,,LAURLAKE,FALSE,LAUREL; LAURELAV; LAURELCO; LAURELDM; LAURELDP; LAURELL,,GOUDEY,
+265,0.035,1813,OAKGROVE-TALBERT 23067      A  230 KV,line,,one_end,OAKGROVE,TRUE,,TALBERT,FALSE,TALBOT,,OAKGROVE,
+267,0.034,739,DOEX530-PIERCE1             B  345 KV,line,,one_end,DOEX530,TRUE,,PIERCE1,FALSE,PIERCE; PIERCEBR; PIERC_DK; PIERPON2; PIERPONT; PIERSOAV,,DOEX530,PIERCE
+291,0.028,1677,MEHOOPAN-NMESHOP NMM1 1054  A  115 KV,line,,one_end,MEHOOPAN,TRUE,,NMESHOP,FALSE,NMESHOPP,,MEHOOPAN,NMESHOPP
+294,0.027,2012,STATELIN-17ROXANA NIP TIE   B  138 KV,line,,one_end,STATELIN,FALSE,STATEOPC; STATEST; STATESTR; STATHILL; STATSTPS,17ROXANA,TRUE,,,,17ROXANA
+306,0.022,726,DESOTO-SELAMPAR DES-SEL     A  138 KV,line,,one_end,DESOTO,TRUE,,SELAMPAR,FALSE,,,DESOTO,SELMAPAR
+350,0.013,1948,SAMMISFE-WELLSVIL SAM-WELL  A  345 KV,line,,one_end,SAMMISFE,FALSE,,WELLSVIL,TRUE,,THERE ARE TWO SAMMISFE,SAMMISFE,WELLSVIL
+381,0.009,1732,MTSTORM-PRUNTYTO            B  500 KV,line,,one_end,MTSTORM,FALSE,MTSTERLI; MTSTORM4,PRUNTYTO,TRUE,,,MTSTORM4,PRUNTYTOWN
+410,0.007,798,EDGEWATE-VASCOTAP SH-LH     A  138 KV,line,,one_end,EDGEWATE,TRUE,,VASCOTAP,FALSE,VASCO,,EDGEWATE,VASCO
+432,0.005,2013,STATELIN-17WOLFLK NIP TIE   B  138 KV,line,,one_end,STATELIN,FALSE,STATEOPC; STATEST; STATESTR; STATHILL; STATSTPS,17WOLFLK,TRUE,,,,17WOLFLK
+496,0.001,740,DOEX530-PIERCE2             B  345 KV,line,,one_end,DOEX530,TRUE,,PIERCE2,FALSE,PIERCE; PIERCEBR; PIERC_DK; PIERPON2; PIERPONT; PIERSOAV,,,
+,,131,230/115.Carolina.TX4,substation_equipment,transformer,no_match,230/115.,FALSE,,,FALSE,,,CAROLINA,
+,,133,230/115.Earleys.TX3,substation_equipment,transformer,no_match,230/115.,FALSE,,,FALSE,,,EARLEYS,
+,,138,230/115.SedgeHill.TX2,substation_equipment,transformer,no_match,230/115.,FALSE,,,FALSE,,SEDGEHILL is written as SEDGEHIL in the substations table,SEDGEHIL,
+,,207,500/230.Chickahominy.TX1,substation_equipment,transformer,no_match,500/230.,FALSE,,,FALSE,,,CHICKAHOMINY,
+,,210,500/230.Conemaugh.TX3,substation_equipment,transformer,no_match,500/230.,FALSE,,,FALSE,,,CONEMAUGH,
+,,212,500/230.Elmont.TX1 (Sctnlz),substation_equipment,transformer,no_match,500/230.,FALSE,,,FALSE,,,ELMONT,
+,,213,500/230.GooseCreek.TX1,substation_equipment,transformer,no_match,500/230.,FALSE,,,FALSE,,There appears to be two goose creek substation codes,GOOSECRE/GOOSECRK,
+,,214,500/230.GooseCreek.TX1 (Sctnlz),substation_equipment,transformer,no_match,500/230.,FALSE,,,FALSE,,,GOOSECRE/GOOSECRK,
+,,222,500/230.Ox.TX1 (Sctnlz),substation_equipment,transformer,no_match,500/230.,FALSE,,,FALSE,,,OX,
+,,223,500/230.Ox.TX2 (Sctnlz),substation_equipment,transformer,no_match,500/230.,FALSE,,,FALSE,,,OX,
+,,276,AEP-DOM contingency 11,line,,no_match,AEP,FALSE,,DOM cont,FALSE,,,,
+,,277,AEP-DOM contingency 12,line,,no_match,AEP,FALSE,,DOM cont,FALSE,,,,
+,,278,AEP-DOM contingency 19,line,,no_match,AEP,FALSE,,DOM cont,FALSE,,,,
+,,279,AEP-DOM contingency 3,line,,no_match,AEP,FALSE,,DOM cont,FALSE,,,,
+,,280,AEP-DOM contingency 33,line,,no_match,AEP,FALSE,,DOM cont,FALSE,,,,
+,,281,AEP-DOM contingency 4,line,,no_match,AEP,FALSE,,DOM cont,FALSE,,,,
+,,282,AEP-DOM contingency 52,line,,no_match,AEP,FALSE,,DOM cont,FALSE,,,,
+,,283,AEP-DOM contingency 55,line,,no_match,AEP,FALSE,,DOM cont,FALSE,,,,
+,,284,AEP-DOM contingency 61,line,,no_match,AEP,FALSE,,DOM cont,FALSE,,,,
+,,285,AEP-DOM contingency 9,line,,no_match,AEP,FALSE,,DOM cont,FALSE,,,,
+,,286,AEP-DOM contingency Bed-Bla,line,,no_match,AEP,FALSE,,DOM cont,FALSE,,,,
+,,345,Allen Jct-Morocco 345 kV,line,,no_match,Allen Jct,FALSE,,Morocco,FALSE,,,ALLENJUN,MOROCCO
+,,347,Arcadian-Granvil 345,line,,no_match,Arcadian,FALSE,,Granvil,FALSE,,,ARCADIAN,GRANVILL
+,,375,BED-BLA,line,,no_match,BED,FALSE,,BLA,FALSE,,,,
+,,376,BED-BLA contingency 17,line,,no_match,BED,FALSE,,BLA cont,FALSE,,,,
+,,377,BED-BLA contingency 18,line,,no_match,BED,FALSE,,BLA cont,FALSE,,,,
+,,378,BED-BLA contingency 20,line,,no_match,BED,FALSE,,BLA cont,FALSE,,,,
+,,379,BED-BLA contingency 23,line,,no_match,BED,FALSE,,BLA cont,FALSE,,,,
+,,380,BED-BLA contingency 24,line,,no_match,BED,FALSE,,BLA cont,FALSE,,,,
+,,381,BED-BLA contingency 30,line,,no_match,BED,FALSE,,BLA cont,FALSE,,,,
+,,382,BED-BLA contingency 33,line,,no_match,BED,FALSE,,BLA cont,FALSE,,,,
+,,383,BED-BLA contingency 42,line,,no_match,BED,FALSE,,BLA cont,FALSE,,,,
+,,384,BED-BLA contingency 50,line,,no_match,BED,FALSE,,BLA cont,FALSE,,,,
+,,385,BED-BLA contingency 57,line,,no_match,BED,FALSE,,BLA cont,FALSE,,,,
+,,386,BED-BLA contingency 61,line,,no_match,BED,FALSE,,BLA cont,FALSE,,,,
+,,387,BED-BLA contingency 86,line,,no_match,BED,FALSE,,BLA cont,FALSE,,,,
+,,492,Babcock-MichiganCity,line,,no_match,Babcock,FALSE,,Michigan,FALSE,,,BABCOCK,
+,,496,Battle Creek 345/138kV XF TB2,substation_equipment,transformer,no_match,Battle C,FALSE,,,FALSE,,,BATTLECR,
+,,508,Burnham-Munster 345,line,,no_match,Burnham,FALSE,,Munster,FALSE,,,BURNHAM,MUNSTER2
+,,509,Burnham-Sheffield 345,line,,no_match,Burnham,FALSE,,Sheffiel,FALSE,,,BURNHAM,SHEFFIEL
+,,680,Cayuga2-Cayuga CT 345kV,substation_equipment,ct_equipment,no_match,Cayuga2-,FALSE,,,FALSE,,,CAYUGA2,CAYUGA CT
+,,681,Cayuga2-Cayuga3 345 kV,line,,no_match,Cayuga2,FALSE,,Cayuga3,FALSE,,,CAYUGA2,CAYUGA3
+,,689,Cloverdale-Lexington 500+Lexington 3 500/230,line,,no_match,Cloverdale,FALSE,,Lexingto,FALSE,,,CLOVERDALE,LEXINGTON
+,,692,Conastone-PB 5012 + Hunterstown-Vinco 5068,line,,no_match,Conastone,FALSE,,PB 5012,FALSE,,,CONASTONE,HUNTERSTOWN
+,,694,Cordova-Sub 39(39-QC-1)345 Line,line,,no_match,Cordova,FALSE,,Sub 39(3,FALSE,,,,SUB 39
+,,696,Crete-St Johns 345 kV,line,,no_match,Crete,FALSE,,St Johns,FALSE,,this one is confusing because the end names are merged into one substation,CRETSTJO,
+,,710,DBL:Hopat-Lackawa. 5063 & Shickshi-Lacakawa.5067,line,,no_match,DBL:Hopat,FALSE,,Lackawa.,FALSE,,,HOPATCON,SHICKSHI
+,,720,DBL:Plano-LaSalle 0101 + Braidwd-E Frnkfrt 2001,line,,no_match,DBL:Plano,FALSE,,LaSalle,FALSE,,this one has two that it could be: 167 PLANO or 527PLANO,PLANO,20 BRAID
+,,771,Douglas-Francisco 345,line,,no_match,Douglas,FALSE,,Francisc,FALSE,,,DOUGLAS2,FRANCESC
+,,773,Dresden-Pontiac 345 kV,line,,no_match,Dresden,FALSE,,Pontiac,FALSE,,,DRESDEN,80 PONTI
+,,774,Dresser-SugarCreek 345 kV,line,,no_match,Dresser,FALSE,,SugarCre,FALSE,,,DRESSER,SUGARCRE
+,,776,Dumont-Wilton Center 765kV,line,,no_match,Dumont,FALSE,,Wilton C,FALSE,,,DUMONT,112 WILTON
+,,777,E.Bend-Terminal 345 kV line,line,,no_match,E.Bend,FALSE,,Terminal,FALSE,,,EBEND,TERMINAL
+,,838,ENON 345 1-BELLEAU 345-ROOT 345 1,line,,no_match,ENON 345 1,FALSE,ENON; ENON CNT; ENON TP; ENON4; ENONTP; ENON_VLY,BELLEAU,FALSE,BELLARD; BELLAVE; BELLEAU3; BELLEFO2; BELLEFON; BELLEHAV,,ENON CNT,BELLEAU3
+,,872,Eugene-Bunsonville 345,line,,no_match,Eugene,FALSE,,Bunsonvi,FALSE,,,EUGENE,BUNSONV3
+,,975,Gibson- Polyeast 345 kV,line,,no_match,Gibson,FALSE,,Polyeas,FALSE,,,GIBSON2,POLYEAST
+,,977,Goose Creek-Rising 345 kV,line,,no_match,Goose Creek,FALSE,,Rising 3,FALSE,,,GOOSE CRE/CRK,RISING
+,,978,GooseCk-Ashburn-Beaumeade.227+Mars-Shelhorn.2095,line,,no_match,GooseCk,FALSE,,Ashburn-,FALSE,,,GOOSE CRE/CRK,ASHBURN
+,,979,Goosecre TX1 XFORMER H 500 KV,substation_equipment,transformer,no_match,Goosecre,FALSE,,,FALSE,,,GOOSE CRE/CRK,
+,,1058,Heritage-Wake 500 kV,line,,no_match,Heritage,FALSE,,Wake 500,FALSE,,,,
+,,1087,Jefferson-Hanging Rock 765 kV line,line,,no_match,Jefferson,FALSE,,Hanging,FALSE,,,JEFFERSON,HANGING ROCK
+,,1088,Jefferson-Rockport (JEF-ROC1) 765 Line,line,,no_match,Jefferson,FALSE,,Rockport,FALSE,,,JEFFERSON,ROCKPORT
+,,1089,Jefferson-Rockport 765+Rockport Unit 2,line,,no_match,Jefferson,FALSE,,Rockport,FALSE,,,JEFFERSON,ROCKPORT
+,,1092,Jordan- Massac 345kV,line,,no_match,Jordan,FALSE,,Massac,FALSE,,,JORDAN,MASSAC
+,,1138,L115.Cly-ES3CONEW-Raintree-SmithSt,line,,one_end,L115.Cly,FALSE,,ES3CONEW,TRUE,,,CLY,ES3CONEW
+,,1142,L115.Glory-Seward,line,,no_match,L115.Glory,FALSE,,Seward,FALSE,,,GLORY,SEWARD
+,,1151,L115.PPGI-Mountain.982,line,,no_match,L115.PPGI,FALSE,,Mountain,FALSE,,,PPGI,MOUNTAIN
+,,1152,L115.Pecan-Carolina.1010,line,,no_match,L115.Pecan,FALSE,,Carolina,FALSE,,,PECAN,CAROLINA
+,,1160,L138.11Fisk-840Quarry-126State.1106 + 11Fisk.TR71,line,,no_match,L138.11Fisk,FALSE,,840Quarr,FALSE,,,11 FISK,840 QUAR
+,,1167,L138.Auburn-Varner,line,,no_match,L138.Auburn,FALSE,,Varner,FALSE,,,AUBURN,VARNER
+,,1169,L138.Beatty-McComb,line,,no_match,L138.Beatty,FALSE,,McComb,FALSE,,,BEATTY,MCCOMB
+,,1175,L138.Brues-Bethlehem-CountyLine-Sandhill,line,,no_match,L138.Brues,FALSE,,Bethlehe,FALSE,,,BRUES,BETHLEHE
+,,1176,L138.Butler-KarnsCity,line,,no_match,L138.Butler,FALSE,,KarnsCit,FALSE,,,BUTLER,KARNSCIT
+,,1177,L138.Butler-ShanorManor-Krendale,line,,no_match,L138.Butler,FALSE,,ShanorMa,FALSE,,,BUTLER,SHANORMA
+,,1181,L138.Corbin-CrescentRidge.98105,line,,no_match,L138.Corbin,FALSE,,Crescent,FALSE,,could be N_CORBIN or S_CORBIN,,CRESCENT
+,,1182,L138.Corbin-Putnam (IP/MISO),line,,no_match,L138.Corbin,FALSE,,Putnam (,FALSE,,could be N_CORBIN or S_CORBIN,,PUTNAMVI
+,,1184,L138.Dixon-McGirrRd.10714,line,,no_match,L138.Dixon,FALSE,,McGirrRd,FALSE,,,DIXON,169 MCGI
+,,1187,L138.Emilie-Falls + 138/35.Falls.T1,line,,no_match,L138.Emilie,FALSE,,Falls +,FALSE,,,EMILIE,FALLS
+,,1189,L138.Felton-SouthHarrington.13709,line,,no_match,L138.Felton,FALSE,,SouthHar,FALSE,,,FELTON,SHARRING
+,,1194,L138.Howard-Melmore,line,,no_match,L138.Howard,FALSE,,Melmore,FALSE,,,HOW,MELMORE
+,,1196,L138.Inwood-SpecksRun-Stonewall,line,,no_match,L138.Inwood,FALSE,,SpecksRu,FALSE,,,INWOOD,SPECKSRN
+,,1197,L138.Kammer-BigGrave-Aston,line,,no_match,L138.Kammer,FALSE,,BigGrave,FALSE,,,KAMMER2,BIGGRAVE
+,,1198,L138.Kammer-Hannibal.3,line,,no_match,L138.Kammer,FALSE,,Hannibal,FALSE,,,KAMMER2,HANNIBAL
+,,1199,L138.Kammer-Hannibal.4,line,,no_match,L138.Kammer,FALSE,,Hannibal,FALSE,,,KAMMER2,HANNIBAL
+,,1200,L138.Kammer-Natrium,line,,no_match,L138.Kammer,FALSE,,Natrium,FALSE,,,KAMMER2,NATRIUM2
+,,1212,L138.Modoc-Wapahani,line,,no_match,L138.Modoc,FALSE,,Wapahani,FALSE,,,MODOC,WAPAHANI
+,,1216,L138.Pierce-Beckjord.5 + 345/138.Pierce.18,line,,no_match,L138.Pierce,FALSE,,Beckjord,FALSE,,,PIERCE,BECKJORD
+,,1218,L138.Redeye-SmithMountain,line,,no_match,L138.Redeye,FALSE,,SmithMou,FALSE,,,REDEYE,SMITHMOU
+,,1219,L138.Reid-Antrim (Sctnlz),line,,no_match,L138.Reid,FALSE,,Antrim (,FALSE,,,REID,ANTRIM
+,,1224,L138.Skokie-8803-Devon.8803,line,,no_match,L138.Skokie,FALSE,,8803-Dev,FALSE,8803,two similar SKOKIES exist: 85 SKOKIE and 88 SKOKIE,88 SKOKI,110 DEVON
+,,1228,L138.Steele-Hillsboro-WyeMills.13761/13788,line,,no_match,L138.Steele,FALSE,,Hillsbor,FALSE,,,STEELE,HILLSBOR
+,,1233,L230.Alton-Hendrick.2217,line,,no_match,L230.Alton,FALSE,,Hendrick,FALSE,,,ALTON,HENDRICK
+,,1242,L230.Bremo-Buckingham-Farmville.298,line,,no_match,L230.Bremo,FALSE,,Buckingh,FALSE,,,BREMO4,BUCKINGH
+,,1243,L230.Bremo-Cartersville-Powhatan-Midlothian.2027,line,,no_match,L230.Bremo,FALSE,,Cartersv,FALSE,,both midloth and midlothian have sequential ids so they probably belong to the same substation.,BREMO4,MIDLOTH/MIDLOTHIAN
+,,1244,L230.Bremo-ForkUnion.2193,line,,no_match,L230.Bremo,FALSE,,ForkUnio,FALSE,,,BREMO4,FRKUNION
+,,1247,L230.Carson-ClubHouse.238 (Sctnlz),line,,no_match,L230.Carson,FALSE,,ClubHous,FALSE,,CARSON4 specifically is 230kV,CARSON4,CLBHOUSE
+,,1248,L230.Carson-Poe.2002 (Sctnlz),line,,no_match,L230.Carson,FALSE,,Poe.2002,FALSE,,,CARSON4,POE
+,,1263,L230.Clover-BlackWalnut.2068,line,,no_match,L230.Clover,FALSE,,BlackWal,FALSE,,,CLOVER,BLACKWAL
+,,1264,L230.Clover-Easters.2226,line,,no_match,L230.Clover,FALSE,,Easters.,FALSE,,,CLOVER,EASTERS
+,,1276,L230.Deans-MeadowRoad-PiersonAve-Metchuen.S-2219,line,,no_match,L230.Deans,FALSE,,MeadowRo,FALSE,,,DEANS,METUCHEN
+,,1277,L230.Dooms-Charlottesville.233,line,,no_match,L230.Dooms,FALSE,,Charlott,FALSE,,DOOMS4 IS THE 230KV,DOOMS4,CHARLTSV
+,,1278,L230.Dooms-Lexington.2168,line,,no_match,L230.Dooms,FALSE,,Lexingto,FALSE,,,DOOMS4,LEXINGTO
+,,1279,L230.EPalm-Harwood+230/69.EPalm.T2,line,,no_match,L230.EPalm,FALSE,,Harwood+,FALSE,,,EPALMRT,HARWOOD
+,,1286,L230.Elmont-Hanover-FourRivers.2032,line,,no_match,L230.Elmont,FALSE,,Hanover-,FALSE,,,ELMONT,FOURRIVR
+,,1287,L230.Elmont-Northwest.221,line,,no_match,L230.Elmont,FALSE,,Northwes,FALSE,,,ELMONT,NORTHWES
+,,1288,L230.Emilie-Eddington-Croydon.220-55,line,,no_match,L230.Emilie,FALSE,,Eddingto,FALSE,,,EMILIE,CROYDON
+,,1290,L230.Forest-Glade,line,,no_match,L230.Forest,FALSE,,Glade,FALSE,,,FOREST,GLADE
+,,1291,L230.Forest-SquabHollow,line,,no_match,L230.Forest,FALSE,,SquabHol,FALSE,,,FOREST,SQUABHOL
+,,1294,L230.Glade-Warren.2088,line,,no_match,L230.Glade,FALSE,,Warren.2,FALSE,,,GLADE,WARREN
+,,1316,L230.Mars-Shelhorn.2095H,line,,no_match,L230.Mars,FALSE,,Shelhorn,FALSE,,,MARS,SHELHORN
+,,1321,L230.Milton-Montour.1,line,,no_match,L230.Milton,FALSE,,Montour.,FALSE,,,MILTON,MONTOUR
+,,1330,L230.Oxbow-NMeshoppen (Sctnlz),line,,no_match,L230.Oxbow,FALSE,,NMeshopp,FALSE,,,OXBOW,NMESHOPP
+,,1341,L230.S-2350+L230.B-2228.edart-1281188,line,,no_match,L230.S,FALSE,,2350+L23,FALSE,,,,
+,,1346,L230.Steele-Vienna.23085,line,,no_match,L230.Steele,FALSE,,Vienna.2,FALSE,,,STEELE,VIENNA
+,,1347,L230.Valley-Harrisonburg.253,line,,no_match,L230.Valley,FALSE,,Harrison,FALSE,,,VALLEY,HARRISBU
+,,1354,L345.Amos-KanawhaRiver,line,,no_match,L345.Amos,FALSE,,KanawhaR,FALSE,,,AMOS,KANAWHAR
+,,1358,L345.Austin-Pana,line,,no_match,L345.Austin,FALSE,,Pana,FALSE,,,AUSTIN,PANA
+,,1364,L345.Beatty-Cole,line,,no_match,L345.Beatty,FALSE,,Cole,FALSE,,,BEATTY,COLE
+,,1365,L345.Beaver-DavisBesse,line,,no_match,L345.Beaver,FALSE,,DavisBes,FALSE,,,BEAVER,DAVISBES
+,,1366,L345.Beaver-Hayes,line,,no_match,L345.Beaver,FALSE,,Hayes,FALSE,,,BEAVER,HAYES
+,,1370,L345.Bloom-Burnham.17908 + 345/138.Burnham.TR81,line,,no_match,L345.Bloom,FALSE,,Burnham.,FALSE,,,BLOOM,BURNHAM
+,,1371,L345.Bloom-DavisCreek.17907 + TR84 + L17908,line,,no_match,L345.Bloom,FALSE,,DavisCre,FALSE,,,BLOOM,
+,,1378,L345.Byron-CherryValley.0621,line,,no_match,L345.Byron,FALSE,,CherryVa,FALSE,,,6 BYRON,
+,,1379,L345.Byron-LeeCounty.0627,line,,no_match,L345.Byron,FALSE,,LeeCount,FALSE,,,6 BYRON,
+,,1380,L345.Byron-Wayne.0626,line,,no_match,L345.Byron,FALSE,,Wayne.06,FALSE,,,6 BYRON,WAYNE
+,,1381,L345.Celtic-HyattCS,line,,no_match,L345.Celtic,FALSE,,HyattCS,FALSE,,,CELTIC,HYATTCS
+,,1383,L345.Cook-BentonHarbor,line,,no_match,L345.Cook,FALSE,,BentonHa,FALSE,,,COOK,BENTONHA
+,,1384,L345.Cook-Olive,line,,no_match,L345.Cook,FALSE,,Olive,FALSE,,,COOK,OLIVE
+,,1385,L345.Cook-Segreto,line,,no_match,L345.Cook,FALSE,,Segreto,FALSE,,,COOK,SEGRETO
+,,1389,L345.Crete-StJohns.94507 (NIPS) Tie,line,,no_match,L345.Crete,FALSE,,StJohns.,FALSE,,MIGHT ALSO BE CRETSTJO (CRETE - ST. JOHNS),945 CRETE,
+,,1399,L345.Garver-ToddHunter,line,,no_match,L345.Garver,FALSE,,ToddHunt,FALSE,,,GARVER,TODDHUNT
+,,1401,L345.Gdngs-11614-BlIsl-Wltn.11614 R,line,,no_match,L345.Gdngs,FALSE,,11614-Bl,FALSE,,i was only able to resolve this one after a google search,116 GOOD,76 BLUE
+,,1402,L345.Ghent-WestLexington + 345/138.WLxngtn.T156,line,,no_match,L345.Ghent,FALSE,,WestLexi,FALSE,,,GHENT_LG,
+,,1408,L345.Hanna-Juniper,line,,no_match,L345.Hanna,FALSE,,Juniper,FALSE,,,HANNAOE,JUNIPER
+,,1409,L345.Hanna-Trumbull,line,,no_match,L345.Hanna,FALSE,,Trumbull,FALSE,,,HANNAOE,TRUMBUL2
+,,1415,L345.Kansas-Sugar Creek,line,,no_match,L345.Kansas,FALSE,,Sugar Cr,FALSE,,,KANSAS 3,SUGARCRE
+,,1431,L345.Nelson-ElectricJct.15502,line,,no_match,L345.Nelson,FALSE,,Electric,FALSE,,i found it was 502 due to the trailing number,NELSON,502JCT
+,,1432,L345.Niles-Shenango,line,,no_match,L345.Niles,FALSE,,Shenango,FALSE,,,NILES,SHENAGO
+,,1434,L345.Pierce-Foster,line,,no_match,L345.Pierce,FALSE,,Foster,FALSE,,,PIERCE,FOSTER2
+,,1439,L345.Rising-GooseCreek [ILL_EQ],line,,no_match,L345.Rising,FALSE,,GooseCre,FALSE,,,RISING,GOOSE CRK/CRE
+,,1440,L345.Sammis-Toronto,line,,no_match,L345.Sammis,FALSE,,Toronto,FALSE,,THERE ARE TWO SAMMISFE,SAMMISFE,TORONTO
+,,1449,L345.Tidd-Collier.301,line,,no_match,L345.Tidd,FALSE,,Collier.,FALSE,,,TIDD_AEP,COLLIER
+,,1450,L345.Tidd-WylieRidge.242,line,,no_match,L345.Tidd,FALSE,,WylieRid,FALSE,,,TIDD_AEP,WYLIERIDGE
+,,1453,L345.Wayne-SilverLake.14401,line,,no_match,L345.Wayne,FALSE,,SilverLa,FALSE,,END2 COULD BE SILVERLK OR SILVERLA,WAYNE,
+,,1476,L500.Cabot-Cranberry,line,,no_match,L500.Cabot,FALSE,,Cranberr,FALSE,,,CABOT,CRANBERRY
+,,1477,L500.Cabot-Keystone.5002,line,,no_match,L500.Cabot,FALSE,,Keystone,FALSE,,,CABOT,KEYSTONE
+,,1478,L500.Carson-Midlothian.563,line,,no_match,L500.Carson,FALSE,,Midlothi,FALSE,,,CARSON,MIDLOTHAIN
+,,1479,L500.Carson-Rawlings.511,line,,no_match,L500.Carson,FALSE,,Rawlings,FALSE,,,CARSON,RAWLINGS
+,,1480,L500.Carson-RogersRoad.585,line,,no_match,L500.Carson,FALSE,,RogersRo,FALSE,,,CARSON,RODGERSRD
+,,1481,L500.Carson-Septa.562,line,,no_match,L500.Carson,FALSE,,Septa.56,FALSE,,,CARSON,SEPTA
+,,1482,L500.Carson-Suffolk.544,line,,no_match,L500.Carson,FALSE,,Suffolk.,FALSE,,,CARSON,SUFFOLK
+,,1484,L500.Clifton-Ox.561+500/230.Clifton.TX2,substation_equipment,transformer,no_match,L500.Cli,FALSE,,,FALSE,,,CLIFTON,OX
+,,1485,L500.Clover-Finneywood.556,line,,no_match,L500.Clover,FALSE,,Finneywo,FALSE,,,CLOVER,FINNEYWD
+,,1492,L500.Dooms-Lexington.555,line,,no_match,L500.Dooms,FALSE,,Lexingto,FALSE,,,DOOMS,LEXINGTON
+,,1493,L500.Dooms-Valley.549,line,,no_match,L500.Dooms,FALSE,,Valley.5,FALSE,,,DOOMS,VALLEY
+,,1494,L500.Doubs-GooseCreek.514,line,,no_match,L500.Doubs,FALSE,,GooseCre,FALSE,,,DOUBS,GOOSE CRE/CRK
+,,1495,L500.Elmont-Cunningham.553,line,,no_match,L500.Elmont,FALSE,,Cunningh,FALSE,,,ELMONT,CUNNINGHAM
+,,1496,L500.Elmont-Ladysmith.574,line,,no_match,L500.Elmont,FALSE,,Ladysmit,FALSE,,,ELMONT,LADYSMITH
+,,1517,L500.Kammer-502Jct + 765/500.Kammer.200,line,,no_match,L500.Kammer,FALSE,,502Jct +,FALSE,502JCT,,KAMMER,502JCT
+,,1518,L500.Keeney-RedLion.5036,line,,no_match,L500.Keeney,FALSE,,RedLion.,FALSE,,,KEENEY,REDLION
+,,1519,L500.Keeney-RockSprings.5025,line,,no_match,L500.Keeney,FALSE,,RockSpri,FALSE,,,KEENEY,ROCKSPRINGS
+,,1542,L500.clover-Finneywood.556,line,,no_match,L500.clover,FALSE,,Finneywo,FALSE,,,CLOVER,FINNEYWD
+,,1544,L69.Cromby-Moser.6681,line,,no_match,L69.Cromby,FALSE,,Moser.66,FALSE,,,CROMBY,MOSER
+,,1545,L69.Easton-EastonTap-Muni-Longwood-WyeMills.6707,line,,no_match,L69.Easton,FALSE,,EastonTa,FALSE,,,EASTON,WYEMILLS
+,,1547,L69.Nelson-Edgewood-NorthSalisbury.6743,line,,no_match,L69.Nelson,FALSE,,Edgewood,FALSE,,,NELSON,NSALISBU
+,,1548,L69.OakHall-Perdue-Tasley.6778,line,,no_match,L69.OakHall,FALSE,,Perdue-T,FALSE,,,OAKHALL,TASLEY
+,,1549,L69.Sherman-Vineland.0761,line,,no_match,L69.Sherman,FALSE,,Vineland,FALSE,,,SHERMAN,VINELAND
+,,1550,L69.Tasley-Kellam.6721,line,,no_match,L69.Tasley,FALSE,,Kellam.6,FALSE,,,TASLEY,KELLAM
+,,1551,L765.Baker-Broadford,line,,no_match,L765.Baker,FALSE,,Broadfor,FALSE,,,BAKER,BROADFORD
+,,1552,L765.Baker-HangingRock,line,,no_match,L765.Baker,FALSE,,HangingR,FALSE,,,BAKER,HANGING ROCK
+,,1555,L765.Cook-Dumont,line,,no_match,L765.Cook,FALSE,,Dumont,FALSE,,,COOK,DUMONT
+,,1557,L765.Dumont-Greentown,line,,no_match,L765.Dumont,FALSE,,Greentow,FALSE,,,DUMONT,GREENTO2
+,,1558,L765.Dumont-Sorenson,line,,no_match,L765.Dumont,FALSE,,Sorenson,FALSE,,,DUMONT,SORENSON
+,,1559,L765.Dumont-WiltonCenter.11215,line,,no_match,L765.Dumont,FALSE,,WiltonCe,FALSE,,,DUMONT,112 WILTON
+,,1567,L765.Kammer-Belmont-Mountaineer+765/500.Belmont.T5,line,,no_match,L765.Kammer,FALSE,,Belmont-,FALSE,,,KAMMER,MOUNTAINEER
+,,1570,L765.Wilton-Collins.11216,line,,no_match,L765.Wilton,FALSE,,Collins.,FALSE,,,112 WILTON,23 COLLINS
+,,1625,Labadie-Greysum Ckt1 345kV,line,,no_match,Labadie,FALSE,,Greysum,FALSE,,,LABADIE3,GRAYSUM3
+,,1638,Lemoyn-Majestic 345 line,line,,no_match,Lemoyn,FALSE,,Majestic,FALSE,,,LEMOYNE2,MAJESTIC
+,,1640,Lulu 3-Terminal Line 3,line,,no_match,Lulu 3,FALSE,,Terminal,FALSE,,,LULU,TERMINAL
+,,1748,Marysville-Sorenson 765 kV,line,,no_match,Marysville,FALSE,,Sorenson,FALSE,,,MARYSVILLE,SORENSON
+,,1762,Morocco-AllenJunction 345kV flo Lemoyne-Majestic 345kV,line,,no_match,Morocco,FALSE,,AllenJun,FALSE,,,MOROCCO,MAJESTIC
+,,1764,Mrgnvly -Tiffin 345 kV,line,,no_match,Mrgnvly,FALSE,,Tiffin 3,FALSE,,,MRGNVLY,TIFFIN 6
+,,1765,Mt Vernon-EWFKF3 345 kV,line,,no_match,Mt Vernon,FALSE,,EWFKF3 3,FALSE,,,MTVERNON,E W FKF3
+,,1807,Newton-Casey 345 kV,line,,no_match,Newton,FALSE,,Casey 34,FALSE,,,NEWTON 3,CASEY 3
+,,1809,Nucor-Cayuga 345 kV,line,,no_match,Nucor,FALSE,,Cayuga 3,FALSE,,,NUCOR,CAYUGA
+,,1902,Quad Cities-Rock Creek 345,line,,no_match,Quad Cities,FALSE,,Rock Cre,FALSE,,,4 QUAD C,ROCKCREE
+,,1903,Quad-Sub 91 (0401 1)345 Line,line,,no_match,Quad,FALSE,,Sub 91 (,FALSE,,,4 QUAD C,SUB 91
+,,1939,Reynolds-Greentown 765kV,line,,no_match,Reynolds,FALSE,,Greentow,FALSE,,,REYNOLD2,GREENTO2
+,,1942,Rogers Rd-Carson 500 kV,line,,no_match,Rogers Rd,FALSE,,Carson 5,FALSE,,,ROGERSRD,CARSON
+,,2018,SUB 56 - SUB 91 345 kV,line,,one_end,SUB 56,FALSE,SUB 39; SUB 91; SUB T  6,SUB 91,TRUE,,,,SUB 91
+,,2033,Sheffield-Gary Ave 345 kV,line,,no_match,Sheffield,FALSE,,Gary Ave,FALSE,,,SHEFFIEL,GARYAVE
+,,2035,Sidney-Rising 345 kV,line,,no_match,Sidney,FALSE,,Rising 3,FALSE,,,09SIDNEY,RISING
+,,2060,TEMP.230/69.Palooka.TX1 TX2,substation_equipment,transformer,no_match,TEMP.230,FALSE,TEMPLEAV; TEMPLEHL; TEMPLEVI,,FALSE,,,,PALOOKA
+,,2102,Tanners Crk-Miami Fort 345,line,,no_match,Tanners Crk,FALSE,,Miami Fo,FALSE,,,TANNERSC,MIAMIFOR
+,,2146,Waldwick E-2257 PAR,line,,no_match,Waldwick E,FALSE,,2257 PAR,FALSE,,,WALDWICK,
+,,2147,Waldwick F-2258 PAR,line,,no_match,Waldwick F,FALSE,,2258 PAR,FALSE,,,WALDWICK,
+,,2148,Waldwick O-2267 PAR,line,,no_match,Waldwick O,FALSE,,2267 PAR,FALSE,,,WALDWICK,
+,,2149,Westwood-08NW_Tap-WLafyett 138,line,,no_match,Westwood,FALSE,,08NW_Tap,FALSE,08NW TAP; 08NWPTST,,WESTWOOD,08NW TAP

@@ -21,6 +21,8 @@ ACTIVE_DAYS = 365
 NAME_SPLIT = re.compile(r"[-.+ /()\[\]]+")
 MIN_TOKEN_CONTINGENCIES = 3
 MIN_TOKEN_SHARE = 0.8
+OUTAGE_PREFIX = re.compile(r"^(?:(?:TEMP|DBL)\s*[:. ]\s*)+", re.IGNORECASE)
+VOLTAGE_PREFIX = re.compile(r"^(?:L(\d+)(?:\.|(?=[A-Za-z ]))|(\d{2,3})\.(?=[A-Za-z]))", re.IGNORECASE)
 
 
 def kv(text: str | None) -> float | None:
@@ -209,6 +211,7 @@ def assign_stations(subs: pd.DataFrame, equipment: pd.DataFrame, by_token: dict)
 
 def contingency_ends(name: str, codes: list[str], by_token: dict) -> tuple[str | None, str | None, list[str]] | None:
     """Endpoints of a contingency-named facility from its breaker stations, in name order where the name says it."""
+    name = OUTAGE_PREFIX.sub("", name)
     tokens = name_tokens(name)
     position = {code: min((i for i, t in enumerate(tokens) if by_token.get((t, None)) == code), default=None) for code in codes}
     if len(codes) <= 2:
@@ -253,16 +256,28 @@ EQUIPMENT_KINDS = [
 ]
 
 
+def line_stations(body: str) -> list[str]:
+    """Station names along the first element of a facility name; later elements joined by + or & are other facilities."""
+    first = re.sub(r"[.(].*", "", re.split(r"\s*[+&]\s*|\s+and\s+", body)[0])
+    first = re.sub(r"\s+\d+\s*$", "", first)
+    return [s for s in (re.sub(r"\d{3,}[A-Za-z]?$", "", part.strip()) for part in first.split("-")) if s]
+
+
 def parse_facility(name: str, codes: set[str]) -> dict:
+    stripped = OUTAGE_PREFIX.sub("", name)
+    has_prefix = stripped != name
+    name = stripped
     if "INTERFACE" in name.upper():
         return {"category": "interface", "kind": "interface", "parse_status": "interface"}
     if re.search(r"\bl/o\b|_LN\b|^\d{4}_\d|\d+kV-\d", name) or re.match(r"^[A-Za-z][A-Za-z .]*\s-\s", name):
         return {"category": "external", "kind": "external_element", "parse_status": "not_pjm_style"}
     tail = re.search(r"(\d+(?:\.\d+)?\s*KV)\s*$", name)
-    contingency_line = re.match(r"^L(\d+)\.", name)
-    voltage = kv(tail.group(1)) if tail else float(contingency_line.group(1)) if contingency_line else None
-    if contingency_line:
-        return {"category": "line", "kind": "line", "voltage_kv": voltage}
+    contingency_line = VOLTAGE_PREFIX.match(name)
+    voltage = kv(tail.group(1)) if tail else float(contingency_line.group(1) or contingency_line.group(2)) if contingency_line else None
+    if contingency_line or (has_prefix and "-" in name):
+        stations = line_stations(name[contingency_line.end():] if contingency_line else name)
+        ends = {"end1_code": stations[0], "end2_code": stations[-1]} if len(stations) > 1 else {}
+        return {"category": "line", "kind": "line", "voltage_kv": voltage, **ends}
     equipment =next((kind for kind, pattern in EQUIPMENT_KINDS if re.search(pattern, name)), None)
     if equipment:
         first = [name[:8].strip(), name.split()[0]]

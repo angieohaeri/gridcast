@@ -11,10 +11,10 @@ SPREAD_CLIP = 300
 
 
 def geographic_edges(nodes: pd.DataFrame) -> pd.DataFrame:
-    """Substation edges from pnode_topology_edges, mapped to each substation's pnode."""
+    """Substation edges from pnode_topology_edges (map-based and facility lines), mapped to each substation's pnode."""
     edges = query("SELECT sub_a, sub_b FROM raw_lmp.pnode_topology_edges;")
-    attached = nodes[nodes["role"] == "attached"]
-    pnode_by_sub = pd.Series(attached.index, index=attached["sub_key"])
+    members = nodes[nodes["role"] != "aggregate"]
+    pnode_by_sub = pd.Series(members.index, index=members["sub_key"])
     return pd.DataFrame(
         {
             "src": edges["sub_a"].map(pnode_by_sub),
