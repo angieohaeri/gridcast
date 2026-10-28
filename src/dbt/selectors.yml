@@ -23,9 +23,9 @@ selectors:
         - method: fqn
           value: stg_pnode_topology
         - method: fqn
-          value: stg_da_lmp_nodal
+          value: stg_lmp_da
         - method: fqn
-          value: stg_rt_lmp_nodal
+          value: stg_lmp_rt
         - method: fqn
           value: stg_forecasted_generation_outages
         - method: fqn
@@ -66,23 +66,32 @@ selectors:
         - "path:models/features"
         - "pjm_weather_zones"
 
-  # LMP model, history side: depends only on verified RT/DA LMPs (rt_hrl_lmps_nodal syncs at
+  # LMP model, history side: depends only on verified RT/DA LMPs (lmp_rt syncs at
   # 12:40 ET), so it can run early and carries the slow uniqueness tests
   - name: lmp_history
     definition:
       union:
-        - "path:models/lmp_staging"
-        - "lmp_spread"
-        - "lmp_spread_history"
+        - "+spread"
+        - "stg_pnode_topology"
+
+  # every lmp_staging view and its tests, not scheduled: the views no feature model reads yet
+  - name: lmp_staging
+    definition: "path:models/lmp_staging"
 
   # LMP model, serving side: needs the afternoon inputs (DA prices 14:05, load forecast
   # 14:15/14:20, weather snapshot 14:25 ET), so it runs after them and before the 14:30 ET cutoff
   - name: lmp_serving
     definition:
       union:
-        - "lmp_load_forecast_areas"
-        - "lmp_node_areas"
-        - "lmp_load_forecast_features"
-        - "lmp_weather_forecast_features"
-        - "lmp_baseline_features"
-        - "lmp_model_features"
+        - "stg_load_forecast"
+        - "stg_marginal_value_rt"
+        - "stg_marginal_value_da"
+        - "stg_lmp_da_zonal"
+        - "shadow_price_features"
+        - "stg_weather_forecast"
+        - "load_forecast_areas"
+        - "node_areas"
+        - "load_forecast_features"
+        - "weather_forecast_features"
+        - "baseline_features"
+        - "model_features"

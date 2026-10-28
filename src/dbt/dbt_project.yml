@@ -15,7 +15,7 @@ clean-targets:
   - "dbt_packages"
 
 vars:
-  # |RT - DA| spread ($/MWh) counted as a spike in lmp_spread_history.spike_share_7d
+  # |RT - DA| spread ($/MWh) counted as a spike in spread.spike_share_7d
   lmp_spike_threshold: 100
 
   # every PJM zone except OVEC 
@@ -29,8 +29,8 @@ vars:
   feature_availability_days:
     rt_lmp_verified: -2
     da_lmp: 1
-    marginal_value_rt: -2
-    marginal_value_da: -1
+    marginal_value_rt: -1
+    marginal_value_da: 1
     transmission_constraints_da: -1
     lmp_da_zonal: -1
     generation_by_fuel: -1
@@ -43,7 +43,7 @@ vars:
 
 seeds:
   gridcast:
-    lmp_load_forecast_areas:
+    load_forecast_areas:
       +schema: lmp
 
 models:

@@ -34,13 +34,13 @@ select
     h.spike_share_7d,
     h.congestion_spread_mean_7d,
     t.spread
-from {{ ref('stg_da_lmp_nodal') }} d
-left join {{ ref('lmp_spread_history') }} h
+from {{ ref('stg_lmp_da') }} d
+left join {{ ref('spread') }} h
     on h.time = d.time - interval '{{ lag_hours }} hours' and h.pnode_id = d.pnode_id
     {% if is_incremental() %}
     and h.time >= timestamptz '{{ since }}' - interval '{{ lag_hours }} hours'
     {% endif %}
-left join {{ ref('lmp_spread') }} t
+left join {{ ref('spread') }} t
     on t.time = d.time and t.pnode_id = d.pnode_id
     {% if is_incremental() %}
     and t.time >= timestamptz '{{ since }}'

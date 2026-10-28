@@ -130,7 +130,7 @@ Index: `(monitored_facility, datetime_beginning_utc DESC)`.
 
 ---
 
-### `lmp_da_hourly`
+### `lmp_da_zonal`
 
 `da_hrl_lmps`, `location_type=ZONE` (via gridstatus `get_lmp`): day-ahead zone-level
 hourly LMP — same grain as `public.lmp` (zone × hour) but the DA market instead of RT,
@@ -300,7 +300,7 @@ Largest connected component: 995 of 1,037 attached substations; 27 isolated.
 
 ---
 
-### `rt_hrl_lmps_nodal`
+### `lmp_rt`
 
 **Title: Verified real-time hourly LMPs at pnode level for the GNN node set, Author: Angie Ohaeri (assisted), Date: October 22nd Time: 7:38am**
 
@@ -348,7 +348,7 @@ LMP −$2,328 to $4,673/MWh, congestion −$2,942 to $3,706; 99.8% of LMPs withi
 
 | column | type | notes |
 |---|---|---|
-| `time` | timestamptz, not null | Hour Ending, UTC (feed's Interval Start + 1h), matching `public.lmp` / `lmp_da_hourly`; hypertable partitioning column |
+| `time` | timestamptz, not null | Hour Ending, UTC (feed's Interval Start + 1h), matching `public.lmp` / `lmp_da_zonal`; hypertable partitioning column |
 | `pnode_id` | bigint, not null | join to `pnode_topology_nodes` for name/zone/substation/role |
 | `system_energy_price` | real, not null | λ - system-wide, identical for every pnode in an hour |
 | `lmp` | real, not null | total LMP ($/MWh) |
@@ -364,7 +364,7 @@ cent, and at ~26M rows the width matters. Unique constraint: `(time, pnode_id)`.
 
 Two syncs write this table, both in `src/prefect/raw_lmp_sync.py`:
 
-- `sync_rt_unverified_hrl_lmps_nodal` - **hourly** (:25 ET). PJM's `rt_unverified_hrl_lmps`
+- `sync_lmp_rt_unverified` - **hourly** (:25 ET). PJM's `rt_unverified_hrl_lmps`
   posts each hour ~20 min after it ends, retains 30 days. Inserts `is_verified = false` and
   never overwrites a verified row. Feed quirks: no `pnode_id` (mapped from `pnode_name`,
   unique across PJM's active pnodes - covers 1,504 of 1,505 nodes, `MID-ATL/APS` isn't
@@ -372,7 +372,7 @@ Two syncs write this table, both in `src/prefect/raw_lmp_sync.py`:
   marginal_loss_price`; identical at all 14,504 locations in an hour, checked
   2026-10-23), and no pnode filter - each run pulls every location for a 3-hour window
   (~43k rows, one request).
-- `sync_rt_hrl_lmps_nodal` - **daily** (first step of `lmp_morning`, 12:15 ET start), verified, 7-day trailing window. Writes
+- `sync_lmp_rt` - **daily** (first step of `lmp_morning`, 12:15 ET start), verified, 7-day trailing window. Writes
   `is_verified = true` and overwrites unverified rows for the same hours. Verification does
   revise prices: 20 of 3,008 re-pulled pnode-hours differed by more than $0.01.
 
@@ -381,17 +381,17 @@ catches up.
 
 ---
 
-### `da_hrl_lmps_nodal`
+### `lmp_da`
 
 **Title: Day-ahead hourly LMPs at pnode level for the GNN node set, Author: Angie Ohaeri (assisted), Date: October 23rd Time: 10:10pm CT**
 
-`da_hrl_lmps` (day-ahead hourly LMP) for the same 1,505 pnodes as `rt_hrl_lmps_nodal`, same
+`da_hrl_lmps` (day-ahead hourly LMP) for the same 1,505 pnodes as `lmp_rt`, same
 lean shape, hour-ending `time`, 30-day chunks and compression (policy job, chunks older
 than 30 days). DA clears the day before, so these prices are known ahead of the real-time
 hour they cover - a leakage-safe input - and DA minus RT at each node is a congestion
 signal. No `is_verified`: DA prices are final when published. Loaded 2026-10-24:
 25,883,242 rows, 1,505 pnodes, 2024-10-23 01:00 ET → 2026-10-24 00:00 ET; 0.71 GB
-compressed. Kept current by `sync_da_hrl_lmps_nodal` in `raw_lmp_sync.py` (daily, first step of `lmp_afternoon`, 13:50 ET start,
+compressed. Kept current by `sync_lmp_da` in `raw_lmp_sync.py` (daily, first step of `lmp_afternoon`, 13:50 ET start,
 7 days back through tomorrow). The earlier empty draft `raw_lmp.lmp_da_hourly_nodal` was
 dropped 2026-10-24.
 
@@ -409,7 +409,7 @@ LMP −$2,060 to $4,397/MWh.
 
 | column | type | notes |
 |---|---|---|
-| `time` | timestamptz, not null | Hour Ending, UTC, matching `rt_hrl_lmps_nodal` |
+| `time` | timestamptz, not null | Hour Ending, UTC, matching `lmp_rt` |
 | `pnode_id` | bigint, not null | join to `pnode_topology_nodes` |
 | `system_energy_price` | real, not null | DA λ, identical for every pnode in an hour |
 | `lmp` | real, not null | total DA LMP ($/MWh) |
@@ -585,12 +585,11 @@ models (`stg_*`, in `models/lmp_staging/`) are views over `raw_lmp`; the feature
 
 | model | grain | rows | contents |
 |---|---|---|---|
-| `lmp_spread` | `(time, pnode_id)` | 25.85M | the target: `rt_lmp`, `da_lmp`, `spread` = rt - da, `congestion_spread`; verified RT only. Incremental (7-day window) |
-| `lmp_spread_history` | `(time, pnode_id)` | 25.85M | `spread`, `congestion_spread` and trailing 7-day `spread_mean_7d`, `spread_std_7d`, `spike_share_7d` (share of hours with \|spread\| ≥ \$100, var `lmp_spike_threshold`), `congestion_spread_mean_7d`. Incremental |
-| `lmp_baseline_features` | `(time, pnode_id)` | 25.99M | DA-spined feature row per target hour: `da_lmp`, `da_congestion_price`, `da_marginal_loss_price`, the history columns above taken 72h earlier (`*_last_verified_day`, `*_7d`; lag derived from var `feature_availability_days.rt_lmp_verified`), and `spread` (null until the hour is verified). Incremental |
-| `lmp_model_features` (view) | `(time, pnode_id)` | same as baseline | `lmp_baseline_features` plus each node's `forecast_area`, `forecast_load_mw` and its zone's weather columns, joined at query time for flat consumers (reference model, serving); weather is null for the 22 zoneless nodes; calendar features not included. Added October 26, 5:45PM CT, Angie Ohaeri (assisted) |
-| `lmp_load_forecast_features` | `(time, forecast_area)` | 194k | latest `load_forecast` evaluation issued by the cutoff (`forecast_cutoff_et`, 14:30 ET the day before the target day) |
-| `lmp_weather_forecast_features` | `(time, zone)` | 354k | live snapshot issued by the cutoff if there is one, else `previous_day1`; adds `hdd`, `cdd` (base 18.33 °C) and `source` |
-| `lmp_node_areas` | `pnode_id` | 1,505 | the load forecast area for each pnode (zoneless aggregates take `RTO`) |
-| `lmp_load_forecast_areas` (seed) | `zone_id` | 20 | zone → forecast area |
+| `spread` | `(time, pnode_id)` | 25.85M | the target and its history: `rt_lmp`, `da_lmp`, `spread` = rt - da, `congestion_spread` (verified RT only), plus trailing 7-day `spread_mean_7d`, `spread_std_7d`, `spike_share_7d` (share of hours with \|spread\| ≥ \$100, var `lmp_spike_threshold`), `congestion_spread_mean_7d`. Incremental (7-day window, stats computed over 14) |
+| `baseline_features` | `(time, pnode_id)` | 25.99M | DA-spined feature row per target hour: `da_lmp`, `da_congestion_price`, `da_marginal_loss_price`, the history columns above taken 72h earlier (`*_last_verified_day`, `*_7d`; lag derived from var `feature_availability_days.rt_lmp_verified`), and `spread` (null until the hour is verified). Incremental |
+| `model_features` (view) | `(time, pnode_id)` | same as baseline | `baseline_features` plus each node's `forecast_area`, `forecast_load_mw` and its zone's weather columns, joined at query time for flat consumers (reference model, serving); weather is null for the 22 zoneless nodes; calendar features not included. Added October 26, 5:45PM CT, Angie Ohaeri (assisted) |
+| `load_forecast_features` | `(time, forecast_area)` | 194k | latest `load_forecast` evaluation issued by the cutoff (`forecast_cutoff_et`, 14:30 ET the day before the target day) |
+| `weather_forecast_features` | `(time, zone)` | 354k | live snapshot issued by the cutoff if there is one, else `previous_day1`; adds `hdd`, `cdd` (base 18.33 °C) and `source` |
+| `node_areas` | `pnode_id` | 1,505 | the load forecast area for each pnode (zoneless aggregates take `RTO`) |
+| `load_forecast_areas` (seed) | `zone_id` | 20 | zone → forecast area |
 

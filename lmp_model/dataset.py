@@ -66,7 +66,7 @@ def load_system(times: pd.DatetimeIndex) -> np.ndarray:
 
 
 def load_area_forecast(times: pd.DatetimeIndex) -> tuple[pd.Index, np.ndarray]:
-    forecast = query("SELECT time, forecast_area, forecast_load_mw FROM analytics_lmp.lmp_load_forecast_features;")
+    forecast = query("SELECT time, forecast_area, forecast_load_mw FROM analytics_lmp.load_forecast_features;")
     forecast["time"] = pd.to_datetime(forecast["time"], utc=True)
     wide = forecast.pivot(index="time", columns="forecast_area", values="forecast_load_mw")
     wide = wide.reindex(times).astype("float32")
@@ -74,14 +74,14 @@ def load_area_forecast(times: pd.DatetimeIndex) -> tuple[pd.Index, np.ndarray]:
 
 
 def load_node_area(areas: pd.Index, pnode_ids: pd.Index) -> np.ndarray:
-    node_areas = query("SELECT pnode_id, forecast_area FROM analytics_lmp.lmp_node_areas;")
+    node_areas = query("SELECT pnode_id, forecast_area FROM analytics_lmp.node_areas;")
     by_node = node_areas.set_index("pnode_id")["forecast_area"].reindex(pnode_ids)
     return areas.get_indexer(by_node)
 
 
 def load_weather(times: pd.DatetimeIndex) -> tuple[pd.Index, np.ndarray]:
     columns = ", ".join(WEATHER_FEATURES)
-    forecast = query(f"SELECT time, zone, {columns} FROM analytics_lmp.lmp_weather_forecast_features;")
+    forecast = query(f"SELECT time, zone, {columns} FROM analytics_lmp.weather_forecast_features;")
     forecast["time"] = pd.to_datetime(forecast["time"], utc=True)
     zones = pd.Index(sorted(forecast["zone"].unique()))
     grid = forecast.set_index(["time", "zone"])[WEATHER_FEATURES].astype("float32")
@@ -96,7 +96,7 @@ def load_node_weather_zone(zones: pd.Index, pnode_ids: pd.Index) -> np.ndarray:
 
 
 def load_window(start: pd.Timestamp, end: pd.Timestamp, pnode_ids: pd.Index) -> Window:
-    """lmp_baseline_features for [start, end), scattered onto a fixed hours x nodes grid so
+    """baseline_features for [start, end), scattered onto a fixed hours x nodes grid so
     node i here is node i in the edge index."""
     times = pd.date_range(start, end, freq="h", inclusive="left")
     x = np.full((len(times), len(pnode_ids), len(FEATURES)), np.nan, dtype="float32")
@@ -107,7 +107,7 @@ def load_window(start: pd.Timestamp, end: pd.Timestamp, pnode_ids: pd.Index) -> 
     for chunk_start in pd.date_range(start, end, freq=f"{CHUNK_DAYS}D", inclusive="left"):
         chunk_end = min(chunk_start + pd.Timedelta(days=CHUNK_DAYS), end)
         chunk = query(
-            f"SELECT time, pnode_id, {columns} FROM analytics_lmp.lmp_baseline_features "
+            f"SELECT time, pnode_id, {columns} FROM analytics_lmp.baseline_features "
             "WHERE time >= %s AND time < %s;",
             (chunk_start, chunk_end),
         )

@@ -40,7 +40,7 @@ SOURCES = {
                               ["time", "total_gen", "total_losses"]),
     "scheduled_generation": ("time", "hourly", s.poll_scheduled_generation, s.SCHEDULED_GENERATION_UPSERT,
                              ["time", "rt_ecomax", "self_ecomax"]),
-    "lmp_da_hourly": ("time", "hourly", s.poll_lmp_da_hourly, s.LMP_DA_HOURLY_UPSERT,
+    "lmp_da_hourly": ("time", "hourly", s.poll_lmp_da_zonal, s.LMP_DA_ZONAL_UPSERT,
                       ["time", "zone", "LMP", "Congestion", "Loss"]),
     "marginal_value_rt": ("datetime_beginning_utc", "daily", s.poll_marginal_value_rt, s.MARGINAL_VALUE_RT_UPSERT,
                           ["datetime_beginning_utc", "datetime_ending_utc", "Monitored Facility", "Contingency Facility",

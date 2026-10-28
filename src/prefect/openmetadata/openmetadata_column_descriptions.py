@@ -110,7 +110,7 @@ DESCRIPTIONS = {
         "monitored_facility": "Substation or line name of the binding constraint.",
         "contingency_facility": "Contingency facility paired with the monitored facility.",
     },
-    "raw_lmp.lmp_da_hourly": {
+    "raw_lmp.lmp_da_zonal": {
         "time": "Hour Ending, UTC. Hypertable partitioning column.",
         "zone": "Project zone_id code.",
         "lmp": "Total day-ahead zonal LMP, $/MWh.",
@@ -162,7 +162,7 @@ DESCRIPTIONS = {
         "source": "Which graph(s) produced the edge: gridsfm, hifld or gridsfm+hifld.",
         "built_at": "When the topology was built.",
     },
-    "raw_lmp.rt_hrl_lmps_nodal": {
+    "raw_lmp.lmp_rt": {
         "time": "Hour Ending, UTC (feed's Interval Start + 1h). Hypertable partitioning column.",
         "pnode_id": "PJM pricing node id; join to pnode_topology_nodes.",
         "system_energy_price": "System-wide energy component (lambda), $/MWh; identical for every pnode in an hour.",
@@ -170,7 +170,7 @@ DESCRIPTIONS = {
         **LMP_COMPONENTS,
         "is_verified": "true = verified rt_hrl_lmps; false = unverified, live, not settlement quality. Filter to true for training and backtests.",
     },
-    "raw_lmp.da_hrl_lmps_nodal": {
+    "raw_lmp.lmp_da": {
         "time": "Hour Ending, UTC. Hypertable partitioning column.",
         "pnode_id": "PJM pricing node id; join to pnode_topology_nodes.",
         "system_energy_price": "Day-ahead system-wide energy component (lambda), $/MWh; identical for every pnode in an hour.",

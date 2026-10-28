@@ -153,10 +153,10 @@ def sync_marginal_value_da(lookback_days: int = POLL_WINDOW_DAYS):
     logger.success(f"Upserted {len(rows)} raw_lmp.marginal_value_da rows")
 
 
-# --- lmp_da_hourly - cadence unconfirmed, treated as daily (DA market clears once/day). --
+# --- lmp_da_zonal - cadence unconfirmed, treated as daily (DA market clears once/day). --
 
-LMP_DA_HOURLY_UPSERT = """
-INSERT INTO raw_lmp.lmp_da_hourly (time, zone, lmp, congestion_price, marginal_loss_price)
+LMP_DA_ZONAL_UPSERT = """
+INSERT INTO raw_lmp.lmp_da_zonal (time, zone, lmp, congestion_price, marginal_loss_price)
 VALUES %s
 ON CONFLICT (time, zone) DO UPDATE SET
     lmp = EXCLUDED.lmp,
@@ -166,7 +166,7 @@ ON CONFLICT (time, zone) DO UPDATE SET
 
 
 @fetch
-def poll_lmp_da_hourly(pjm: gs.PJM, start: datetime, end: datetime) -> pd.DataFrame:
+def poll_lmp_da_zonal(pjm: gs.PJM, start: datetime, end: datetime) -> pd.DataFrame:
     raw = pjm.get_lmp(
         start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), market=gs.Markets.DAY_AHEAD_HOURLY, location_type="ZONE"
     )
@@ -177,15 +177,15 @@ def poll_lmp_da_hourly(pjm: gs.PJM, start: datetime, end: datetime) -> pd.DataFr
     return raw.drop_duplicates(subset=["time", "zone"])
 
 
-@flow(name="lmp_da_hourly", log_prints=True)
-def sync_lmp_da_hourly(lookback_days: int = POLL_WINDOW_DAYS):
+@flow(name="lmp_da_zonal", log_prints=True)
+def sync_lmp_da_zonal(lookback_days: int = POLL_WINDOW_DAYS):
     _assert_zone_mapping_in_sync()
     end = datetime.now(UTC)
     pjm = _pjm()
-    raw = poll_lmp_da_hourly(pjm, end - timedelta(days=lookback_days), end + timedelta(days=2))
+    raw = poll_lmp_da_zonal(pjm, end - timedelta(days=lookback_days), end + timedelta(days=2))
     rows = list(raw[["time", "zone", "LMP", "Congestion", "Loss"]].itertuples(index=False, name=None))
-    _upsert(LMP_DA_HOURLY_UPSERT, rows)
-    logger.success(f"Upserted {len(rows)} raw_lmp.lmp_da_hourly rows")
+    _upsert(LMP_DA_ZONAL_UPSERT, rows)
+    logger.success(f"Upserted {len(rows)} raw_lmp.lmp_da_zonal rows")
 
 
 # --- generation_by_fuel - confirmed hourly, :15 past the hour. Still a periodic batch ---
@@ -432,7 +432,7 @@ def sync_natural_gas_fuel_cost(lookback_months: int = NATURAL_GAS_POLL_WINDOW_MO
     logger.success(f"Upserted {len(rows)} raw_lmp.natural_gas_fuel_cost rows")
 
 
-# --- rt_hrl_lmps_nodal - verified real-time hourly LMP for the GNN node set, treated as ---
+# --- lmp_rt - verified real-time hourly LMP for the GNN node set, treated as ---
 
 NODAL_IDS_PER_CHUNK = 150
 NODAL_MAX_ID_PARAM_CHARS = 1705
@@ -440,7 +440,7 @@ NODAL_REQUEST_SPACING_S = 10.5
 
 # Verified always wins: upgrades any unverified row for the same hour.
 RT_HRL_LMPS_NODAL_UPSERT = """
-INSERT INTO raw_lmp.rt_hrl_lmps_nodal (time, pnode_id, system_energy_price, lmp, congestion_price, marginal_loss_price, is_verified)
+INSERT INTO raw_lmp.lmp_rt (time, pnode_id, system_energy_price, lmp, congestion_price, marginal_loss_price, is_verified)
 VALUES %s
 ON CONFLICT (time, pnode_id) DO UPDATE SET
     system_energy_price = EXCLUDED.system_energy_price,
@@ -473,7 +473,7 @@ def _nodal_pnode_ids() -> list[int]:
 
 
 @fetch(retry_delay_seconds=120)
-def poll_hrl_lmps_nodal(pjm: gs.PJM, market: str, start: datetime, end: datetime, pnode_ids: list[int]) -> pd.DataFrame:
+def poll_lmp_nodal(pjm: gs.PJM, market: str, start: datetime, end: datetime, pnode_ids: list[int]) -> pd.DataFrame:
     """market 'rt' -> rt_hrl_lmps (verified), 'da' -> da_hrl_lmps; same fields with that suffix."""
     sfx = f"_{market}"
     parts = []
@@ -501,23 +501,23 @@ def poll_hrl_lmps_nodal(pjm: gs.PJM, market: str, start: datetime, end: datetime
     return raw.drop_duplicates(subset=["time", "pnode_id"])
 
 
-@flow(name="rt_hrl_lmps_nodal", log_prints=True)
-def sync_rt_hrl_lmps_nodal(lookback_days: int = POLL_WINDOW_DAYS):
+@flow(name="lmp_rt", log_prints=True)
+def sync_lmp_rt(lookback_days: int = POLL_WINDOW_DAYS):
     end = datetime.now(UTC)
     pjm = _pjm()
-    raw = poll_hrl_lmps_nodal(pjm, "rt", end - timedelta(days=lookback_days), end, _nodal_pnode_ids())
+    raw = poll_lmp_nodal(pjm, "rt", end - timedelta(days=lookback_days), end, _nodal_pnode_ids())
     raw["is_verified"] = True
     rows = list(raw[[
         "time", "pnode_id", "system_energy_price", "lmp", "congestion_price", "marginal_loss_price", "is_verified",
     ]].itertuples(index=False, name=None))
     _upsert(RT_HRL_LMPS_NODAL_UPSERT, rows)
-    logger.success(f"Upserted {len(rows)} verified raw_lmp.rt_hrl_lmps_nodal rows ({raw['pnode_id'].nunique()} pnodes)")
+    logger.success(f"Upserted {len(rows)} verified raw_lmp.lmp_rt rows ({raw['pnode_id'].nunique()} pnodes)")
 
 
-# --- da_hrl_lmps_nodal - day-ahead hourly LMP for the GNN node set. DA clears once a day -
+# --- lmp_da - day-ahead hourly LMP for the GNN node set. DA clears once a day -
 
 DA_HRL_LMPS_NODAL_UPSERT = """
-INSERT INTO raw_lmp.da_hrl_lmps_nodal (time, pnode_id, system_energy_price, lmp, congestion_price, marginal_loss_price)
+INSERT INTO raw_lmp.lmp_da (time, pnode_id, system_energy_price, lmp, congestion_price, marginal_loss_price)
 VALUES %s
 ON CONFLICT (time, pnode_id) DO UPDATE SET
     system_energy_price = EXCLUDED.system_energy_price,
@@ -527,35 +527,35 @@ ON CONFLICT (time, pnode_id) DO UPDATE SET
 """
 
 
-@flow(name="da_hrl_lmps_nodal", log_prints=True)
-def sync_da_hrl_lmps_nodal(lookback_days: int = POLL_WINDOW_DAYS):
+@flow(name="lmp_da", log_prints=True)
+def sync_lmp_da(lookback_days: int = POLL_WINDOW_DAYS):
     today = pd.Timestamp.now(tz="US/Eastern").normalize()
     start, end = today - pd.Timedelta(days=lookback_days), today + pd.Timedelta(days=2)
     pjm = _pjm()
-    raw = poll_hrl_lmps_nodal(pjm, "da", start, end - pd.Timedelta(minutes=1), _nodal_pnode_ids())
+    raw = poll_lmp_nodal(pjm, "da", start, end - pd.Timedelta(minutes=1), _nodal_pnode_ids())
     rows = list(raw[["time", "pnode_id", "system_energy_price", "lmp", "congestion_price", "marginal_loss_price"]].itertuples(index=False, name=None))
     _upsert(DA_HRL_LMPS_NODAL_UPSERT, rows)
-    logger.success(f"Upserted {len(rows)} raw_lmp.da_hrl_lmps_nodal rows ({raw['pnode_id'].nunique()} pnodes, latest {raw['time'].max()})")
+    logger.success(f"Upserted {len(rows)} raw_lmp.lmp_da rows ({raw['pnode_id'].nunique()} pnodes, latest {raw['time'].max()})")
 
 
-# --- rt_unverified_hrl_lmps -> rt_hrl_lmps_nodal, is_verified = false - confirmed hourly ---
+# --- rt_unverified_hrl_lmps -> lmp_rt, is_verified = false - confirmed hourly ---
 
 UNVERIFIED_POLL_WINDOW_HOURS = 3
 
 RT_UNVERIFIED_HRL_LMPS_NODAL_UPSERT = """
-INSERT INTO raw_lmp.rt_hrl_lmps_nodal (time, pnode_id, system_energy_price, lmp, congestion_price, marginal_loss_price, is_verified)
+INSERT INTO raw_lmp.lmp_rt (time, pnode_id, system_energy_price, lmp, congestion_price, marginal_loss_price, is_verified)
 VALUES %s
 ON CONFLICT (time, pnode_id) DO UPDATE SET
     system_energy_price = EXCLUDED.system_energy_price,
     lmp = EXCLUDED.lmp,
     congestion_price = EXCLUDED.congestion_price,
     marginal_loss_price = EXCLUDED.marginal_loss_price
-WHERE NOT raw_lmp.rt_hrl_lmps_nodal.is_verified
+WHERE NOT raw_lmp.lmp_rt.is_verified
 """
 
 
 @fetch(retry_delay_seconds=120)
-def poll_rt_unverified_hrl_lmps_nodal(pjm: gs.PJM, start: datetime, end: datetime, name_to_id: dict[str, int]) -> pd.DataFrame:
+def poll_lmp_rt_unverified(pjm: gs.PJM, start: datetime, end: datetime, name_to_id: dict[str, int]) -> pd.DataFrame:
     raw = pjm._get_pjm_json(
         "rt_unverified_hrl_lmps",
         start=pd.Timestamp(start).tz_convert("US/Eastern"),
@@ -572,8 +572,8 @@ def poll_rt_unverified_hrl_lmps_nodal(pjm: gs.PJM, start: datetime, end: datetim
     return raw.drop_duplicates(subset=["time", "pnode_id"])
 
 
-@flow(name="rt_unverified_hrl_lmps_nodal", log_prints=True)
-def sync_rt_unverified_hrl_lmps_nodal(lookback_hours: int = UNVERIFIED_POLL_WINDOW_HOURS):
+@flow(name="lmp_rt_unverified", log_prints=True)
+def sync_lmp_rt_unverified(lookback_hours: int = UNVERIFIED_POLL_WINDOW_HOURS):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("select pnode_name, pnode_id from raw_lmp.pnode_topology_nodes")
@@ -582,12 +582,12 @@ def sync_rt_unverified_hrl_lmps_nodal(lookback_hours: int = UNVERIFIED_POLL_WIND
 
     end = datetime.now(UTC)
     pjm = _pjm()
-    raw = poll_rt_unverified_hrl_lmps_nodal(pjm, end - timedelta(hours=lookback_hours), end, name_to_id)
+    raw = poll_lmp_rt_unverified(pjm, end - timedelta(hours=lookback_hours), end, name_to_id)
     rows = list(raw[[
         "time", "pnode_id", "system_energy_price", "total_lmp_rt", "congestion_price_rt", "marginal_loss_price_rt", "is_verified",
     ]].itertuples(index=False, name=None))
     _upsert(RT_UNVERIFIED_HRL_LMPS_NODAL_UPSERT, rows)
-    logger.success(f"Upserted {len(rows)} unverified raw_lmp.rt_hrl_lmps_nodal rows ({raw['pnode_id'].nunique()} pnodes, latest {raw['time'].max()})")
+    logger.success(f"Upserted {len(rows)} unverified raw_lmp.lmp_rt rows ({raw['pnode_id'].nunique()} pnodes, latest {raw['time'].max()})")
 
 
 # --- load_forecast - PJM's own load forecast by area, 5 evaluations a day (~05:45, 09:45, ---
@@ -750,7 +750,7 @@ def sync_weather_forecast(lookback_days: int = POLL_WINDOW_DAYS):
 if __name__ == "__main__":
     sync_marginal_value_rt()
     sync_marginal_value_da()
-    sync_lmp_da_hourly()
+    sync_lmp_da_zonal()
     sync_generation_by_fuel()
     sync_transmission_constraints_da()
     sync_operator_initiated_commitments()
@@ -758,9 +758,9 @@ if __name__ == "__main__":
     sync_generation_ehv_losses()
     sync_forecasted_generation_outages()
     sync_natural_gas_fuel_cost()
-    sync_rt_hrl_lmps_nodal()
-    sync_rt_unverified_hrl_lmps_nodal()
-    sync_da_hrl_lmps_nodal()
+    sync_lmp_rt()
+    sync_lmp_rt_unverified()
+    sync_lmp_da()
     sync_load_forecast()
     sync_load_forecast_live()
     sync_weather_forecast()

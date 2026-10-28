@@ -15,9 +15,9 @@ from lmp_daily import lmp_afternoon, lmp_morning
 from prefect.schedules import Cron
 from raw_lmp_sync import (
     sync_generation_by_fuel,
+    sync_lmp_rt_unverified,
     sync_natural_gas_fuel_cost,
     sync_operator_initiated_commitments,
-    sync_rt_unverified_hrl_lmps_nodal,
 )
 
 from prefect import serve
@@ -40,8 +40,8 @@ if __name__ == "__main__":
         # Unverified hourly LMP, same table with is_verified = false - live inputs until the
         # daily verified run overwrites them. Confirmed hourly, posts ~20 min after the
         # hour; one request per run (every location, no pnode filter on this feed).
-        sync_rt_unverified_hrl_lmps_nodal.to_deployment(
-            name="rt_unverified_hrl_lmps_nodal", schedule=Cron("25 * * * *", timezone="America/New_York"),
+        sync_lmp_rt_unverified.to_deployment(
+            name="lmp_rt_unverified", schedule=Cron("25 * * * *", timezone="America/New_York"),
         ),
         # Confirmed monthly, posts on the 20th.
         sync_operator_initiated_commitments.to_deployment(

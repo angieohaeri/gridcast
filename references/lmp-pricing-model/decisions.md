@@ -501,3 +501,32 @@ nothing else running. The live load-forecast and weather snapshots now happen ab
 
 Declined for now: `prefect.yaml` with a worker (little gain on one box), Prefect failure notifications
 (`prefect-email` would need installing on the server), a self-hosted GitHub runner for deploys.
+
+**Title: Merged lmp_spread and lmp_spread_history into spread; dropped the lmp_ prefix from analytics_lmp models, Author: Angie Ohaeri (assisted), Date: October 27th Time: 2:10pm CT**
+
+- `lmp_spread` and `lmp_spread_history` were both 26M rows at the same grain, and history repeated the target's `spread` and `congestion_spread`. They are now one incremental model, `spread` (target columns plus the trailing 7-day stats; stats computed over 14 days, 7 emitted, same as before).
+- `baseline_features` joins `spread` twice: at the lagged hour for the history columns and at the target hour for `spread`.
+- Renamed (drop `lmp_`, the schema is already `analytics_lmp`): `baseline_features`, `model_features`, `load_forecast_features`, `weather_forecast_features`, `node_areas`, seed `load_forecast_areas`. `stg_*` names unchanged.
+- Not built yet: the 10 staging views with no feature model (marginal values, constraints, fuel mix, outages, ...) are still unused, so `model_features` does not show them.
+- Live DB: the old tables (`lmp_spread`, `lmp_spread_history`, and the renamed ones) stay until dropped by hand after the first build of the new names. Raw table renames in the worksheet (`rt_hrl_lmps_nodal` -> `lmp_rt`, `da_hrl_lmps_nodal` -> `lmp_da`, `lmp_da_hourly` -> `lmp_da_zonal`) are not done.
+
+**Title: Raw table renames and slimmer daily dbt builds, Author: Angie Ohaeri (assisted), Date: October 27th Time: 3:30pm CT**
+
+- Raw renames (code and docs updated, live DB not yet altered): `raw_lmp.rt_hrl_lmps_nodal` -> `lmp_rt`, `raw_lmp.da_hrl_lmps_nodal` -> `lmp_da`, `raw_lmp.lmp_da_hourly` -> `lmp_da_zonal`. Prefect flows, functions and indexes follow the table names: `sync_rt_hrl_lmps_nodal` -> `sync_lmp_rt` (flow `lmp_rt`), `sync_da_hrl_lmps_nodal` -> `sync_lmp_da` (`lmp_da`), `sync_lmp_da_hourly` -> `sync_lmp_da_zonal` (`lmp_da_zonal`), `sync_rt_unverified_hrl_lmps_nodal` -> `sync_lmp_rt_unverified` (flow and deployment `lmp_rt_unverified`), `poll_hrl_lmps_nodal` -> `poll_lmp_nodal`. The live indexes and unique constraints are renamed with the tables (`ALTER TABLE ... RENAME` leaves them on the old names). After deploy, delete the old `rt_unverified_hrl_lmps_nodal` deployment from the Prefect server, or its hourly runs pile up as Late.
+- Why the morning run took 22 min (1,361s): the RT sync 302s, dbt 1,041s. Most of dbt was whole-table uniqueness tests on `stg_rt_lmp_nodal` (362s) and `stg_da_lmp_nodal` (388s), plus tests on staging views no feature model reads, and 4-6 min for each of the two 254k-row incremental inserts.
+- Fix: the RT and DA staging tests now filter to the last 10 days; selector `lmp_history` is `+spread` plus `stg_pnode_topology` (not the whole staging folder); `lmp_serving` also builds `stg_load_forecast` and `stg_weather_forecast`; new unscheduled selector `lmp_staging` runs every staging view and test.
+
+**Title: Data-driven facility-to-node links from shadow prices (experiment), Author: Angie Ohaeri (assisted), Date: October 27th Time: 3:55pm CT**
+
+Why: name and substation matching puts only 32.5% of RT shadow price weight on a GNN node (35.5% with a substation join), because most constrained substations have no node in the 1,505-node set. Top 25 facilities carry 50% of the weight, top 100 carry 83%.
+
+Method: ridge regression of each node's verified RT `congestion_price` on the hourly RT shadow prices (monitored facility, summed over contingencies, 5-min sum / 12) of the top 100 facilities. Last 365 days, fit on the first 275, scored on the last 90 (same-hour, so an upper bound for lagged use). Scratch script, not in the repo yet.
+
+Result (held-out 90 days, 1,501 nodes):
+- Top-100 facilities explain 59.9% of node congestion-price variance (median node R2 0.587; 92% of nodes R2 > 0.3; 68% > 0.5).
+- Tier-1 system totals (summed shadow price, constraint count) explain 1.5% (median node R2 0.019). A broadcast signal says little about any one node.
+- Check against the 35 known facility-to-GNN-pnode links in the top 100: the learned coefficients rank the linked node #1 at the median, in the top 5 for 66% and the top 20 for 74%.
+- The learned matrix is dense (1,493 of 1,505 nodes have a coefficient above 10% of the largest), so the link is a weight per (facility, node), not a hard edge.
+
+Caveats: congestion price, not the RT-DA spread; DA congestion is already in `da_congestion_price`, so the useful signal is how RT shadow prices differ from what DA priced. Lift on the spread target is untested.
+Next: per-fold weights, exposure features per node-hour (weights times last verified day's RT shadow prices, and times the target day's DA shadow prices), then the per-node reference model with and without them.

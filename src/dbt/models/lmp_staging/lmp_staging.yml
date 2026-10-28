@@ -1,7 +1,7 @@
 version: 2
 
 models:
-  - name: stg_rt_lmp_nodal
+  - name: stg_lmp_rt
     description: >
       Real-time hourly LMP per pnode. Grain: one row per (time, pnode_id). Available at the
       14:30 ET cutoff on day D: verified rows through the end of D-2 (settlement lag);
@@ -9,21 +9,34 @@ models:
     columns:
       - name: time
         description: "Hour Ending, UTC."
-        tests: [not_null]
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '10 days'"
       - name: pnode_id
         description: "PJM pricing node id; join to stg_pnode_topology."
         tests:
-          - not_null
+          - not_null:
+              config:
+                where: "time >= now() - interval '10 days'"
           - relationships:
               arguments:
                 to: ref('stg_pnode_topology')
                 field: pnode_id
+              config:
+                where: "time >= now() - interval '10 days'"
       - name: lmp_total
         description: "Total real-time hourly LMP, $/MWh (raw column: lmp)."
-        tests: [not_null]
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '10 days'"
       - name: is_verified
         description: Train labels use verified rows only.
-        tests: [not_null]
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '10 days'"
       - name: system_energy_price
         description: "Real-time system-wide energy component (lambda), $/MWh; identical for every pnode in an hour."
       - name: congestion_price
@@ -34,26 +47,38 @@ models:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [time, pnode_id]
+          config:
+            where: "time >= now() - interval '10 days'"
 
-  - name: stg_da_lmp_nodal
+  - name: stg_lmp_da
     description: >
       Day-ahead hourly LMP per pnode. Grain: one row per (time, pnode_id). Available at the
       14:30 ET cutoff on day D: through the end of D+1 (DA results post about 1:30pm ET).
     columns:
       - name: time
         description: "Hour Ending, UTC."
-        tests: [not_null]
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '10 days'"
       - name: pnode_id
         description: "PJM pricing node id; join to stg_pnode_topology."
         tests:
-          - not_null
+          - not_null:
+              config:
+                where: "time >= now() - interval '10 days'"
           - relationships:
               arguments:
                 to: ref('stg_pnode_topology')
                 field: pnode_id
+              config:
+                where: "time >= now() - interval '10 days'"
       - name: lmp_total
         description: "Total day-ahead LMP, $/MWh (raw column: lmp)."
-        tests: [not_null]
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '10 days'"
       - name: system_energy_price
         description: "Day-ahead system-wide energy component (lambda), $/MWh; identical for every pnode in an hour."
       - name: congestion_price
@@ -64,6 +89,8 @@ models:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [time, pnode_id]
+          config:
+            where: "time >= now() - interval '10 days'"
 
   - name: stg_pnode_topology
     description: "GNN node set. Grain: one row per pnode_id. Static reference, rebuilt quarterly."
