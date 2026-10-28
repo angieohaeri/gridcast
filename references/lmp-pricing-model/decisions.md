@@ -530,3 +530,13 @@ Result (held-out 90 days, 1,501 nodes):
 
 Caveats: congestion price, not the RT-DA spread; DA congestion is already in `da_congestion_price`, so the useful signal is how RT shadow prices differ from what DA priced. Lift on the spread target is untested.
 Next: per-fold weights, exposure features per node-hour (weights times last verified day's RT shadow prices, and times the target day's DA shadow prices), then the per-node reference model with and without them.
+
+**Title: 75 constraint nodes and facility-line edges added to the GNN, Author: Angie Ohaeri (assisted), Date: October 27th Time: 9:38pm CT**
+
+Why: after station grouping (`network_reference/build.py`), 42% of RT shadow-price weight reached a GNN node directly and another 34% sat at stations that have pnodes but none in the 1,505-node set. The top 100 of those facilities carry 32 of the 34 points.
+
+- `network_reference/constraint_nodes.py` adds 75 nodes to `raw_lmp.pnode_topology_nodes` with role `constraint`: one station per facility (the end with the higher-voltage bus), one pnode per station (highest voltage, LOAD before GEN, lowest id, same as the fill-ins). The list is saved to `network_reference/constraint_nodes.csv`. Many are 13-69 kV buses because that is the only priced bus at those stations.
+- `network_reference/backfill_node_prices.py` backfills verified RT and DA hourly LMPs into `raw_lmp.lmp_rt` / `lmp_da` for nodes whose history stops short, resuming where each stopped (731-day pnode-filter limit, so the history starts 2024-10-27, five days after the original nodes). Loaded: 1.27M RT and 1.27M DA rows for the 75 nodes; a few took effect recently and have only ~41 days. The daily syncs read the node table, so they pick the new nodes up on their own.
+- `network_reference/line_edges.py` adds physical edges (`source = 'facility_line'`) from lines with both ends linked: 791 lines -> 119 node pairs, 59 already map edges (an independent check that agrees), 60 new. 32 constraint and 14 fill-in nodes get a physical edge for the first time.
+- `lmp_model/graph.py` now maps edge substations to any non-aggregate node, not only `attached`, so the new edges are used.
+- Still to do: `lmp_history` dbt full refresh so the incremental feature models include the new nodes' history; deploy (graph.py change and the new node count reach the Mac Mini only via git).
