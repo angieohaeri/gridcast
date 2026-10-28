@@ -5,11 +5,11 @@ sources:
     description: Landing tables for the LMP pricing model, isolated from public.* (see references/lmp-pricing-model/).
     schema: raw_lmp
     tables:
-      - name: rt_hrl_lmps_nodal
+      - name: lmp_rt
         description: >
           Real-time hourly LMP per pnode, Hour Ending UTC. is_verified=false rows are
           from the unverified hourly feed; verified rows overwrite them.
-      - name: da_hrl_lmps_nodal
+      - name: lmp_da
         description: Day-ahead hourly LMP per pnode, Hour Ending UTC. Final once the market clears.
       - name: pnode_topology_nodes
         description: The 1,505 pnodes in the GNN node set, with zone and substation attribution.
@@ -17,7 +17,7 @@ sources:
         description: RT shadow price per binding constraint, 5-min native, posts daily 11am-12pm ET. Keyed by facility name.
       - name: marginal_value_da
         description: DA shadow price per binding constraint, hourly. Keyed by facility name.
-      - name: lmp_da_hourly
+      - name: lmp_da_zonal
         description: DA zonal hourly LMP (20 zones), Hour Ending UTC.
       - name: generation_by_fuel
         description: Hourly RTO-wide generation by fuel type, long format.

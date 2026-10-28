@@ -1,4 +1,4 @@
-name: stg_da_lmp_nodal
+name: stg_lmp_da
 schema: analytics_lmp
 description: |
   Day-ahead hourly LMP per pnode. Grain: one row per (time, pnode_id). Available at the 14:30 ET cutoff on day D: through the end of D+1 (DA results post about 1:30pm ET).

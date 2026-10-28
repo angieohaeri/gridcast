@@ -1,9 +1,11 @@
 version: 2
 
 models:
-  - name: lmp_spread
+  - name: spread
     description: >
-      Per-pnode RT-DA spread target. Grain: one row per (time, pnode_id). Verified RT only.
+      Per-pnode RT-DA spread target plus its trailing 7-day stats as of each hour. Grain: one
+      row per (time, pnode_id). Verified RT only. baseline_features reads the stats at the last
+      verified day's hour.
     columns:
       - name: rt_lmp
         tests:
@@ -27,7 +29,7 @@ models:
           config:
             where: "time >= now() - interval '10 days'"
 
-  - name: lmp_baseline_features
+  - name: baseline_features
     description: >
       Baseline feature row per (time, pnode_id) for the next-day spread model. DA-spined, so
       spread is null for hours not yet verified (the rows being forecast).
@@ -45,25 +47,33 @@ models:
           config:
             where: "time >= now() - interval '10 days'"
 
-  - name: lmp_model_features
+  - name: model_features
     description: >
-      View over lmp_baseline_features with each node's area load forecast and weather-zone
+      View over baseline_features with each node's area load forecast and weather-zone
       forecast joined on. Grain: one row per (time, pnode_id). Weather columns are null for
       zoneless nodes (hubs, interfaces, PJM-RTO, OVEC).
 
-  - name: lmp_spread_history
+  - name: shadow_price_features
     description: >
-      Trailing 7-day stats of the verified per-pnode spread, as of each hour. Grain: one
-      row per (time, pnode_id). Joined into lmp_baseline_features at the last verified
-      day's hour.
-    tests:
-      - dbt_utils.unique_combination_of_columns:
-          arguments:
-            combination_of_columns: [time, pnode_id]
-          config:
-            where: "time >= now() - interval '15 days'"
+      System-wide congestion state per hour from the RT and DA shadow prices (binding constraint
+      count, total and strongest shadow price). Grain: one row per time, the same for every node.
+      da_* is the target hour's day-ahead constraints; rt_* is the last verified day's hour and a
+      trailing 7-day mean. Null where a feed has not loaded that day yet.
+    columns:
+      - name: time
+        tests: [unique, not_null]
+      - name: rt_constraint_count_last_day
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
+      - name: rt_shadow_total_mean_7d
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
 
-  - name: lmp_load_forecast_features
+  - name: load_forecast_features
     description: >
       Latest PJM load forecast issued by the cutoff, per target hour and forecast area.
       Grain: one row per (time, forecast_area).
@@ -75,7 +85,7 @@ models:
           arguments:
             combination_of_columns: [time, forecast_area]
 
-  - name: lmp_node_areas
+  - name: node_areas
     description: Load forecast area for each pnode.
     columns:
       - name: pnode_id
@@ -87,7 +97,7 @@ models:
               arguments:
                 values: [AEP, APS, ATSI, COMED, DAY, DEOK, DOM, DUQ, EKPC, MIDATL, RTO]
 
-  - name: lmp_weather_forecast_features
+  - name: weather_forecast_features
     description: >
       Weather forecast available at the cutoff, per target hour and weather zone. Grain: one
       row per (time, zone). Live snapshot when one was taken before the cutoff, else the

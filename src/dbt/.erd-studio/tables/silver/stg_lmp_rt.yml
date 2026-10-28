@@ -1,4 +1,4 @@
-name: stg_rt_lmp_nodal
+name: stg_lmp_rt
 schema: analytics_lmp
 description: |
   Real-time hourly LMP per pnode. Grain: one row per (time, pnode_id). Available at the 14:30 ET cutoff on day D: verified rows through the end of D-2 (settlement lag); unverified rows through hour ending 14:00 ET on D.

@@ -26,7 +26,7 @@ def geographic_edges(nodes: pd.DataFrame) -> pd.DataFrame:
 
 def _spread_chunk(start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
     spread = query(
-        "SELECT time, pnode_id, spread FROM analytics_lmp.lmp_spread WHERE time >= %s AND time < %s;",
+        "SELECT time, pnode_id, spread FROM analytics_lmp.spread WHERE time >= %s AND time < %s;",
         (start, end),
     )
     return spread.pivot(index="time", columns="pnode_id", values="spread").astype("float32")
