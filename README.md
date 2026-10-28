@@ -8,7 +8,7 @@ weather data.
 LightGBM → FastAPI → Shiny, self-hosted on a Mac Mini via Docker Compose and
 Cloudflare Tunnel.
 
-### Access the live dashboard [here](https://dashboard.gridcast.info)
+## Access the live dashboard [here](https://dashboard.gridcast.info)
 
 ## Architecture
 
