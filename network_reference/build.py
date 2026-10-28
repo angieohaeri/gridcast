@@ -6,7 +6,7 @@ from network_reference.eia860 import read_eia860
 import pandas as pd
 import psycopg2.extras
 
-from gridcast.config import EXTERNAL_DATA_DIR, PROJ_ROOT, get_connection
+from gridcast.config import EXTERNAL_DATA_DIR, INTERIM_DATA_DIR, PROJ_ROOT, get_connection
 
 MODEL_DIR = EXTERNAL_DATA_DIR / "lmp-bus-model-data"
 BASE_MODEL = EXTERNAL_DATA_DIR / "lmp-bus-model.xlsx"
@@ -14,6 +14,7 @@ CURRENT_UPDATE = MODEL_DIR / "20260916-network-model-update.xlsx"
 CONTINGENCY_LIST = MODEL_DIR / "contingencies" / "pjm-contingency-list.xml"
 FACILITY_LABELS = PROJ_ROOT / "network_reference" / "facility_labels.csv"
 FLOWGATES = EXTERNAL_DATA_DIR / "m2m-flowgates" / "miso" / "pjm_m2m_rt_ffe_flowgates_2026.csv"
+LINES = INTERIM_DATA_DIR / "contingency_lines.csv"
 UPDATE_DIRS = [MODEL_DIR / "2008-2019", MODEL_DIR / "2020-2026"]
 BUS_COLUMNS = ["pnode_id", "tx_zone", "substation", "voltage_text", "equipment"]
 SECTION = re.compile(r"^\s*(Bus+es|Aggregates)\s+(Added|Deleted|Changed)\s*$", re.IGNORECASE)
@@ -23,6 +24,8 @@ MIN_TOKEN_CONTINGENCIES = 3
 MIN_TOKEN_SHARE = 0.8
 OUTAGE_PREFIX = re.compile(r"^(?:(?:TEMP|DBL)\s*[:. ]\s*)+", re.IGNORECASE)
 VOLTAGE_PREFIX = re.compile(r"^(?:L(\d+)(?:\.|(?=[A-Za-z ]))|(\d{2,3})\.(?=[A-Za-z]))", re.IGNORECASE)
+LN_NAME = re.compile(r"^(.+?)_(\d+)KV(.+)_[^_]+_LN$")
+LINE_METHODS = ["single_outage", "only_candidate", "id_letters", "unresolved"]
 
 
 def kv(text: str | None) -> float | None:
@@ -224,6 +227,41 @@ def contingency_ends(name: str, codes: list[str], by_token: dict) -> tuple[str |
     return ends[0], ends[1], [c for c in codes if c not in ends]
 
 
+def compact(text: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "", text.upper())
+
+
+def read_lines(equipment: pd.DataFrame, subs: pd.DataFrame) -> pd.DataFrame:
+    """One row per line (LN element) in the contingency list: the station it is listed at and its far end.
+
+    The far end is the other station with breakers or a line end at the line's voltage in the line's outage. When an
+    outage takes out several lines, it is the one such station whose code starts with a letter group of the line ID
+    (CNS-PEA at CONASTON -> PEACHBOT). A line in several outages keeps its best result, in LINE_METHODS order.
+    """
+    rows = []
+    for name, outage in equipment[equipment["equipment_type"].isin(["LN", "CB"])].groupby("contingency_name", sort=False):
+        lines = outage[outage["equipment_type"] == "LN"]
+        for line in lines.itertuples():
+            candidates = sorted(set(outage.loc[outage["voltage_kv"] == line.voltage_kv, "substation_code"]) - {line.substation_code})
+            if len(candidates) == 1:
+                far, method = candidates[0], "single_outage" if len(lines) == 1 else "only_candidate"
+            else:
+                letters = [re.sub(r"\d$", "", t) for t in re.split(r"[-_ ]", line.equipment_id.strip()) if re.search(r"[A-Z]", t)]
+                hits = [c for c in candidates if any(len(t) >= 3 and compact(c).startswith(t) for t in letters)]
+                far, method = (hits[0], "id_letters") if len(hits) == 1 else (None, "unresolved")
+            rows.append((line.substation_code, far, line.voltage_kv, line.equipment_id.strip(), method, len(candidates), name))
+    lines = pd.DataFrame(rows, columns=["near_code", "far_code", "voltage_kv", "equipment_id", "method", "n_candidates", "contingency_name"])
+    lines["rank"] = lines["method"].map(LINE_METHODS.index)
+    lines = lines.sort_values(["rank", "contingency_name"]).drop_duplicates(["near_code", "voltage_kv", "equipment_id"]).drop(columns="rank")
+    ids = subs.groupby("code")["substation_id"].agg(list)
+    unique_id = ids[ids.map(len) == 1].map(lambda m: m[0])
+    lines["near_substation_id"] = lines["near_code"].map(unique_id)
+    lines["far_substation_id"] = lines["far_code"].map(unique_id)
+    lines = lines.sort_values(["near_code", "voltage_kv", "equipment_id"]).reset_index(drop=True)
+    logger.info(f"contingency-list lines: {lines['method'].value_counts().to_dict()}")
+    return lines
+
+
 def build_substations(buses: pd.DataFrame, topology: pd.DataFrame) -> pd.DataFrame:
     buses = buses.merge(topology, on="pnode_id", how="left")
     grouped = buses.groupby(["tx_zone", "substation"], sort=True)
@@ -269,6 +307,9 @@ def parse_facility(name: str, codes: set[str]) -> dict:
     name = stripped
     if "INTERFACE" in name.upper():
         return {"category": "interface", "kind": "interface", "parse_status": "interface"}
+    ln_name = LN_NAME.match(name)
+    if ln_name:
+        return {"category": "line", "kind": "line", "voltage_kv": float(ln_name.group(2))}
     if re.search(r"\bl/o\b|_LN\b|^\d{4}_\d|\d+kV-\d", name) or re.match(r"^[A-Za-z][A-Za-z .]*\s-\s", name):
         return {"category": "external", "kind": "external_element", "parse_status": "not_pjm_style"}
     tail = re.search(r"(\d+(?:\.\d+)?\s*KV)\s*$", name)
@@ -369,6 +410,24 @@ def apply_contingency_ends(facilities: pd.DataFrame, stations: pd.Series, by_tok
     return facilities
 
 
+def apply_line_ids(facilities: pd.DataFrame, lines: pd.DataFrame) -> pd.DataFrame:
+    """Ends of EMS line names (CONASTON_500KVCNS-PEA_1_LN: station, kV, line ID) from the contingency-list line with that
+    station, voltage and ID, ignoring spaces in the ID."""
+    keyed = lines.assign(key=lines["equipment_id"].str.replace(" ", "")).drop_duplicates(["near_code", "voltage_kv", "key"])
+    far = keyed.set_index(["near_code", "voltage_kv", "key"])["far_code"]
+    for i, name in facilities["name"].items():
+        ln_name = LN_NAME.match(name)
+        if not ln_name:
+            continue
+        key = (ln_name.group(1).replace("_", " ").strip(), float(ln_name.group(2)), ln_name.group(3).replace(" ", ""))
+        if key not in far.index:
+            continue
+        facilities.at[i, "end1_code"], facilities.at[i, "end1_source"] = key[0], "line_id"
+        if pd.notna(far[key]):
+            facilities.at[i, "end2_code"], facilities.at[i, "end2_source"] = far[key], "line_id"
+    return facilities
+
+
 def apply_labels(facilities: pd.DataFrame, subs: pd.DataFrame, voltages: pd.Series) -> pd.DataFrame:
     """Angie's hand labels, for facilities the contingency list does not resolve, when the station carries the facility's voltage."""
     labels = pd.read_csv(FACILITY_LABELS, dtype=str).set_index("name")
@@ -389,7 +448,7 @@ def apply_labels(facilities: pd.DataFrame, subs: pd.DataFrame, voltages: pd.Seri
     return facilities
 
 
-def build_facilities(conn, subs: pd.DataFrame, equipment: pd.DataFrame, by_token: dict) -> pd.DataFrame:
+def build_facilities(conn, subs: pd.DataFrame, equipment: pd.DataFrame, by_token: dict, lines: pd.DataFrame) -> pd.DataFrame:
     names = read_facility_names(conn)
     cutoff = pd.Timestamp(names["last_seen_date"].max()) - pd.Timedelta(days=ACTIVE_DAYS)
     names = names[pd.to_datetime(names["last_seen_date"]) >= cutoff].reset_index(drop=True)
@@ -403,6 +462,7 @@ def build_facilities(conn, subs: pd.DataFrame, equipment: pd.DataFrame, by_token
     facilities["end1_source"] = facilities["end1_source"].where(facilities["end1_code"].isna(), "parsed")
     facilities["end2_source"] = facilities["end2_source"].where(facilities["end2_code"].isna(), "parsed")
     facilities = apply_contingency_ends(facilities, breaker_stations(equipment), by_token)
+    facilities = apply_line_ids(facilities, lines)
     facilities = apply_labels(facilities, subs, station_voltages(subs, equipment))
     by_code = subs.groupby("code")["substation_id"].agg(list)
     for end in ("end1", "end2"):
@@ -494,14 +554,16 @@ def main() -> None:
     subs = assign_stations(subs, equipment, by_token)
     load(conn, "substations", subs, ["substation_id", "code", "tx_zone", "n_pnodes", "n_load", "n_gen", "n_ehv", "max_voltage_kv", "voltages_kv", "first_seen_date", "last_change_date", "in_gnn", "lat", "lon", "location_source", "location_conflict", "source", "station_id", "station_rule"])
     load(conn, "pnodes", pnodes, ["pnode_id", "pnode_type", "name", "substation_id", "tx_zone", "voltage_text", "voltage_kv", "equipment", "bus_type", "effective_date", "first_seen_date", "last_change_date", "in_gnn", "gnn_role", "source"])
-    facilities = build_facilities(conn, subs, equipment, by_token)
+    lines = read_lines(equipment, subs)
+    facilities = build_facilities(conn, subs, equipment, by_token, lines)
     load(conn, "facilities", facilities, ["facility_id", "name", "is_monitored", "is_contingency", "in_contingency_list", "category", "equipment_type", "voltage_kv", "end1_code", "end1_substation_id", "end1_n_matches", "end1_source", "end2_code", "end2_substation_id", "end2_n_matches", "end2_source", "middle_codes", "parse_status", "first_seen_date", "last_seen_date", "rt_weight_365d", "rt_weight_rank", "da_weight_365d", "m2m_flowgate_id", "m2m_match", "m2m_monitoring_rto"])
     load(conn, "contingency_equipment", link_contingency_equipment(equipment, subs), ["contingency_name", "element_seq", "is_active", "last_edit", "action", "equipment_type", "substation_code", "substation_id", "voltage_text", "voltage_kv", "equipment_id"])
     plants, generators = read_eia860(pnodes)
     load(conn, "plants", plants, list(plants.columns))
     load(conn, "generators", generators, list(generators.columns))
-    cur.execute((PROJ_ROOT / "network_reference" / "facility_ends.sql").read_text())
     conn.commit()
+    lines.astype({"near_substation_id": "Int64", "far_substation_id": "Int64"}).to_csv(LINES, index=False)
+    logger.success(f"{LINES}: {len(lines)} rows")
     conn.close()
 
 
