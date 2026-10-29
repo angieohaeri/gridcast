@@ -1,15 +1,16 @@
-"""Pulls all 16 raw_lmp sources and upserts each to its own table.
+"""Pulls all 18 raw_lmp sources and upserts each to its own table.
 
 Direct pull-and-upsert, no Kafka - these are daily/hourly/monthly batch posts, not
 streaming data (see decisions.md's Isolation section, and the per-source cadence notes
 below, confirmed against PJM Data Miner where a feed page was found). One `@flow`
 function per source so each keeps its own retries/schedule/run history in Prefect
 (deployments.py schedules them independently) - running this file directly just runs
-all 16 in sequence, same pattern as _archive/scripts/gapfill_raw_lmp.py.
+all 18 in sequence, same pattern as _archive/scripts/gapfill_raw_lmp.py.
 """
 
 from datetime import UTC, datetime, timedelta
 from functools import partial
+from itertools import pairwise
 import json
 import logging
 import os
@@ -747,6 +748,91 @@ def sync_weather_forecast(lookback_days: int = POLL_WINDOW_DAYS):
         logger.success(f"Upserted {len(rows)} raw_lmp.weather_forecast rows ({forecast['source'].iloc[0]}, latest {forecast['time'].max()})")
 
 
+# PJM rejects a date range over a year, so long lookbacks (the backfill from 2024-10-23 is
+# lookback_days ~740) are split into chunks, spaced for the shared 6 requests/min.
+REQUEST_MAX_DAYS = 180
+
+
+def _chunks(start: datetime, end: datetime) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
+    edges = list(pd.date_range(pd.Timestamp(start).normalize(), end, freq=f"{REQUEST_MAX_DAYS}D")) + [pd.Timestamp(end)]
+    return list(pairwise(edges))
+
+
+# --- interface_flows_da - confirmed daily, 12:00-3:15pm ET (2026-10-28 posted 12:33), next ---
+# day's DA flow and limit per interface. Same DA-results posting as marginal_value_da. ------
+
+INTERFACE_FLOWS_DA_UPSERT = """
+INSERT INTO raw_lmp.interface_flows_da (time, interface, flow_mw, limit_mw)
+VALUES %s
+ON CONFLICT (time, interface) DO UPDATE SET
+    flow_mw = EXCLUDED.flow_mw,
+    limit_mw = EXCLUDED.limit_mw
+"""
+
+
+@fetch
+def poll_interface_flows_da(pjm: gs.PJM, start: datetime, end: datetime) -> pd.DataFrame:
+    parts = []
+    for i, (chunk_start, chunk_end) in enumerate(_chunks(start, end)):
+        if i:
+            time.sleep(NODAL_REQUEST_SPACING_S)
+        parts.append(pjm.get_interface_flows_and_limits_day_ahead(chunk_start.strftime("%Y-%m-%d"), chunk_end.strftime("%Y-%m-%d")))
+    raw = pd.concat(parts)
+    raw["time"] = raw["Interval End"].dt.tz_convert("UTC")
+    return raw.drop_duplicates(subset=["time", "Interface Limit Name"])
+
+
+@flow(name="interface_flows_da", log_prints=True)
+def sync_interface_flows_da(lookback_days: int = POLL_WINDOW_DAYS):
+    end = datetime.now(UTC)
+    pjm = _pjm()
+    raw = poll_interface_flows_da(pjm, end - timedelta(days=lookback_days), end + timedelta(days=2))
+    rows = list(raw[["time", "Interface Limit Name", "Flow", "Limit"]].itertuples(index=False, name=None))
+    _upsert(INTERFACE_FLOWS_DA_UPSERT, rows)
+    logger.success(f"Upserted {len(rows)} raw_lmp.interface_flows_da rows (latest {raw['time'].max()})")
+
+
+# --- scheduled_interchange - confirmed daily, 07:30am ET, for the previous day. No ----------
+# gridstatus wrapper. This endpoint rate-limits hard, so requests are spaced like the nodal ones.
+
+SCHEDULED_INTERCHANGE_UPSERT = """
+INSERT INTO raw_lmp.scheduled_interchange (time, tie_line, net_schedule_mw)
+VALUES %s
+ON CONFLICT (time, tie_line) DO UPDATE SET
+    net_schedule_mw = EXCLUDED.net_schedule_mw
+"""
+
+
+@fetch(retry_delay_seconds=120)
+def poll_scheduled_interchange(pjm: gs.PJM, start: datetime, end: datetime) -> pd.DataFrame:
+    parts = []
+    for i, (chunk_start, chunk_end) in enumerate(_chunks(start, end)):
+        if i:
+            time.sleep(NODAL_REQUEST_SPACING_S)
+        parts.append(pjm._get_pjm_json(
+            "rt_scheduled_interchange",
+            start=chunk_start.strftime("%Y-%m-%d"),
+            end=chunk_end.strftime("%Y-%m-%d"),
+            params={"fields": "datetime_beginning_utc,tie_line,hrly_net_tie_sched"},
+            interval_duration_min=60,
+        ))
+    raw = pd.concat(parts)
+    raw["time"] = raw["Interval End"].dt.tz_convert("UTC")
+    raw["tie_line"] = raw["tie_line"].str.removesuffix("-PJM-E")
+    raw["hrly_net_tie_sched"] = raw["hrly_net_tie_sched"].astype(object).where(raw["hrly_net_tie_sched"].notna(), None)
+    return raw.drop_duplicates(subset=["time", "tie_line"])
+
+
+@flow(name="scheduled_interchange", log_prints=True)
+def sync_scheduled_interchange(lookback_days: int = POLL_WINDOW_DAYS):
+    end = datetime.now(UTC)
+    pjm = _pjm()
+    raw = poll_scheduled_interchange(pjm, end - timedelta(days=lookback_days), end)
+    rows = list(raw[["time", "tie_line", "hrly_net_tie_sched"]].itertuples(index=False, name=None))
+    _upsert(SCHEDULED_INTERCHANGE_UPSERT, rows)
+    logger.success(f"Upserted {len(rows)} raw_lmp.scheduled_interchange rows ({raw['tie_line'].nunique()} tie lines, latest {raw['time'].max()})")
+
+
 if __name__ == "__main__":
     sync_marginal_value_rt()
     sync_marginal_value_da()
@@ -764,3 +850,5 @@ if __name__ == "__main__":
     sync_load_forecast()
     sync_load_forecast_live()
     sync_weather_forecast()
+    sync_interface_flows_da()
+    sync_scheduled_interchange()

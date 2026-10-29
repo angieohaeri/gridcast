@@ -19,6 +19,7 @@ select
     z.commitment_mw,
     z.constraint_commitment_count,
     z.constraint_commitment_mw,
+    z.border_interchange_prev_day,
     s.da_constraint_count,
     s.da_shadow_total,
     s.da_shadow_min,
@@ -40,7 +41,14 @@ select
     s.outage_mw_rto,
     s.outage_mw_west,
     s.outage_mw_other,
-    s.gas_cost_per_mmbtu
+    s.gas_cost_per_mmbtu,
+    s.apsouth_util,
+    s.bcpep_util,
+    s.bed_bla_util,
+    s.central_util,
+    s.east_util,
+    s.west_util,
+    s.net_interchange_prev_day
 from {{ ref('baseline_features') }} b
 join {{ ref('nodes') }} n on n.pnode_id = b.pnode_id
 left join {{ ref('load_forecast_features') }} lf

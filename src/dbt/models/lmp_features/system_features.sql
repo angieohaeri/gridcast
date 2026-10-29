@@ -10,6 +10,10 @@
 -- five-minute intervals, so it is divided by 12 to be an hourly mean.
 -- counts are 0 when nothing bound, but only up to the last day each feed has loaded: later hours
 -- are null, so a late sync shows up as nulls instead of silent zeros.
+-- interfaces: the target hour's day-ahead flow / limit per transfer interface, 1 = at its limit.
+-- The limit holds in the positive direction only, so CENTRAL and WEST go well below 0. Null in
+-- hours an interface was not listed (BED-BLA before 2024-10-26 and some days since).
+-- interchange: net scheduled flow into PJM over every tie line at the last available day's hour.
 
 {% set availability = var('feature_availability_days') %}
 {% set rt_lag = (1 - availability['marginal_value_rt']) * 24 %}
@@ -17,6 +21,7 @@
 {% set fuel_lag = (1 - availability['generation_by_fuel']) * 24 %}
 {% set scheduled_lag = (1 - availability['scheduled_generation']) * 24 %}
 {% set losses_lag = (1 - availability['generation_ehv_losses']) * 24 %}
+{% set interchange_lag = (1 - availability['scheduled_interchange']) * 24 %}
 
 with hours as (
     select distinct time from {{ source('raw_lmp', 'lmp_da_zonal') }}
@@ -111,6 +116,25 @@ outages as (
     order by h.time, o.forecast_execution_date desc
 ),
 
+interfaces as (
+    select
+        time,
+        max(flow_mw / limit_mw) filter (where interface = 'APSOUTH') as apsouth_util,
+        max(flow_mw / limit_mw) filter (where interface = 'BCPEP') as bcpep_util,
+        max(flow_mw / limit_mw) filter (where interface = 'BED-BLA') as bed_bla_util,
+        max(flow_mw / limit_mw) filter (where interface = 'CENTRAL') as central_util,
+        max(flow_mw / limit_mw) filter (where interface = 'EAST') as east_util,
+        max(flow_mw / limit_mw) filter (where interface = 'WEST') as west_util
+    from {{ source('raw_lmp', 'interface_flows_da') }}
+    group by time
+),
+
+interchange as (
+    select time, sum(net_schedule_mw) as net_interchange
+    from {{ source('raw_lmp', 'scheduled_interchange') }}
+    group by time
+),
+
 gas_cost as (
     select period, avg(cost_per_mmbtu) as gas_cost_per_mmbtu
     from {{ source('raw_lmp', 'natural_gas_fuel_cost') }}
@@ -141,7 +165,14 @@ select
     o.outage_mw_rto,
     o.outage_mw_west,
     o.outage_mw_other,
-    g.gas_cost_per_mmbtu
+    g.gas_cost_per_mmbtu,
+    i.apsouth_util,
+    i.bcpep_util,
+    i.bed_bla_util,
+    i.central_util,
+    i.east_util,
+    i.west_util,
+    x.net_interchange as net_interchange_prev_day
 from hours h
 left join da_hourly d on d.time = h.time
 left join rt_rolled r on r.time = h.time - interval '{{ rt_lag }} hours'
@@ -150,6 +181,8 @@ left join fuel f on f.time = h.time - interval '{{ fuel_lag }} hours'
 left join {{ ref('stg_scheduled_generation') }} s on s.time = h.time - interval '{{ scheduled_lag }} hours'
 left join {{ ref('stg_generation_ehv_losses') }} ls on ls.time = h.time - interval '{{ losses_lag }} hours'
 left join outages o on o.time = h.time
+left join interfaces i on i.time = h.time
+left join interchange x on x.time = h.time - interval '{{ interchange_lag }} hours'
 left join gas_cost g
     on g.period = date_trunc('month', {{ forecast_cutoff('h.time') }} at time zone 'America/New_York')::date
         - interval '{{ var("natural_gas_fuel_cost_lag_months") }} months'

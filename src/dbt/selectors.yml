@@ -72,6 +72,7 @@ selectors:
         - "source:raw_lmp.lmp_da_zonal"
         - "system_features"
         - "load_forecast_areas"
+        - "tie_line_zones"
         - "nodes"
         - "load_forecast_features"
         - "zone_features"

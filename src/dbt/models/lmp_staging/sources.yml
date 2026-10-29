@@ -248,3 +248,49 @@ sources:
           Open-Meteo hourly forecast per weather zone (stations averaged), Hour Ending UTC.
           source `previous_day1` is the forecast made a day before each hour (history, issued_at
           is that nominal time); `live` is a daily snapshot of the current forecast.
+
+      - name: interface_flows_da
+        description: >
+          DA flow and limit per transfer interface (APSOUTH, BCPEP, BED-BLA, CENTRAL, EAST, WEST),
+          Hour Ending UTC. Grain: one row per (time, interface). Posts with the DA results
+          (12:00-15:15 ET), so the target day is in by the cutoff like marginal_value_da.
+        columns:
+          - name: time
+            description: "Hour Ending, UTC."
+            tests: [not_null]
+          - name: interface
+            description: "PJM interface limit name."
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: [APSOUTH, BCPEP, BED-BLA, CENTRAL, EAST, WEST]
+          - name: flow_mw
+            description: "Day-ahead flow across the interface, MW."
+            tests: [not_null]
+          - name: limit_mw
+            description: "Day-ahead interface limit, MW. Applies in the positive flow direction."
+            tests: [not_null]
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [time, interface]
+
+      - name: scheduled_interchange
+        description: >
+          Hourly net tie schedule per neighbouring area, Hour Ending UTC, positive = into PJM.
+          Grain: one row per (time, tie_line). Posts daily at 07:30 ET for the previous day, so
+          at the cutoff on day D it runs through D-1.
+        columns:
+          - name: time
+            description: "Hour Ending, UTC."
+            tests: [not_null]
+          - name: tie_line
+            description: "Neighbouring area code (feed's '-PJM-E' suffix dropped); zone in the tie_line_zones seed."
+            tests: [not_null]
+          - name: net_schedule_mw
+            description: "Net scheduled flow, MW. Null means no scheduled flow."
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [time, tie_line]

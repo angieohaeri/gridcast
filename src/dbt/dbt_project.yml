@@ -37,6 +37,10 @@ vars:
     scheduled_generation: -2
     generation_ehv_losses: -1
     forecasted_generation_outages: 0
+    # checked on Data Miner 2026-10-28: DA interface flows post 12:00-15:15 ET with the DA
+    # results (that day 12:33); scheduled interchange posts 07:30 ET for the previous day
+    interface_flows_da: 1
+    scheduled_interchange: -1
   # monthly sources, by the month of the cutoff day: EIA gas cost for month M is used from the
   # start of month M + lag (on 2026-10-28 the latest was 2026-08); operator-initiated commitments
   # for month M post on this day of month M+1 (on 2026-10-28 the latest event was 2026-09-30)
@@ -51,6 +55,8 @@ vars:
 seeds:
   gridcast:
     load_forecast_areas:
+      +schema: lmp
+    tie_line_zones:
       +schema: lmp
 
 models:

@@ -271,6 +271,33 @@ create table if not exists raw_lmp.weather_forecast (
 
 select create_hypertable('raw_lmp.weather_forecast', 'time', chunk_time_interval => interval '30 days', if_not_exists => true);
 
+-- da_interface_flows_and_limits: day-ahead flow and limit (MW) on PJM's big internal transfer
+-- interfaces (APSOUTH, BCPEP, BED-BLA, CENTRAL, EAST, WEST), hourly. flow / limit is how close an
+-- interface is to binding before any shadow price shows. Posts with the DA results (12:00-15:15
+-- ET) for the next day. `time` is Hour Ending UTC. Kept current by sync_interface_flows_da.
+create table if not exists raw_lmp.interface_flows_da (
+    time timestamptz not null,
+    interface text not null,
+    flow_mw real not null,
+    limit_mw real not null,
+    unique (time, interface)
+);
+
+select create_hypertable('raw_lmp.interface_flows_da', 'time', chunk_time_interval => interval '90 days', if_not_exists => true);
+
+-- rt_scheduled_interchange: hourly net tie schedule per neighbouring area (19 tie lines, the
+-- feed's '-PJM-E' suffix dropped), positive = into PJM. Posts daily at 07:30 ET for the
+-- previous day. Null means no scheduled flow. `time` is Hour Ending UTC. Kept current by
+-- sync_scheduled_interchange; tie line -> zone in the dbt seed tie_line_zones.
+create table if not exists raw_lmp.scheduled_interchange (
+    time timestamptz not null,
+    tie_line text not null,
+    net_schedule_mw real,
+    unique (time, tie_line)
+);
+
+select create_hypertable('raw_lmp.scheduled_interchange', 'time', chunk_time_interval => interval '90 days', if_not_exists => true);
+
 -- Compression was tried and reverted (2026-08-23) on all 8 raw_lmp hypertables - see
 -- decisions.md ("Compression tried and reverted"). Reason: Postgres validates system
 -- columns across every chunk when planning a query against a hypertable, so a client

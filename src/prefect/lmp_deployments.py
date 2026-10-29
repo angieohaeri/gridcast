@@ -15,9 +15,11 @@ from lmp_daily import lmp_afternoon, lmp_morning
 from prefect.schedules import Cron
 from raw_lmp_sync import (
     sync_generation_by_fuel,
+    sync_interface_flows_da,
     sync_lmp_rt_unverified,
     sync_natural_gas_fuel_cost,
     sync_operator_initiated_commitments,
+    sync_scheduled_interchange,
 )
 
 from prefect import serve
@@ -50,5 +52,14 @@ if __name__ == "__main__":
         # EIA (not PJM), monthly data with a ~3-month reporting lag - weekly is plenty.
         sync_natural_gas_fuel_cost.to_deployment(
             name="natural_gas_fuel_cost", schedule=Cron("0 3 * * 0", timezone="America/New_York"),
+        ),
+        # Paused until reviewed. DA interface flows post with the DA results (12:00-15:15 ET),
+        # so this runs ahead of lmp_afternoon's dbt build; scheduled interchange posts at
+        # 07:30 ET for the previous day.
+        sync_interface_flows_da.to_deployment(
+            name="interface_flows_da", schedule=Cron("40 13 * * *", timezone="America/New_York"), paused=True,
+        ),
+        sync_scheduled_interchange.to_deployment(
+            name="scheduled_interchange", schedule=Cron("0 8 * * *", timezone="America/New_York"), paused=True,
         ),
     )

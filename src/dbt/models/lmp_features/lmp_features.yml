@@ -59,8 +59,9 @@ models:
       per time. Shadow prices (da_* the target hour's day-ahead constraints, rt_* the last
       available day's hour and a trailing 7-day mean), day-ahead binding constraints, fuel mix,
       self-scheduled generation and loss ratio at the last available day's hour, the outage
-      forecast for the target day, and the EIA gas cost averaged over PJM states. Null where a
-      feed has not loaded that day yet.
+      forecast for the target day, the EIA gas cost averaged over PJM states, the target hour's
+      day-ahead flow / limit per transfer interface (*_util), and net scheduled interchange at
+      the last available day's hour. Null where a feed has not loaded that day yet.
     columns:
       - name: time
         tests: [unique, not_null]
@@ -80,6 +81,17 @@ models:
               config:
                 where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
       - name: gas_cost_per_mmbtu
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
+      # target-day DA flows can post after the afternoon build, so only past hours are tested
+      - name: apsouth_util
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '60 days' and time <= now()"
+      - name: net_interchange_prev_day
         tests:
           - not_null:
               config:
@@ -116,11 +128,18 @@ models:
       Per target hour and zone as of the cutoff. Grain: one row per (time, zone). Weather: the
       live snapshot when one was taken before the cutoff, else the previous_day1 forecast.
       Commitments: operator-initiated commitments in the zone over the latest month posted by the
-      cutoff, overall and for Constraint Management; null for months not loaded yet.
+      cutoff, overall and for Constraint Management; null for months not loaded yet. Border
+      interchange: net scheduled flow over the tie lines landing in the zone at the last
+      available day's hour, 0 for zones with none.
     columns:
       - name: temperature
         tests: [not_null]
       - name: commitment_count
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
+      - name: border_interchange_prev_day
         tests:
           - not_null:
               config:

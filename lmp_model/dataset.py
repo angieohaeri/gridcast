@@ -24,6 +24,7 @@ FEATURES = [
 ZONE_FEATURES = [
     "temperature", "precipitation", "wind_speed", "cloud_cover", "hdd", "cdd",
     "commitment_count", "commitment_mw", "constraint_commitment_count", "constraint_commitment_mw",
+    "border_interchange_prev_day",
 ]
 CALENDAR_FEATURES = ["hour_sin", "hour_cos", "month_sin", "month_cos", "is_weekend", "is_holiday"]
 SYSTEM_TABLE_FEATURES = [
@@ -34,6 +35,8 @@ SYSTEM_TABLE_FEATURES = [
     "generation_mw_prev_day", "gas_share_prev_day", "coal_share_prev_day", "nuclear_share_prev_day",
     "wind_share_prev_day", "solar_share_prev_day", "self_scheduled_mw_prev_day", "loss_ratio_prev_day",
     "outage_mw_rto", "outage_mw_west", "outage_mw_other", "gas_cost_per_mmbtu",
+    "apsouth_util", "bcpep_util", "bed_bla_util", "central_util", "east_util", "west_util",
+    "net_interchange_prev_day",
 ]
 SYSTEM_FEATURES = CALENDAR_FEATURES + SYSTEM_TABLE_FEATURES
 TARGET = "spread"

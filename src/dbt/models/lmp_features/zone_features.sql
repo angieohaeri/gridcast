@@ -6,6 +6,11 @@
 -- commitments: operator-initiated commitments in the zone over the latest month posted by the
 -- cutoff (month M posts on commitments_posting_day of M+1). 0 when the zone had none; null for
 -- months not loaded yet, so a late sync shows up as nulls instead of silent zeros.
+-- border interchange: net scheduled flow into PJM over the tie lines landing in the zone
+-- (tie_line_zones; a tie touching several zones counts in full in each) at the last available
+-- day's hour. 0 for zones with no tie line; null outside the loaded hours.
+
+{% set interchange_lag = (1 - var('feature_availability_days')['scheduled_interchange']) * 24 %}
 
 with sources as (
     select
@@ -55,6 +60,18 @@ commitments as (
     group by 1, 2
 ),
 
+border_interchange as (
+    select s.time, t.zone_id as zone, sum(s.net_schedule_mw) as border_interchange
+    from {{ source('raw_lmp', 'scheduled_interchange') }} s
+    join {{ ref('tie_line_zones') }} t on t.tie_line = s.tie_line
+    group by 1, 2
+),
+
+interchange_loaded as (
+    select min(time) as first_time, max(time) as last_time
+    from {{ source('raw_lmp', 'scheduled_interchange') }}
+),
+
 commitments_through as (
     select date_trunc('month', max(datetime_beginning_utc) at time zone 'America/New_York')::date as month
     from {{ source('raw_lmp', 'operator_initiated_commitments') }}
@@ -74,7 +91,11 @@ select
     case when p.commitment_month <= t.month then coalesce(c.commitment_count, 0) end as commitment_count,
     case when p.commitment_month <= t.month then coalesce(c.commitment_mw, 0) end as commitment_mw,
     case when p.commitment_month <= t.month then coalesce(c.constraint_commitment_count, 0) end as constraint_commitment_count,
-    case when p.commitment_month <= t.month then coalesce(c.constraint_commitment_mw, 0) end as constraint_commitment_mw
+    case when p.commitment_month <= t.month then coalesce(c.constraint_commitment_mw, 0) end as constraint_commitment_mw,
+    case when p.time - interval '{{ interchange_lag }} hours' between il.first_time and il.last_time
+        then coalesce(b.border_interchange, 0) end as border_interchange_prev_day
 from posted p
 cross join commitments_through t
+cross join interchange_loaded il
 left join commitments c on c.zone = p.zone and c.month = p.commitment_month
+left join border_interchange b on b.zone = p.zone and b.time = p.time - interval '{{ interchange_lag }} hours'
