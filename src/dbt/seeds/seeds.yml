@@ -62,3 +62,32 @@ seeds:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [tie_line, zone_id]
+
+  - name: interface_zones
+    description: >
+      PJM zones at the ends of each transfer interface's lines (PJM Manual 03 section 3.8, rev 71),
+      one row per (interface, zone). End substations placed by PJM's LMP bus model; Breinigsville,
+      Graceton, Five Forks, Otter Creek and Edwards Ferry are not in it and were placed by HIFLD
+      (2026-10-28, see decisions.md). DPL is on BCPEP only through Graceton and Five Forks.
+    config:
+      column_types:
+        interface: text
+        zone_id: text
+    columns:
+      - name: interface
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [APSOUTH, BCPEP, BED-BLA, CENTRAL, EAST, WEST]
+      - name: zone_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('pjm_weather_zones')
+                field: zone_id
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [interface, zone_id]

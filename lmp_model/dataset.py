@@ -24,7 +24,7 @@ FEATURES = [
 ZONE_FEATURES = [
     "temperature", "precipitation", "wind_speed", "cloud_cover", "hdd", "cdd",
     "commitment_count", "commitment_mw", "constraint_commitment_count", "constraint_commitment_mw",
-    "border_interchange_prev_day",
+    "border_interchange_prev_day", "interface_util",
 ]
 CALENDAR_FEATURES = ["hour_sin", "hour_cos", "month_sin", "month_cos", "is_weekend", "is_holiday"]
 SYSTEM_TABLE_FEATURES = [

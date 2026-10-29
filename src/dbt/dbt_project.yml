@@ -58,6 +58,8 @@ seeds:
       +schema: lmp
     tie_line_zones:
       +schema: lmp
+    interface_zones:
+      +schema: lmp
 
 models:
   gridcast:

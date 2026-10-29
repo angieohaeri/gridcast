@@ -73,6 +73,7 @@ selectors:
         - "system_features"
         - "load_forecast_areas"
         - "tie_line_zones"
+        - "interface_zones"
         - "nodes"
         - "load_forecast_features"
         - "zone_features"

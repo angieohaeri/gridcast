@@ -20,6 +20,7 @@ select
     z.constraint_commitment_count,
     z.constraint_commitment_mw,
     z.border_interchange_prev_day,
+    z.interface_util,
     s.da_constraint_count,
     s.da_shadow_total,
     s.da_shadow_min,

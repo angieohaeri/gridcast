@@ -130,7 +130,8 @@ models:
       Commitments: operator-initiated commitments in the zone over the latest month posted by the
       cutoff, overall and for Constraint Management; null for months not loaded yet. Border
       interchange: net scheduled flow over the tie lines landing in the zone at the last
-      available day's hour, 0 for zones with none.
+      available day's hour, 0 for zones with none. interface_util: the target hour's highest
+      day-ahead flow / limit among the transfer interfaces ending in the zone, 0 for zones with none.
     columns:
       - name: temperature
         tests: [not_null]
@@ -144,6 +145,12 @@ models:
           - not_null:
               config:
                 where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
+      # target-day DA flows can post after the afternoon build, so only past hours are tested
+      - name: interface_util
+        tests:
+          - not_null:
+              config:
+                where: "time >= now() - interval '60 days' and time <= now()"
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
