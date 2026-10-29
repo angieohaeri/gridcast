@@ -25,7 +25,7 @@ the congestion term of `πᵢ = λ + ΣₖAᵢₖµₖ`. Keyed by `Monitored Fac
 Facility` (a substation or line name), not pnode/zone. 5-min native since 2018, posts
 daily 11am-12pm ET. Backfilled 2026-08-21: 755,530 rows, 1,048 distinct facilities.
 
-DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,backfill}_marginal_value_rt.py`.
+DDL: `src/consumers/lmp_model_schema.sql`.
 
 | column | type | notes |
 |---|---|---|
@@ -48,7 +48,7 @@ Same congestion term as `marginal_value_rt`, for the day-ahead target. No penalt
 factor / limit control percentage fields — those are RT-only (see the feed's own field
 definitions on Data Miner). Backfilled 2026-08-01: 278,986 rows.
 
-DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,backfill}_marginal_value_da.py`.
+DDL: `src/consumers/lmp_model_schema.sql`.
 
 | column | type | notes |
 |---|---|---|
@@ -72,7 +72,7 @@ Backfilled 2026-08-21 (+90d): 120,666 rows.
 **Not a hypertable** — ~90 rows per daily forecast execution (one per `forecast_date`
 in the 90-day horizon), not a high-volume time series.
 
-DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,backfill}_forecasted_outages.py`.
+DDL: `src/consumers/lmp_model_schema.sql`.
 
 | column | type | notes |
 |---|---|---|
@@ -94,7 +94,7 @@ RTO-wide — informs λ (system-wide energy price), not the congestion term. Lon
 project's other categorical time series (`load`, `instantaneous_load`). Backfilled
 2026-08-23: 319,100 rows, 2023-01-01 → 2026-08-23, 10 fuel types.
 
-DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,backfill}_generation_by_fuel.py`.
+DDL: `src/consumers/lmp_model_schema.sql`.
 
 | column | type | notes |
 |---|---|---|
@@ -115,7 +115,7 @@ the same facility). The raw feed's `Day Ahead Congestion Event` field is dropped
 confirmed always identical to `Monitored Facility`, redundant. Backfilled 2026-08-23:
 67,087 rows, 2023-01-01 → 2026-08-23, 2,384 distinct monitored facilities.
 
-DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,backfill}_transmission_constraints_da.py`.
+DDL: `src/consumers/lmp_model_schema.sql`.
 
 | column | type | notes |
 |---|---|---|
@@ -140,7 +140,7 @@ mapping as `public.lmp`'s producer (`src/producers/lmp_producer.py`); `MID-ATL/A
 as `public.lmp`. `time` = Interval End (Hour Ending), matching `public.lmp`'s
 convention. Backfilled 2026-08-23: 638,380 rows, 2023-01-01 → 2026-08-23, 20 zones.
 
-DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,backfill}_lmp_da_hourly.py`.
+DDL: `src/consumers/lmp_model_schema.sql`.
 
 | column | type | notes |
 |---|---|---|
@@ -229,8 +229,7 @@ quarterly, so the topology goes stale slowly rather than per row.
 
 Built in stages, all in `_archive/scripts/`: `pull_pnode_metadata.py` (PJM `pnode` feed →
 `data/external/pjm_pnodes.parquet`) → `join_pnode_hifld.py` (HIFLD attach) →
-`build_pnode_topology.py` (GridSFM attach + merge + edges) → `build_backfill_node_list.py`
-(node selection) → `load_pnode_topology.py` (these tables). Intermediate parquet lives in
+`build_pnode_topology.py` (GridSFM attach + merge + edges) → node selection (removed script, git history) → `load_pnode_topology.py` (these tables). Intermediate parquet lives in
 `data/interim/`.
 
 How pnodes get edges:
@@ -267,7 +266,7 @@ PJM's own network model is CEII.
 
 DDL: in `load_pnode_topology.py` (same pattern as `build_transmission_graph.py`).
 
-**`pnode_topology_nodes`** - 1,505 rows: 1,037 `attached`, 426 `fill_in`, 42 `aggregate`
+**`pnode_topology_nodes`** - 1,580 rows: 1,037 `attached`, 426 `fill_in`, 42 `aggregate`, 75 `constraint` (added 2026-10-27, `decisions.md`)
 
 | column | type | notes |
 |---|---|---|
@@ -305,7 +304,8 @@ Largest connected component: 995 of 1,037 attached substations; 27 isolated.
 **Title: Verified real-time hourly LMPs at pnode level for the GNN node set, Author: Angie Ohaeri (assisted), Date: October 22nd Time: 7:38am**
 
 `rt_hrl_lmps` (verified real-time hourly LMP - the hourly average of the 5-min settlement
-prices) for every pnode in `pnode_topology_nodes` (1,505). The only pnode-level LMP table;
+prices) for every pnode in `pnode_topology_nodes` (1,505 at load; the 75 constraint nodes were
+backfilled from 2024-10-27 on 2026-10-27). The only pnode-level LMP table;
 every other LMP table here is zonal. Hypertable, 30-day chunks. Loaded 2026-10-22:
 25,737,322 rows, 1,505 pnodes, 2024-10-22 01:00 ET → 2026-10-19 00:00 ET (hour ending).
 4.11 GB uncompressed (1.55 GB table + 2.55 GB indexes, ~160 B/row).
@@ -322,9 +322,7 @@ uncompressed so partial-month refreshes stay cheap. Upserts into compressed chun
 work (slower). Result: 4.11 GB → 0.68 GB with 23 of 25 chunks compressed (whole DB
 5.7 GB → 2.5 GB); row count unchanged; one pnode's full 2-year history queries in ~0.07 s.
 
-DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/backfill_rt_hrl_lmps_nodal.py`
-(→ `data/interim/rt_hrl_lmps_nodal/`, 275 parquet checkpoints, DVC-tracked) →
-`_archive/scripts/load_rt_hrl_lmps_nodal.py`.
+DDL: `src/consumers/lmp_model_schema.sql`. Backfilled once through `data/interim/rt_hrl_lmps_nodal/` (275 parquet checkpoints, DVC-tracked; scripts removed, see git history). New nodes: `network_reference/backfill_node_prices.py`.
 
 Pull constraints found while backfilling (all free-tier Data Miner 2):
 - **History**: the `pnode_id` filter only works on non-archived data - the last 731 days.
@@ -385,7 +383,7 @@ catches up.
 
 **Title: Day-ahead hourly LMPs at pnode level for the GNN node set, Author: Angie Ohaeri (assisted), Date: October 23rd Time: 10:10pm CT**
 
-`da_hrl_lmps` (day-ahead hourly LMP) for the same 1,505 pnodes as `lmp_rt`, same
+`da_hrl_lmps` (day-ahead hourly LMP) for the same pnodes as `lmp_rt`, same
 lean shape, hour-ending `time`, 30-day chunks and compression (policy job, chunks older
 than 30 days). DA clears the day before, so these prices are known ahead of the real-time
 hour they cover - a leakage-safe input - and DA minus RT at each node is a congestion
@@ -395,9 +393,7 @@ compressed. Kept current by `sync_lmp_da` in `raw_lmp_sync.py` (daily, first ste
 7 days back through tomorrow). The earlier empty draft `raw_lmp.lmp_da_hourly_nodal` was
 dropped 2026-10-24.
 
-DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/backfill_da_hrl_lmps_nodal.py`
-(→ `data/interim/da_hrl_lmps_nodal/`, 275 parquet checkpoints) → `_archive/scripts/load_da_hrl_lmps_nodal.py`.
-Both are copies of the RT scripts with feed/field names swapped. Same request limits as RT
+DDL: `src/consumers/lmp_model_schema.sql`. Backfilled once through `data/interim/da_hrl_lmps_nodal/` (275 parquet checkpoints) with copies of the RT scripts (removed, see git history). Same request limits as RT
 (pnode filter only on the last 731 days, ~1,700-char id lists, 6 requests/min), but none of
 RT's quirks: `system_energy_price_da` is a real field and every row is current. Pulled in
 142 min with no retries.
@@ -436,7 +432,7 @@ the same event, not distinct simultaneous commitments (those differ in
 2026-08-23: 14,674 rows, 2023-01-02 → 2026-07-31, 19 zones (RECO had no commitments in
 the window).
 
-DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,backfill}_operator_initiated_commitments.py`.
+DDL: `src/consumers/lmp_model_schema.sql`.
 
 | column | type | notes |
 |---|---|---|
@@ -461,7 +457,7 @@ the source, not missing data; kept as-is rather than imputed. The raw feed's
 `conf_disclaimer` field (the static explanatory text for that suppression) is dropped —
 not a data column. Backfilled 2026-08-23: 31,727 rows, 2023-01-01 → 2026-08-23.
 
-DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,backfill}_scheduled_generation.py`.
+DDL: `src/consumers/lmp_model_schema.sql`.
 
 | column | type | notes |
 |---|---|---|
@@ -480,7 +476,7 @@ RTO-wide — the losses term of `πᵢ = λ + ΣₖAᵢₖµₖ`, smallest of th
 and, until this backfill, unsourced. Backfilled 2026-08-23: 31,919 rows,
 2023-01-01 → 2026-08-23.
 
-DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,backfill}_generation_ehv_losses.py`.
+DDL: `src/consumers/lmp_model_schema.sql`.
 
 | column | type | notes |
 |---|---|---|
@@ -512,7 +508,7 @@ next-day) — as of this backfill, data only reaches 2026-05 despite pulling thr
 **Not a hypertable** — ~2,500 rows total (49 states × ~40 months), same low-volume
 reasoning as `forecasted_generation_outages`.
 
-DDL: `src/consumers/lmp_model_schema.sql`. Backfill: `_archive/scripts/{pull,backfill}_natural_gas_fuel_cost.py`.
+DDL: `src/consumers/lmp_model_schema.sql`.
 
 | column | type | notes |
 |---|---|---|
@@ -591,8 +587,8 @@ Ohaeri (assisted). Rows as of 2026-10-26. Built with `make features-lmp` or the
 | `baseline_features` | `(time, pnode_id)` | 25.99M | DA-spined feature row per target hour: `da_lmp`, `da_congestion_price`, `da_marginal_loss_price`, the history columns above taken 72h earlier (`*_last_verified_day`, `*_7d`; lag derived from var `feature_availability_days.rt_lmp_verified`), and `spread` (null until the hour is verified). Incremental |
 | `model_features` (view) | `(time, pnode_id)` | same as baseline | `baseline_features` plus each node's `forecast_area` and `forecast_load_mw`, its zone's `zone_features` and the hour's `system_features`, joined at query time for flat consumers (reference model, serving); zone columns are null for the 22 zoneless nodes; calendar features not included |
 | `load_forecast_features` | `(time, forecast_area)` | 195k | latest `load_forecast` evaluation issued by the cutoff (`forecast_cutoff_et`, 14:30 ET the day before the target day) |
-| `zone_features` | `(time, zone)` | 354k | weather: live snapshot issued by the cutoff if there is one, else `previous_day1`, plus `hdd`, `cdd` (base 18.33 °C) and `weather_source`; operator-initiated commitments over the latest month posted by the cutoff (`commitment_count`, `commitment_mw`, and the Constraint Management subset `constraint_commitment_count`, `constraint_commitment_mw`) |
-| `system_features` | `time` | 33.5k | one row per hour, the same for every node: DA and RT shadow prices (`da_*` target hour, `rt_*_prev_day`, `rt_*_mean_7d`), `da_constraint_count_prev_day`, `da_constraint_hours_prev_day`, fuel mix (`generation_mw_prev_day`, gas/coal/nuclear/wind/solar `*_share_prev_day`), `self_scheduled_mw_prev_day`, `loss_ratio_prev_day`, the target day's `outage_mw_rto/west/other`, `gas_cost_per_mmbtu` (EIA, PJM-state average, 3-month lag) |
+| `zone_features` | `(time, zone)` | 354k | weather: live snapshot issued by the cutoff if there is one, else `previous_day1`, plus `hdd`, `cdd` (base 18.33 °C) and `weather_source`; operator-initiated commitments over the latest month posted by the cutoff (`commitment_count`, `commitment_mw`, and the Constraint Management subset `constraint_commitment_count`, `constraint_commitment_mw`); `border_interchange_prev_day` (tie lines landing in the zone); `interface_util` (highest target-hour DA flow / limit among interfaces ending in the zone) |
+| `system_features` | `time` | 33.5k | one row per hour, the same for every node: DA and RT shadow prices (`da_*` target hour, `rt_*_prev_day`, `rt_*_mean_7d`), `da_constraint_count_prev_day`, `da_constraint_hours_prev_day`, fuel mix (`generation_mw_prev_day`, gas/coal/nuclear/wind/solar `*_share_prev_day`), `self_scheduled_mw_prev_day`, `loss_ratio_prev_day`, the target day's `outage_mw_rto/west/other`, `gas_cost_per_mmbtu` (EIA, PJM-state average, 3-month lag), the six `*_util` interface columns (target-hour DA flow / limit), `net_interchange_prev_day` |
 | `nodes` | `pnode_id` | 1,580 | the GNN node set (`raw_lmp.pnode_topology_nodes` columns) plus each node's `forecast_area` (zoneless aggregates take `RTO`) |
 | `load_forecast_areas` (seed) | `zone_id` | 20 | zone → forecast area |
 

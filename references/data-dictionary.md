@@ -1,12 +1,8 @@
 # Data Dictionary & Power Industry Glossary
 
-Title: Added data dictionary and power industry glossary, Author: Angie Ohaeri, Date: August 7th Time: (session)
+Title: Added data dictionary and power industry glossary, Author: Angie Ohaeri, Date: August 7th Time: (session). EIA `get_dataset` polling method added August 9th. Tightened by Angie Ohaeri (assisted), October 29th 2:35am CT.
 
-Title: Documented get_dataset("electricity/rto/region-data") as the RTO-level EIA
-method for live/producer polling (get_grid_monitor can't filter by date, so it's
-backfill-only), Author: Angie Ohaeri, Date: August 9th Time: (session)
-
-Reference for someone new to the electricity industry: (1) vocabulary needed to read PJM/EIA data without guessing, (2) every raw column that comes back from this project's three data sources.
+For someone new to the electricity industry: the vocabulary for reading PJM/EIA data, and every raw column this project's sources return.
 
 ---
 
@@ -28,16 +24,16 @@ Reference for someone new to the electricity industry: (1) vocabulary needed to 
 |---|---|
 | **Load / Demand** | Power being consumed right now, in MW. Used interchangeably in this industry; EIA calls its column "Demand," PJM calls its column "Load" — same concept. This project's prediction target. |
 | **Net Generation** | Power being produced. Not equal to load at any given instant — the difference is covered by imports/exports (interchange) and transmission losses. |
-| **Interchange** | Power flowing between two BAs (e.g. PJM importing from NYISO). Positive/negative sign convention depends on the source; not currently used as a feature in this project. |
-| **MW vs MWh** | MW (megawatt) is an instantaneous rate — how fast power is flowing right now. MWh (megawatt-hour) is energy — MW sustained for an hour. Hourly load data reported "in MW" is really the average MW over that hour, which numerically looks like MWh but isn't labeled that way by convention. |
+| **Interchange** | Power flowing between two BAs (e.g. PJM importing from NYISO). Sign convention depends on the source. Not a load-model feature; the LMP model uses scheduled tie-line interchange. |
+| **MW vs MWh** | MW is a rate (power flowing now); MWh is energy (MW sustained for an hour). Hourly load "in MW" is the hour's average MW, numerically equal to MWh but labeled MW by convention. |
 | **Fuel mix / generation mix** | The breakdown of net generation by fuel source (coal, natural gas, nuclear, hydro, solar, wind). EIA-930 reports this; PJM's load feed does not. |
 | **Capacity vs. Energy** | Capacity = max MW a resource *can* produce (a nameplate number). Energy = MW actually produced/consumed over time. This project deals entirely in energy (load), not capacity markets. |
 
-### Market concepts (relevant once LMP work starts)
+### Market concepts (LMP model)
 
 | Term | Meaning |
 |---|---|
-| **LMP (Locational Marginal Price)** | The $/MWh price of electricity at a specific grid location ("node"), for a specific time. Price, not load/demand — this is the *stretch goal* target per `architecture.md`, not the MVP one. |
+| **LMP (Locational Marginal Price)** | The $/MWh price of electricity at a specific grid location ("node") and time. The LMP model's subject (`lmp-pricing-model/`), not the load model's target. |
 | **LMP components** | LMP = **Energy** (system-wide marginal cost of the next MWh) + **Congestion** (extra cost from a transmission bottleneck at that location) + **Loss** (marginal cost of line losses getting power to that location). PJM's API returns all three plus the total. |
 | **Pnode (pricing node)** | The specific grid location an LMP is priced at — could be a generator, a load point, a zone aggregate, or a trading **hub** (a standardized aggregate point used for hedging, easier to work with than thousands of individual nodes). |
 | **Day-Ahead (DA) market** | PJM clears prices for every hour of the next day, once, the day before. |
@@ -164,7 +160,7 @@ One row per hour per zone. This is the project's actual `load_mw` target source.
 
 ### PJM Data Miner — LMP (`gridstatus.PJM().get_lmp()`, feeds `rt_hrl_lmps` / `da_hrl_lmps` / `rt_fivemin_hrl_lmps`)
 
-One row per interval per pricing node. Stretch-goal data, not yet pulled.
+One row per interval per pricing node. Ingested hourly: zonal into `public.lmp`, nodal into `raw_lmp.lmp_rt` / `lmp_da`.
 
 | column | meaning |
 |---|---|
@@ -198,17 +194,12 @@ Deliberately pulled from the **historical-forecast** API (what the model *said* 
 
 | Acronym | Expansion | Where it shows up |
 |---|---|---|
-| BA | Balancing Authority | EIA columns, glossary |
 | RTO | Regional Transmission Organization | PJM's own type; also literally the string `"RTO"` used as PJM's whole-footprint zone code in load data — two different meanings, same string |
-| ISO | Independent System Operator | Industry-wide term, not PJM-specific |
-| LMP | Locational Marginal Price | PJM LMP feed |
 | DA / RT | Day-Ahead / Real-Time (market) | PJM LMP `Market` values |
 | EPT | Eastern Prevailing Time | PJM API date params (`datetime_beginning_ept`) |
 | UTC | Coordinated Universal Time | Used internally for all hypertable storage per `schema.md` |
 | NG | **Overloaded**: "Net Generation" (EIA `Type` column) *or* "Natural Gas" (EIA fuel-mix column prefix `NG: NG`) | EIA-930 |
 | MW / MWh | Megawatt / Megawatt-hour | Everywhere — MW is a rate, MWh is energy |
-| pnode | Pricing node | PJM LMP feed |
-| NERC | North American Electric Reliability Corporation | PJM load data column |
 | CO2 | Carbon dioxide (emissions columns) | EIA grid monitor, unused currently |
 
 ---
@@ -216,9 +207,6 @@ Deliberately pulled from the **historical-forecast** API (what the model *said* 
 ## Part 5: Things worth knowing that don't fit a table
 
 - **Same 20 zone codes, two independent sources.** EIA-930 (`region-sub-ba-data`) and PJM Data Miner (`hrl_load_metered`) both report zone-level load on the identical code set — a genuine opportunity to cross-validate before trusting either as ground truth.
-- **Frequency mismatch is real, not an edge case.** EIA-930 is hourly; PJM LMPs are 5-minute and hourly. Never silently resampled — each lands in its own hypertable at native resolution, joined in a named dbt model.
 - **Timezones differ by source** (PJM raw is Eastern, weather pull requests UTC), but doesn't matter as long as data is tz-aware before writing — Postgres `timestamptz` normalizes to UTC regardless.
-- **"Verified" data changes after the fact.** Recent PJM load rows can have `Is Verified = False` and get revised later — likely explanation if a backfill and a later re-pull disagree for recent dates.
-- **`is_verified` is not a usable quality filter.** *(Aug 12th)* Across the full 2023→2026 backfill, PJM never marks `DAY`, `RTO`, `RECO`, or `PL` verified (31,631/31,631 rows each), and `DUQ` is verified only 24 hours in 3.5 years. `DEOK`, `AE`, `DPL`, `PEP`, `EKPC` also carry large unverified blocks. Adding `where is_verified` as a quality gate would silently drop four zones entirely.
+- **"Verified" data changes after the fact**, the likely reason a backfill and a later re-pull disagree for recent dates. But **`is_verified` is not a usable quality filter.** *(Aug 12th)* Across the full 2023→2026 backfill, PJM never marks `DAY`, `RTO`, `RECO`, or `PL` verified (31,631/31,631 rows each), and `DUQ` is verified only 24 hours in 3.5 years. `DEOK`, `AE`, `DPL`, `PEP`, `EKPC` also carry large unverified blocks. Adding `where is_verified` as a quality gate would silently drop four zones entirely.
 - **RTO total ≠ sum of the zones you're using.** RTO sums *all 21* zones including out-of-scope `OVEC` — don't expect the 20 in `pjm_weather_zones.csv` to reconcile against it.
-- **Two RTO totals, two EIA methods, only one pollable.** `get_grid_monitor` and `get_dataset("electricity/rto/region-data")` report the same quantities, but only `get_dataset` supports date filtering. Backfill used the former; the producer must use the latter or it'll refetch years of data every poll.

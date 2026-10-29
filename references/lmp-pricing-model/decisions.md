@@ -18,86 +18,12 @@ Why I made certain decisions, for future reference. Extracted from `lmp-pricing-
 
 ## Targets
 
-**Title: Two separate targets (day-ahead hourly, real-time 5-min), not one mixed grain, Author: Angie Ohaeri, Date: August 22nd Time: (session)**
+**Title: How the real-time target evolved (Aug 22 - Oct 24), condensed from five entries by Angie Ohaeri (assisted), October 29th 3:10am CT**
 
-Matches how PJM's markets actually clear — DA only clears hourly, RT settles 5-min since
-April 2018, so blending them into one grain would misrepresent both.
-
-- **Day-ahead LMP**: hourly. Reuses existing hourly lag/rolling/join architecture almost
-  as-is. The easy one.
-- **Real-time LMP**: 5-min. Bigger lift — new 5-min ingestion (~12x the row volume of
-  hourly `lmp`), hourly-only features (load, weather) need explicit forward-fill onto
-  the 5-min grid (not silent resampling), and instantaneous load / unverified 5-min LMP
-  become load-bearing feature sources here rather than nice-to-haves. 5-min spikes are
-  sharper and noisier than hourly averages — exactly where congestion-state features
-  matter most (see `lmp-pricing-model.md` — Mechanism).
-
-**Title: Unverified → verified reconciliation for real-time LMP, decided 2026-08-22**
-
-Ingest Real-Time Unverified Five Minute LMPs continuously for freshness (updates ~every
-5 min, vs. the verified feed's once-daily batch post — same `is_verified`-style upsert
-pattern `load` already uses). Serve live predictions from unverified data — there's no
-choice, verified data for "now" doesn't exist yet — but **train/backtest against the
-verified value once it lands**, not the unverified value the model saw at inference
-time, since unverified values can revise.
-
-**Title: Real-time target moved to verified hourly, nodal; 5-min unverified pipeline paused, Author: Angie Ohaeri (assisted), Date: October 22nd Time: 8:49pm**
-
-Supersedes the real-time half of the two entries above (5-min target, served from the
-unverified feed). The day-ahead hourly target is unchanged.
-
-- **New target**: verified real-time hourly LMP (`rt_hrl_lmps`) at pnode level, for a GNN
-  over the 1,505-pnode node set in `raw_lmp.pnode_topology_nodes` - stored in
-  `raw_lmp.rt_hrl_lmps_nodal` (see `schema.md`). Real time, not day-ahead, because
-  congestion spikes happen in real time; that propagation is what a graph model adds.
-  Hourly, not 5-min: 2 years × 1,505 pnodes is already 25.7M rows, and verified is what
-  training/backtesting should use anyway (the reconciliation entry above).
-- **Kept current by** `sync_rt_hrl_lmps_nodal` in `raw_lmp_sync.py` - daily Prefect
-  deployment, 7-day trailing upsert, ~11 spaced requests.
-- **Paused, not deleted**: the `lmp_rt_unverified_fivemin` Kafka producer/consumer -
-  `paused=True` on both deployments in `lmp_deployments.py`, and both containers behind
-  the `fivemin` compose profile. Reasons: it's zonal only, so it doesn't feed a nodal
-  model; and it pages the full all-pnode feed every 10 min (~60-70 s of requests), about
-  a third of the API key's shared 6 requests/min - the likely cause of rate-limit retries
-  in the other pulls. `raw_lmp.lmp_rt_unverified_fivemin` keeps what it already holds.
-- **Cost of the reversal**: verified hourly posts ~1-2 days late, so the model can't see
-  the last few hours' prices at prediction time. That makes it a backtest model, or one
-  forecasting 2+ days out, rather than a live intraday one. Undo path for live serving:
-  unpause the 5-min pipeline and repurpose its client-side filter from `type == ZONE` to
-  the GNN node set - it already downloads every pnode each poll.
-
-**Title: Live inputs from unverified hourly LMPs, verified still the training truth, Author: Angie Ohaeri (assisted), Date: October 23rd Time: 6:30pm CT**
-
-Amends the entry above, whose cost was that verified hourly posts 1-2 days late, so the
-model couldn't see recent prices at prediction time. Verified-only isn't actually
-real-time: at 6 PM the newest row was the previous midnight.
-
-- **Decision**: also collect PJM's `rt_unverified_hrl_lmps` (hourly, ~20 min lag) into the
-  same `raw_lmp.rt_hrl_lmps_nodal` table with `is_verified = false`. The daily verified sync
-  keeps running and overwrites those rows with settled values; unverified never overwrites
-  verified. The 2-year verified backfill is kept as-is - not re-pulled.
-- **Why not unverified-only**: unverified values revise (20 of 3,008 re-pulled pnode-hours
-  moved by more than $0.01), and the feed keeps only 30 days. This is the original
-  reconciliation rule (serve from unverified, train/backtest on verified), applied at pnode
-  level and hourly instead of zonal and 5-min.
-- **Why the same table, not a separate one**: live queries need "latest value per
-  pnode-hour", which one table with a flag gives directly; training filters
-  `is_verified`. Same pattern as `load`.
-- **Cost**: one request per hourly run (every location, ~14.5k rows/hour - the feed has no
-  pnode filter), ~24/day - versus the paused 5-min pipeline's ~2/min. The 5-min pipeline
-  stays paused: this replaces it for live inputs.
-- **Watch**: a sync outage longer than 30 days loses those hours from the unverified feed;
-  they'd still arrive as verified a day or two later, so only live freshness is lost.
-
-**Title: 5-min unverified pipeline removed, Author: Angie Ohaeri (assisted), Date: October 24th Time: 11:19am CT**
-
-Follows the two entries above: the hourly unverified feed replaced it for live inputs, so
-the paused pipeline was deleted rather than kept. Removed: the producer/consumer scripts,
-both Prefect deployments, both compose services and Kafka topics (+ DLQ), the table
-`raw_lmp.lmp_rt_unverified_fivemin` (86,040 zonal rows, 2026-09-05 → 09-20) and its DDL,
-and `_archive/scripts/backfill_lmp_rt_unverified_fivemin.py`. The code is in git history
-if live 5-min data is ever needed again; the data is not recoverable from PJM past its
-~15-day retention.
+- **Aug 22 (Angie Ohaeri)**: two targets at their market grains, DA hourly and RT 5-min (RT settles 5-min since April 2018). Rule kept ever since: serve live from unverified data (verified for "now" doesn't exist yet), but **train and backtest on verified** values, since unverified ones revise.
+- **Oct 22**: RT target moved to **verified hourly at pnode level** for a GNN over the 1,505-node set (`raw_lmp.rt_hrl_lmps_nodal`, now `lmp_rt`): congestion spikes happen in RT and propagate across the graph; 2 years x 1,505 pnodes is already 25.7M hourly rows. The zonal 5-min unverified Kafka pipeline was paused: it couldn't feed a nodal model and paging the all-pnode feed every 10 min used ~a third of the shared 6 requests/min.
+- **Oct 23**: verified hourly posts 1-2 days late, so `rt_unverified_hrl_lmps` (hourly, ~20 min lag, no pnode filter: ~14.5k rows/hour, ~24 requests/day) also goes into the same table with `is_verified = false`; verified overwrites it, never the reverse. Unverified revises (20 of 3,008 re-pulled pnode-hours moved > $0.01) and is kept only 30 days, so an outage longer than that loses live freshness, not training data.
+- **Oct 24**: the paused 5-min pipeline was deleted (scripts, deployments, compose services, Kafka topics + DLQ, `raw_lmp.lmp_rt_unverified_fivemin` with 86,040 zonal rows from 2026-09-05 to 09-20). Code is in git history; PJM keeps that data ~15 days.
 
 **Title: First GNN: next-day 24-hour horizon, RT minus DA spread target, Author: Angie Ohaeri (assisted), Date: October 24th Time: 11:06am CT**
 
@@ -597,9 +523,9 @@ Why: after station grouping (`network_reference/build.py`), 42% of RT shadow-pri
 - Why: one GNN run is ~20 min on the Mac Mini's 4 cores, and runs from different sessions compete for its 4 cores and 15 GB. Colab (GPU runtime picked as the kernel in VS Code) does the training; the data stays on the Mac Mini and runs log straight to its MLflow, so there is no export/merge step (chosen over `mlflow-export-import`).
 - What Colab needs from `angies-server`: TimescaleDB on 5432 (`load_nodes`, `build_edges`), MLflow on 5000 (experiment `gridcast-lmp-spread`, artifact location `mlflow-artifacts:/3`, so artifacts upload through the server, commit `0dcbc79`), and the cache (`window.npz` ~740 MB, `exposure.npz` ~50 MB) served on 8765. Docker publishes 5432 and 5000 on all interfaces, so both already answer on the tailnet; no Docker or MLflow change.
 - Colab joins the tailnet as an ephemeral node tagged `tag:colab`, in userspace mode (Colab has no `/dev/net/tun`). Userspace mode gives no network interface, and psycopg2 can't use a proxy, so the setup cell runs `socat` to forward `localhost:5432/5000/8765` on Colab to `angies-server` through `tailscale nc`. The env vars then point at `localhost`. `tailscale serve` picks what to serve by the request's host name, so the cache download sends `Host: angies-server:8765` (with `Host: localhost` it returns 404).
-- Setup is the "Colab setup" cell at the top of `models/model.ipynb` (skip it on the Mac Mini). It installs Tailscale, joins, clones `lmp-pricing-model` from GitHub (public repo, no token), installs `mlflow-skinny==3.14.0` (matches the server) and `torch_geometric`, sets the DB and `MLFLOW_TRACKING_URI` env vars, and downloads the cache. Colab only runs code that is pushed to the branch.
+- Setup is two "Colab setup" cells at the top of `models/model.ipynb` (skip them on the Mac Mini). The first runs every time the kernel starts, including after a restart: a restart clears `sys.path` and the env vars. The second runs once per Colab machine and survives restarts (Tailscale and the forwarders run in their own process session). It installs Tailscale, joins, clones `lmp-pricing-model` from GitHub (public repo, no token), installs `mlflow-skinny==3.14.0` (matches the server) and `torch_geometric`, installs the repo with `pip install --no-deps -e` (so `gridcast` and `lmp_model` import in a fresh kernel), sets the DB and `MLFLOW_TRACKING_URI` env vars, and downloads the cache. Colab only runs code that is pushed to the branch.
 - Secrets: Colab secrets (`userdata.get`) don't work from the VS Code extension (googlecolab/colab-vscode known issues), so the cell asks for the Tailscale auth key and DB login with `getpass`. Nothing is saved in the notebook.
-- Cache over the tailnet, not Drive: always the current cache, no re-upload after each rebuild. Cost: 740 MB per Colab session, slower if Tailscale relays the connection (DERP) instead of connecting directly.
+- Cache over the tailnet, not Drive: always the current cache, no re-upload after each rebuild. Cost: 740 MB per new Colab machine; the first download took ~50 min (~2 Mbit/s, limited by the Mac Mini's connection). The npz is already deflate-compressed (1,161 MB of arrays -> 738 MB), so compressing it again gains nothing. The setup cell skips a file that is already there, so a kernel restart costs nothing; after a cache rebuild, delete the Colab copy to fetch the new one. `curl -R` keeps the Mac Mini's file time, so the `cache_modified` tag on Colab runs is the rebuild time, not the download time. If 50 min per machine becomes a problem: copy the cache to Google Drive once per rebuild and read it from Drive in Colab.
 - GPU: `device` (cuda if present, else cpu) in the Graph cell; the tensors, edges and model move to it, and runs get a `device` tag. On the Mac Mini nothing changes. GPU results differ slightly from CPU (different kernels; `SAGEConv`'s scatter is not deterministic on GPU), so compare variants run on the same device (filter on the `device` tag). A `model.pt` saved on GPU needs `torch.load(..., map_location="cpu")` on the Mac Mini.
 
 One-time setup (Tailscale admin console, https://login.tailscale.com/admin):

@@ -1,5 +1,7 @@
 # Best Practices — Electricity Demand Forecasting Stack
 
+Checked = in place. Status refreshed by Angie Ohaeri (assisted), October 29th 2:50am CT.
+
 ---
 
 ## General / Repo
@@ -8,17 +10,15 @@
 - [x] `pre-commit` hooks: ruff (lint), nbstripout (strip notebook outputs before commit)
 - [x] DVC for data and model versioning — `.dvc` files committed, data in remote storage
 - [x] Conventional commits: `feat:`, `fix:`, `data:`, `exp:`, `infra:`
-- [ ] GitHub Actions CI: ruff + pytest on every push, fail fast
-  - Cache pip deps with `actions/cache`
-  - Separate lint and test into different jobs
-  - Add `dbt compile` as a third job to catch broken SQL
+- [x] GitHub Actions CI (`ci.yml`): `make lint` + `make test` on pushes to `main` / `lmp-pricing-model` and PRs, uv cache on
+  - [ ] Separate lint and test into different jobs; add `dbt compile` as a third job to catch broken SQL
 
 ---
 
 ## Kafka
 
 - [x] Validate message schema in the consumer before writing to DB — never silently accept malformed data
-- [x] Dead letter queue topic (`load_dlq`, `lmp_dlq`, `weather_dlq`) for messages that fail parsing — inspect and replay rather than drop
+- [x] Dead letter queue topic (`load_dlq`, `lmp_dlq`, `weather_dlq`, `inst_load_dlq`) for messages that fail parsing — inspect and replay rather than drop
 - [x] Enable idempotent producers to prevent duplicates on retry: `enable.idempotence=True`
 - [x] Set `acks=all` on producers for durability
 - [x] Run Kafka UI (Kafdrop or Redpanda Console) in Docker Compose — monitor consumer lag from a browser
@@ -74,7 +74,7 @@
 - [x] Pydantic `response_model` on every route (`ZonePrediction`, `HistoryPoint`, `ZonePeak`, `Freshness`)
 - [x] `/health` endpoint — currently returns `status` + loaded horizons only, not model version/stage/last-prediction timestamp
 - [ ] Structured JSON logging (`structlog` or `python-json-logger`) — currently loguru's default format
-- [ ] Test with `httpx.AsyncClient` + pytest for async routes — no API tests yet (`tests/` only covers `dataset.py`)
+- [x] API tests with FastAPI's `TestClient` (`tests/src/api/test_api_main.py`)
 - [x] Models load in the `lifespan` startup hook with no try/except — any load failure fails startup loudly rather than serving wrong predictions
 - [ ] Rate limit the `/predict` endpoint if exposed publicly (`slowapi` is straightforward with FastAPI)
 
@@ -97,4 +97,4 @@
 - [x] Named volumes for TimescaleDB and MLflow artifact storage — anonymous volumes are deleted on `docker compose down`
 - [x] Set memory limits on Kafka and TimescaleDB — without them one service can starve the others
 - [x] Use a `.env` file for all config (ports, passwords, topic names) and reference with `${VAR}` in compose — no hardcoded values
-- [ ] Separate `docker-compose.override.yml` for local dev settings (e.g. exposed ports, debug flags) that you don't want in the production compose file
+- [x] `docker-compose.override.yml` for dev: mounts the Prefect flows and dbt project from the checkout, so changes there need a restart, not an image rebuild

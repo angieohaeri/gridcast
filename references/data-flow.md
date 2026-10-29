@@ -1,17 +1,12 @@
 # Data Flow
 
-**Title:** Data flow diagram — sources through storage
-**Author:** Angie Ohaeri
-**Date:** August 10, 2026 **Time:** 9:10pm
-**Revised:** August 11, 2026 8:36am — split the single diagram into ingestion / downstream, dropped the inline legend
+**Title:** Data flow diagram — sources through storage, **Author:** Angie Ohaeri, **Date:** August 10, 2026 **Time:** 9:10pm (split into ingestion / downstream Aug 11 8:36am; tightened by Angie Ohaeri (assisted) Oct 29 2:25am CT)
 
-Traces every byte from external API to TimescaleDB, then the not-yet-built modeling path. Colors: <b>blue = data</b>, <b>purple = pipeline infra</b>, <b>amber = modeling</b>, <b>green = serving</b>. Endpoint/cadence detail is in the table at the bottom, not on the edges.
+Load stack only (the LMP model's batch syncs are in `lmp-pricing-model/`). Colors: <b>blue = data</b>, <b>purple = pipeline infra</b>, <b>amber = modeling</b>, <b>green = serving</b>. Endpoints and cadence: table at the bottom.
 
 ---
 
 ## Ingestion — sources to storage
-
-Everything here is running today.
 
 ```mermaid
 flowchart TB
@@ -52,7 +47,7 @@ flowchart TB
     end
 
     ZONES["<b>pjm_weather_zones.csv</b><br/><i>20 zones · 30 stations</i>"]
-    BACKFILL["<b>backfill_weather</b><br/><i>one-off, bypasses Kafka</i>"]
+    BACKFILL["<b>fill_weather_gaps</b><br/><i>maintenance/, after outages, bypasses Kafka</i>"]
     DLQ(["<b>DLQ topics</b><br/><i>load_dlq · lmp_dlq · weather_dlq</i>"])
 
     PJM --> LOADP
@@ -122,7 +117,7 @@ flowchart LR
 
 ## Orchestration and control plane
 
-Prefect drives every producer/consumer as a scheduled flow. It carries no grid data — only run state — stored in a **separate `prefect` database on the same Postgres instance**, never the hypertables.
+Prefect runs every producer/consumer as a scheduled flow. It stores only run state, in a **separate `prefect` database on the same Postgres instance**.
 
 ```mermaid
 flowchart LR
@@ -160,8 +155,8 @@ flowchart LR
 | EIA Open Data v2 | `electricity/rto/region-data` | hourly, 7-day window | `load` → `load` | upsert on `(time, zone='RTO', source='eia')` |
 | PJM Data Miner 2 | `rt_hrl_lmps` | hourly, 7-day window | `lmp` → `lmp` | upsert on `(time, pnode_id)` |
 | Open-Meteo Forecast | `/v1/forecast`, `current=` | every 20 min | `weather` → `weather` | append-only |
-| Open-Meteo Archive | `/v1/archive`, `hourly=` | manual, one-off | *(none)* → `weather` | direct insert, de-duped against existing hours |
+| Open-Meteo Archive | `/v1/archive`, `hourly=` | manual, after outages (`maintenance/fill_weather_gaps.py`) | *(none)* → `weather` | direct insert of missing zone-hours only |
 
-**Why the trailing 7-day window matters:** PJM revises a given hour unverified→verified over ~3 days, EIA over ~1 day. Re-polling the past week and upserting lets those revisions land automatically — same `(time, zone, source)` row gets overwritten, not duplicated. Weather has no revision concept, so it's append-only.
+**Trailing 7-day window:** PJM revises an hour unverified→verified over ~3 days, EIA over ~1 day; re-polling the week and upserting overwrites the same `(time, zone, source)` row. Weather has no revisions, so it is append-only.
 
-**Frequency alignment:** load and LMP are both hourly, stamped on **interval end** ("hour ending"), which makes them joinable. Weather is sampled on a 20-minute poll clock and is *not* pre-aggregated at ingestion — the resample to hourly happens explicitly in dbt, never silently in a producer.
+**Frequency alignment:** load and LMP are hourly, stamped **hour ending**, so they join directly. Weather is polled every 20 minutes and resampled to hourly in dbt, not in the producer.

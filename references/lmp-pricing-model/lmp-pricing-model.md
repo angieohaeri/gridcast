@@ -4,62 +4,7 @@
 
 **Title: Ingestion pipeline built for all 10 raw_lmp sources, Author: Angie Ohaeri, Date: September 5th Time: (session)**
 
-First pass built a Kafka producer/consumer pair per source, matching `lmp_producer.py`/
-`lmp_consumer.py`. Reconsidered before deploying: `decisions.md`'s Isolation section
-already called this - "skip Kafka for daily-batch feeds, use the `data_center_sync.py`
-direct-upsert pattern instead, reserve Kafka for genuinely streaming data." Checked
-each source's actual posting cadence against PJM Data Miner's feed pages rather than
-assume: confirmed daily for `marginal_value_rt` (11am-12pm ET - the shadow price data
-is 5-min-native, but the feed itself only refreshes once a day), `transmission_constraints_da`
-(12-2pm ET) and `forecasted_generation_outages` (4am ET); confirmed **hourly** (not
-daily) for `generation_by_fuel` (:15 past the hour); confirmed monthly for
-`operator_initiated_commitments` (posts the 20th). No PJM feed page found for
-`marginal_value_da`, `lmp_da_zonal`, `scheduled_generation`, or `generation_ehv_losses` -
-treated as daily, same family as their confirmed siblings. None of the 10 are genuinely
-streaming, so none needed Kafka.
-
-Built instead: `src/prefect/raw_lmp_sync.py` - one file, one `@flow` function per
-source (pull PJM/EIA API, upsert straight to Postgres), same trailing-window-for-
-settlement-revisions pattern as the Kafka producers would have used. Deployments live
-in their own `src/prefect/lmp_deployments.py` (separate `serve()` process from the
-working pipeline's `deployments.py`) - own Cron for the hourly, weekly and monthly syncs (the daily ones run in order inside `lmp_morning` and
-`lmp_afternoon`, `lmp_daily.py`; see decisions.md, 2026-10-27),
-`paused=True` on all of them per decisions.md, until each has a validated run. No Kafka
-topics, no docker-compose producer/consumer services - the only new compose service is
-`lmp-prefect-deployments`, running `lmp_deployments.py`.
-
-Before building this, ran a one-off gap-fill (`_archive/scripts/gapfill_raw_lmp.py`) to
-close the ~2-week gap between the original Aug 21-23 historical backfill and now, since
-none of these sources had live ingestion until today.
-
-
-**Title: Real-time LMP target changed to the unverified feed + one genuine Kafka stream added, Author: Angie Ohaeri, Date: September 5th Time: (session)**
-
-*(Removed 2026-10-24 - the 5-min pipeline and its table no longer exist; see `decisions.md`.)*
-
-Caught mid-review: `marginal_value_rt`'s ~2-day settlement lag means it (and every other
-verified PJM feed) can never be what a live pricing model forecasts *toward* - the
-number doesn't exist yet at decision time. Confirmed directly against PJM's own
-definitions and by polling live: `rt_unverified_fivemin_lmps` is the pre-settlement
-real-time LMP feed traders actually see and act on, landing every 5 minutes with ~8min
-lag (measured as low as 13 seconds in one poll). Verified prices only ever matter after
-the fact, for settlement/accounting and as a delayed accuracy check - never as a live
-target. **Decision: the model's "Real-time LMP: 5-min" target is now the unverified
-feed, not `rt_hrl_lmps`/`marginal_value_rt`.**
-
-Added `raw_lmp.lmp_rt_unverified_fivemin` (zone x 5-min, same 20 zones as every other
-table here - `src/consumers/lmp_model_schema.sql`). Unlike every other raw_lmp source,
-this one is genuinely streaming, so it's the one built as a real Kafka producer/consumer
-pair (`src/producers/raw_lmp_lmp_rt_unverified_fivemin_producer.py`,
-`src/consumers/raw_lmp_lmp_rt_unverified_fivemin_consumer.py`, own topic + DLQ, own
-docker-compose services, 10-min interval deployments in `lmp_deployments.py`) - matches
-decisions.md's "reserve Kafka for genuinely streaming data" carve-out exactly, the one
-case among all 11 raw_lmp sources where it actually applies.
-
-One operational quirk worth remembering: `rt_unverified_fivemin_lmps` returned "No data
-found" on repeated direct tests at 60/120/180/240-minute poll windows, but succeeded
-reliably at 360 minutes every time - the producer's `POLL_WINDOW_MINUTES = 360` isn't
-an arbitrary safety margin, it's a measured requirement of this specific endpoint.
+No Kafka: none of the sources stream (checked on Data Miner: `marginal_value_rt` daily 11am-12pm ET though 5-min native, `transmission_constraints_da` 12-2pm ET, `forecasted_generation_outages` 4am ET, `generation_by_fuel` hourly at :15, `operator_initiated_commitments` monthly on the 20th; `marginal_value_da`, `lmp_da_zonal`, `scheduled_generation`, `generation_ehv_losses` had no feed page and are treated as daily). So, per `decisions.md` (Isolation), they use the direct pull-and-upsert pattern: `src/prefect/raw_lmp_sync.py`, one `@flow` per source with a trailing window for settlement revisions. Deployments: `src/prefect/lmp_deployments.py` (its own `serve()` process and compose service `lmp-prefect-deployments`); daily syncs run in order inside `lmp_morning` / `lmp_afternoon` (`lmp_daily.py`), the rest on their own Cron, each `paused=True` until validated. A one-off gap-fill closed the ~2-week gap after the Aug 21-23 backfill (script removed; `maintenance/gapfill_raw_lmp_interior.py` fills later holes).
 
 
 **Decision: the empirical shift-factor proxy (see below) is now the primary approach,
@@ -68,11 +13,13 @@ accurate quantity to estimate anyway — see `decisions.md` for the tradeoffs.
 
 Stretch extension to the load-forecasting project (see `../architecture.md`).
 
-**Status: in progress (data pipeline done, modeling not started).** Branch, `raw_lmp` schema, dbt
-(`analytics_lmp`), 19 raw tables (the 10 Tier 1 sources, the transmission and pnode graph tables, the
-`facilities` lookup, the nodal RT/DA LMPs, and the PJM load and Open-Meteo weather forecasts), their sync flows (`raw_lmp_sync.py`), the
-per-pnode feature models, the loader (`lmp_model/dataset.py`), walk-forward splits and the edge
-builder exist. No model is trained yet; `modeling-session-prompt.md` is the handoff for that work.
+**Status: modeling in progress (data pipeline done).** Branch, `raw_lmp` schema, dbt
+(`analytics_lmp`), the raw tables, their sync flows (`raw_lmp_sync.py`), the feature tables by grain,
+the loader (`lmp_model/dataset.py`), walk-forward splits, the edge builder and the GNN
+(`models/model.ipynb`) exist. Results: `experiments.md`.
+
+**Status update, Author: Angie Ohaeri (assisted), Date: October 29th Time: 1:55am CT** - stale sections
+removed from this file (the 5-min RT target, the zonal-baseline next steps, done next-step lists).
 
 ---
 
@@ -88,28 +35,12 @@ target, MLflow naming, Prefect deployments, Kafka usage) — see `decisions.md`.
 **Title: Current target for the first GNN, Author: Angie Ohaeri (assisted), Date: October 24th Time: 11:06am CT**
 
 **Current**: pnode-level **RT minus DA spread**, hourly, forecast **next-day** - issued at
-14:30 ET on day D for every hour of D+1 at all 1,505 nodes (11-35h ahead); RT reported as
-DA + predicted spread. Data: `raw_lmp.lmp_rt` (labels: `is_verified` rows) and
-`raw_lmp.lmp_da`. Feature cutoff, baselines and metrics: `decisions.md`
-("First GNN: next-day 24-hour horizon, RT minus DA spread target"). The zonal two-target
-plan below is the original framing, kept for history - its 5-min RT target was superseded
-(`decisions.md`, 2026-10-22 and 2026-10-23 entries).
-
-**Original framing - two targets, not one mixed grain** (matches how PJM's markets clear):
-
-- **Day-ahead LMP**: hourly.
-  DA only clears hourly. Reuses existing hourly lag/rolling/join architecture almost as-is.
-  The easy one.
-
-- **Real-time LMP**: 5-min.
-  RT settles 5-min since April 2018. Bigger lift:
-  - New 5-min ingestion, ~12x the row volume of hourly `lmp`.
-  - Hourly-only features (load, weather) need explicit forward-fill onto the 5-min grid —
-    not silent resampling.
-  - **Instantaneous load** / **unverified 5-min LMP** (see `project_instantaneous_load_feature`
-    memory) become load-bearing feature sources here, not just nice-to-haves.
-  - 5-min spikes are sharper and noisier than hourly averages — exactly where congestion-state
-    features matter most (see mechanism below).
+14:30 ET on day D for every hour of D+1 at all 1,580 nodes (the original 1,505 plus 75
+`constraint` nodes since Oct 27; 11-35h ahead); RT reported as DA + predicted spread. Data:
+`raw_lmp.lmp_rt` (labels: `is_verified` rows) and `raw_lmp.lmp_da`. Feature cutoff, baselines and
+metrics: `decisions.md` ("First GNN: next-day 24-hour horizon, RT minus DA spread target"). The
+earlier zonal two-target plan with a 5-min RT target was superseded (`decisions.md`, 2026-10-22 and
+2026-10-23 entries).
 
 ---
 
@@ -129,10 +60,11 @@ It's an optimization output, not a simple clearing price — a real ceiling on w
 features can predict.
 
 Because λ is system-wide, not zonal, system-wide features (fuel mix, gas price, RTO-level outages)
-correctly inform λ without needing a zonal breakdown. Broadcasting the same value to every zone's
-feature row is the right pattern here, not a limitation. All zone-to-zone LMP variation is the
-congestion term's job — that's what the Marginal Value feed + substation-graph proxy work (below)
-is for.
+inform λ without needing a zonal breakdown. But copying them into every node's input made the GNN
+worse (`experiments.md` E04): 59% of spread variance is the hour's mean across nodes (E07), so these
+features belong in an hour-level model of that shared part, not in each node's row. All
+node-to-node LMP variation is the congestion term's job — that's what the Marginal Value feed +
+substation-graph proxy work (below) is for.
 
 **Ji/Kim/Thomas/Tong 2013** ("Forecasting Real-Time LMP: A State Space Approach", PJM 5-bus sim)
 found a plain ANN on historical load/price was *worst* (MAPE 20.6%) against a method that models
@@ -151,7 +83,7 @@ Caveat: 2013, toy sim, ignores losses, 6-8hr horizon only. Directionally right, 
 
 **Already ingested**: `load`, `lmp` (hourly `rt_hrl_lmps`), `weather` (the load stack), plus the forecast
 feeds the pnode model uses: PJM load forecast by area (`raw_lmp.load_forecast`) and Open-Meteo zone
-weather forecasts (`raw_lmp.weather_forecast`), both point in time. Nodal RT and DA LMPs for the 1,505
+weather forecasts (`raw_lmp.weather_forecast`), both point in time. Nodal RT and DA LMPs for the 1,580
 pnodes are `raw_lmp.lmp_rt` / `lmp_da`.
 
 Table structure, row counts, and date ranges for every backfilled `raw_lmp` table:
@@ -174,7 +106,8 @@ Table structure, row counts, and date ranges for every backfilled `raw_lmp` tabl
 | 2 — renewable variability | Five Minute Solar/Wind Generation + forecasts | planned | duck-curve dynamics |
 | 3 — investigate first | Energy Market Generation Offers | not a live feature — 4-month posting delay (PJM's stated policy) | not useless though: genuinely rich bid-curve data (masked generator ID, MW/BID pairs, start costs, ECOMAX/ECOMIN). Heat rate is a slow-changing physical property, not something that needs to be fresh — use this (even 4mo stale) to back-calculate typical heat rate/markup per unit or fuel type (the primer's "effective heat rate"), then apply that calibration to **live** fuel cost to estimate a live marginal-cost curve. Freshness requirement moves from the bid (stale) to the heat rate (doesn't need to be fresh) |
 | 3 | Daily Cleared INCs, DECs, UTCs | checked, weak — posts daily 4am but only 1 row/day of RTO-wide MW totals (no price/location) | at best a blunt proxy for anticipated DA-RT congestion via UTC volume; low priority |
-| 3 | Transfer Interface Information / Transmission Limits | not started | likely redundant with Marginal Value |
+| 1 | Day-ahead interface flows and limits (`raw_lmp.interface_flows_da`) | backfilled | flow / limit on 6 transfer interfaces for the target day; shows a constraint approaching before it binds |
+| 1 | Scheduled interchange (`raw_lmp.scheduled_interchange`) | backfilled | planned flow on 19 tie lines into PJM, previous day |
 | 3 | Off-Cost Operations | checked | out-of-merit ops for voltage/reactive support, not congestion — `Facility`/`Contingency` fields match Marginal Value's structure. Monthly, updated the 4th. Correlates with congestion but isn't the same mechanism |
 | skip | Real-Time Default Marginal Value Override | checked | operational fallback-price flag (what PJM substitutes when the normal RT calc doesn't produce one), not a price driver |
 | skip | Balancing Transmission Congestion Preliminary Billing Data | checked | settlement/accounting — allocates congestion cost to who pays whom after the fact, not predictive |
@@ -213,34 +146,7 @@ Graph-construction and zone-attribution-fallback decisions: `decisions.md`.
 
 ## Next steps
 
-- ~~Build producer/loader + dbt models for all 10 raw data-source tables~~ - all backfilled; the
-  sources the first model uses have staging and feature models (see `schema.md`).
-- Ship a simple zonal congestion baseline first (`operator_initiated_commitments` +
-  system-wide binding-constraint count), then layer the empirical shift-factor
-  regression on top and measure the lift — don't build the complex feature first.
-- ~~Decide forecast horizon N~~ - decided 2026-10-24: next-day 24h, RT-DA spread
-  (`decisions.md`).
-
-**Title: Next steps for the pnode-level GNN, Author: Angie Ohaeri (assisted), Date: October 24th Time: 11:06am CT**
-
-- ~~Declare the `raw_lmp` tables as dbt sources and build staging models~~ - done 2026-10-24/26 for
-  the tables the first model uses.
-- ~~Write a per-source availability table and enforce the 14:30 ET feature cutoff in every feature
-  model~~ - done (`feature_availability_days`, `forecast_cutoff_et` in `dbt_project.yml`).
-- First GNN against the two baselines (spread = 0, last day's same-hour spread). Mask the 60
-  pnodes that start partway through the window; ~~the 426 fill-in nodes have no edges yet~~ - they
-  now get correlation edges (`decisions.md`, "GNN edge set").
-- Deferred until after a first model: linking shadow prices to graph edges. Direct name
-  matching covers ~43-47% of RT shadow-price weight; many binding constraints sit at
-  switching stations with no pnode, only resolvable through the GridSFM network.
-
-**Title: Next steps after the data pipeline, Author: Angie Ohaeri (assisted), Date: October 26, 7:35PM UTC**
-
-- Normalization fit on each fold's training window, loss mask, per-fold edges
-  (`build_edges(fold.train_start, fold.val_start)`), a per-node reference model, then the GNN and
-  the ablation ladder; full list in `modeling-session-prompt.md`.
-- Add the deferred features as ablation steps: lagged binding-constraint count and shadow prices,
-  fuel mix, forecasted outages, gas price.
+Current open experiments: `experiments.md` ("Open").
 
 Graph-distance matching (facility → `transmission_nodes` → shortest path to zone) is on
 hold, not deleted — `raw_lmp.facilities` + CEII ceiling means it can only ever cover
