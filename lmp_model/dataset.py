@@ -145,5 +145,5 @@ def build_cache(start: pd.Timestamp, end: pd.Timestamp, pnode_ids: pd.Index) -> 
     )
 
 
-def load_cache() -> dict[str, np.ndarray]:
+def load_cache(CACHE_PATH=CACHE_PATH) -> dict[str, np.ndarray]:
     return dict(np.load(CACHE_PATH))
