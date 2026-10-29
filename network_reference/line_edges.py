@@ -110,6 +110,7 @@ def line_pairs(conn) -> pd.DataFrame:
 
 def main() -> None:
     conn = get_connection()
+    conn.autocommit = False
     pairs = line_pairs(conn)
     existing = query(conn, f"select sub_a, sub_b from raw_lmp.pnode_topology_edges where source not in ({', '.join(repr(s) for s in SOURCES)})")
     existing = set(map(tuple, np.sort(existing.to_numpy(), axis=1)))

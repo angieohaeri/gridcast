@@ -15,6 +15,7 @@ CONTINGENCY_LIST = MODEL_DIR / "contingencies" / "pjm-contingency-list.xml"
 FACILITY_LABELS = PROJ_ROOT / "network_reference" / "facility_labels.csv"
 FLOWGATES = EXTERNAL_DATA_DIR / "m2m-flowgates" / "miso" / "pjm_m2m_rt_ffe_flowgates_2026.csv"
 LINES = INTERIM_DATA_DIR / "contingency_lines.csv"
+OSM_LOCATIONS = PROJ_ROOT / "network_reference" / "osm_station_locations.csv"
 UPDATE_DIRS = [MODEL_DIR / "2008-2019", MODEL_DIR / "2020-2026"]
 BUS_COLUMNS = ["pnode_id", "tx_zone", "substation", "voltage_text", "equipment"]
 SECTION = re.compile(r"^\s*(Bus+es|Aggregates)\s+(Added|Deleted|Changed)\s*$", re.IGNORECASE)
@@ -281,6 +282,20 @@ def build_substations(buses: pd.DataFrame, topology: pd.DataFrame) -> pd.DataFra
     located["location_source"] = "gnn_topology:" + located["topo_source"]
     subs = subs.merge(located.drop(columns="topo_source").rename(columns={"conflict": "location_conflict"}), on=["tx_zone", "code"], how="left")
     subs.insert(0, "substation_id", range(1, len(subs) + 1))
+    return subs
+
+
+def add_osm_locations(subs: pd.DataFrame) -> pd.DataFrame:
+    """Coordinates from OpenStreetMap (OSM_LOCATIONS, reviewed by hand) for substations the GNN topology left without one."""
+    osm = pd.read_csv(OSM_LOCATIONS)
+    osm["tx_zone"] = osm["tx_zone"].fillna("")
+    keys = pd.MultiIndex.from_frame(subs[["code", "tx_zone"]].fillna(""))
+    found = osm.set_index(["code", "tx_zone"]).reindex(keys)
+    fill = subs["lat"].isna().to_numpy() & found["lat"].notna().to_numpy()
+    subs.loc[fill, "lat"] = found["lat"].to_numpy()[fill]
+    subs.loc[fill, "lon"] = found["lon"].to_numpy()[fill]
+    subs.loc[fill, "location_source"] = "osm"
+    logger.info(f"{fill.sum()} substations located from OSM")
     return subs
 
 
@@ -552,6 +567,7 @@ def main() -> None:
     subs = add_contingency_substations(subs, equipment)
     by_token = token_stations(breaker_stations(equipment), subs)
     subs = assign_stations(subs, equipment, by_token)
+    subs = add_osm_locations(subs)
     load(conn, "substations", subs, ["substation_id", "code", "tx_zone", "n_pnodes", "n_load", "n_gen", "n_ehv", "max_voltage_kv", "voltages_kv", "first_seen_date", "last_change_date", "in_gnn", "lat", "lon", "location_source", "location_conflict", "source", "station_id", "station_rule"])
     load(conn, "pnodes", pnodes, ["pnode_id", "pnode_type", "name", "substation_id", "tx_zone", "voltage_text", "voltage_kv", "equipment", "bus_type", "effective_date", "first_seen_date", "last_change_date", "in_gnn", "gnn_role", "source"])
     lines = read_lines(equipment, subs)

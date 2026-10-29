@@ -1,0 +1,289 @@
+code,tx_zone,lat,lon,osm_id,osm_name,evidence
+MONR AE,AECO,39.67655,-75.02475,way/95264459,Monroe Substation,name match confirmed by line neighbours
+EDELPHOS,AEP,40.82135,-84.28216,way/1067059256,East Delphos Substation,name match confirmed by your review
+HYATTCS,AEP,40.21127,-83.09229,way/86355285,Hyatt Substation,name match confirmed by line neighbours
+LAYMAN,AEP,39.40422,-81.68807,way/1179886316,Layman Substation,name match confirmed by line neighbours
+MARYSVILLE,AEP,40.33273,-83.43047,way/33171108,Marysville Substation,name match confirmed by line neighbours
+MUSKING2,AEP,39.58944,-81.68072,relation/14222666,Muskingum River Substation,name match confirmed by line neighbours
+SPORNAEP,AEP,38.96179,-81.92963,way/42062430,Sporn Substation,name match confirmed by line neighbours
+TIDD_AEP,AEP,40.25323,-80.65066,way/59449723,Tidd Substation,name match confirmed by line neighbours
+TILTONS2,AEP,40.16571,-80.70524,way/90070414,Tiltonsville Substation,name match confirmed by your review
+WMOULTON,AEP,40.55288,-84.34032,way/835583540,West Moulton Substation,name match confirmed by your review
+BUTL APS,APS,40.85786,-79.87973,way/64729081,Butler Substation,name match confirmed by your review
+DOUBLETO,APS,39.06135,-78.13717,way/97213224,Double Toll Gate Substation,name match confirmed by your review
+DOUBS,APS,39.29626,-77.51489,way/53533932,Doubs Substation,name match confirmed by line neighbours
+INWOOD,APS,39.35231,-78.0376,way/249761059,Inwood Substation,name match confirmed by your review
+PRUNTYTOWN,APS,39.35101,-80.06472,way/96659602,Pruntytown Substation,name match confirmed by line neighbours
+911INDUS,ATSI,41.41094,-84.09651,way/296601804,Industrial Substation,name match confirmed by your review
+CLOVEROE,ATSI,40.7683,-81.53908,way/1316845699,Cloverdale Substation,name match confirmed by line neighbours
+COMERC,ATSI,40.35633,-82.48934,way/1257601824,Commerce Substation,name match confirmed by your review
+HOYTDAL2,ATSI,40.85071,-80.33474,way/180190873,Hoytdale Substation,name match confirmed by your review
+LNCOLNPK,ATSI,41.10287,-80.59576,way/430483494,Lincoln Park Substation,name match confirmed by your review
+RICHLND,ATSI,41.30497,-84.33458,way/818880945,Richland Gas Power Plant,name match confirmed by line neighbours
+CONASTONE,BGE,39.68746,-76.5405,way/53776393,Conastone Substation,name match confirmed by line neighbours
+MONUMEST,BGE,39.2971,-76.6082,way/336347520,Monument Street Substation,name match confirmed by line neighbours
+101 ITAS,COMED,41.97984,-87.99578,relation/20300282,ComEd Itasca 138kV-345kV Substation,station number and name both match
+102 PALA,COMED,42.1194,-88.05751,way/43310282,Palatine Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+103 LISL,COMED,41.79956,-88.05876,way/71870004,ComEd Lisle 138kV-345kV Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+104 FORD,COMED,41.76199,-87.73336,way/449872367,Ford City Substation,"neighbour pick Ford City (5 km from 3 neighbours, next candidate 123 km); your note was about the lat/lon columns, not the match"
+107 DIXO,COMED,41.84234,-89.49544,way/311856507,Dixon Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+109 APTA,COMED,42.18113,-87.96201,way/43100914,Aptakisic Substation,station number and name both match
+11 FISK,COMED,41.85029,-87.65506,way/157657590,Fisk Street Generating Station,"OSM voltage tag incomplete, but line neighbours confirm the location"
+110 DEVO,COMED,41.99877,-87.73915,way/24885939,ComEd Devon 138kV Substation,station number and name both match
+111 ELEC,COMED,41.9799,-87.90507,way/163500118,Facility Power Substation 1 & 2,station number matches and line neighbours confirm it
+112 WILTON,COMED,41.39922,-87.94907,way/43881289,ComEd Wilton Center 345kV Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+113 WATE,COMED,41.82787,-88.75478,way/450081266,Waterman Substation,station number and name both match
+114 NORT,COMED,41.94519,-87.69691,way/28084754,ComEd Northwest 138kV Substation,station number and name both match
+115 BEDF,COMED,41.76141,-87.76604,way/52007676,ComEd Bedford 138kV-345kV Substation,station number and name both match
+117 PROS,COMED,42.11517,-87.9202,way/692637135,Prospect Heights 138kV-345kV Substation,station number and name both match
+118 WALL,COMED,41.74666,-87.63972,way/450081265,Wallace Substation,station number and name both match
+12 DRESD,COMED,41.39103,-88.2749,way/43929667,Dresden Station,name match confirmed by line neighbours
+120 LOMB,COMED,41.89543,-88.04682,way/102601566,ComEd Lombard Substation,station number and name both match
+121 FREE,COMED,42.30241,-89.61858,way/367338284,Freeport Substation,station number and name both match
+122 BELV,COMED,42.27597,-88.86702,way/44758583,Belvidere Substation,station number and name both match
+123 MARE,COMED,42.25365,-88.62837,way/285354847,Marengo Substation,station number and name both match
+124 MARY,COMED,42.06239,-89.50948,way/367355675,Maryland Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+125 NORM,COMED,41.56077,-89.70718,way/450081262,Normandy Substation,station number and name both match
+127 MATT,COMED,41.49201,-87.70898,way/104299383,ComEd Matteson Substation,station number and name both match
+129 NILE,COMED,42.02188,-87.77601,way/24888067,ComEd Niles 138kV Substation,station number and name both match
+13 CRAWF,COMED,41.82712,-87.72632,way/229431907,Crawford Substation,station number and name both match
+131 W CH,COMED,41.89336,-88.22426,way/119097401,West Chicago Substation,kept on Angie's review (station number matches but the name does not; nothing confirms it yet)
+132 GARD,COMED,41.79284,-90.1106,way/450130915,Garden Plain Substation,station number and name both match
+133 ROCK,COMED,41.76585,-89.66106,way/450130917,Rock Falls Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+134 LAGR,COMED,41.83574,-87.866,way/450130916,LaGrange Park Substation,station number and name both match
+135 ELMH,COMED,41.92275,-87.92272,way/214219066,ComEd Elmhurst 138kV-345kV Substation,station number and name both match
+136 BURR,COMED,41.75972,-87.93089,way/234925628,Burr Ridge Substation,station number and name both match
+137 WASH,COMED,41.78206,-87.6194,way/449369707,Washington Park Substation,station number and name both match
+140 FRAN,COMED,41.93542,-87.88852,way/86193601,Franklin Park Substation,name match confirmed by line neighbours
+149 WILM,COMED,41.29246,-88.17894,way/492482857,Wilmington Substation,station number and name both match
+150 CALU,COMED,41.71542,-87.54616,way/91611113,Calumet Substation,station number and name both match
+152 BUSS,COMED,42.03766,-87.96224,way/26196884,Busse 138kV Substation,station number and name both match
+154 LIBE,COMED,42.31358,-87.97531,way/43092005,Libertyville Substation,station number and name both match
+16 WAUKE,COMED,42.38346,-87.81695,way/449913425,Waukegan Substation,station number and name both match
+160 ALPI,COMED,42.26035,-89.01897,way/188551315,Alpine Substation,station number and name both match
+162 PIER,COMED,42.26411,-89.13639,way/285381309,Pierpont Substation,name match confirmed by line neighbours
+163 ROSC,COMED,42.31726,-89.08779,way/488397577,Roscoe Bert Substation,name match confirmed by line neighbours
+165 FORD,COMED,42.26421,-89.09267,way/367359871,Fordham Substation,kept on Angie's review (location disagrees with its line neighbours)
+167 PLANO,COMED,41.68372,-88.47935,way/102597859,Plano Substation,name match confirmed by line neighbours
+172 GOLF,COMED,42.05596,-87.8327,way/24887581,ComEd Golf Mill 138kV-345kV Substation,station number and name both match
+174 UNIV,COMED,41.80363,-87.60696,way/210910677,University Substation,ambiguous name; neighbour pick is clear
+176 STIL,COMED,42.11728,-89.2101,way/366694545,Stillman Valley Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+179 BLOO,COMED,41.48804,-87.60408,way/89709585,Bloom 345 kV Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+180 LENA,COMED,42.35882,-89.82941,way/285387036,Lena Substation,station number and name both match
+184 ELKG,COMED,42.02655,-87.96362,way/994824354,ComEd Elk Grove 138kV Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+193 MCHE,COMED,42.33519,-88.28022,way/120237346,McHenry Substation,station number and name both match
+194 SABR,COMED,42.23326,-89.09592,way/43571062,Sabrooke Substation,name match confirmed by line neighbours
+204 OLD,COMED,42.21217,-87.84161,way/449909856,Old Elm TDC,station number and name both match
+206 ROLL,COMED,42.05053,-88.00377,way/59432115,ComEd Rolling Meadows 138kV Substation,station number and name both match
+207 TONN,COMED,41.99605,-87.97766,way/26196644,Tonne 138kV Substation,name match confirmed by line neighbours
+214 HOFF,COMED,42.06461,-88.14364,way/106015694,Hoffman Estates Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+215 HOWA,COMED,42.01663,-87.88733,way/486466382,Howard Substation,station number and name both match
+217 PROS,COMED,42.11517,-87.9202,way/692637135,Prospect Heights 138kV-345kV Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+225 LAND,COMED,42.02112,-87.97183,way/488376709,Landmeier Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+23 COLLINS,COMED,41.34951,-88.34768,way/43822091,Collins Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+233 BARR,COMED,42.15656,-88.14228,way/339622137,Barrington Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+234 LAKE,COMED,42.35353,-87.87629,way/73978235,Lakehurst Substation,kept on Angie's review (ambiguous name and no confident pick)
+235 POPL,COMED,42.36957,-88.85122,way/785704123,Poplar Grove Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+237 BUFF,COMED,41.72066,-90.45153,way/1015157451,Buffalo Bill Substation,kept on Angie's review (OSM voltage does not match and nothing confirms it; nothing confirms it yet)
+240 CARY,COMED,42.20276,-88.23507,way/178383395,Cary Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+250 BARR,COMED,42.15656,-88.14228,way/339622137,Barrington Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+251 ROUN,COMED,42.37863,-88.05574,way/279663470,Round Lake Beach TDC,kept on Angie's review (OSM voltage does not match and nothing confirms it; nothing confirms it yet)
+253 SCHA,COMED,42.05963,-88.05544,way/486428779,Schaumburg Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+258 ELMW,COMED,42.08183,-87.76519,way/24887190,Elmwood Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+268 ARLI,COMED,42.11782,-87.98469,way/43217075,Arlington Heights Substation,kept on Angie's review (OSM voltage does not match and nothing confirms it; nothing confirms it yet)
+282 ZION,COMED,42.44667,-87.80532,way/177599080,Zion Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+294 GURN,COMED,42.37885,-87.96553,way/449909855,Gurnee TDC,station number and name both match
+3 POWERT,COMED,40.54061,-89.68656,way/176749154,Powerton Station,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+30 COLUM,COMED,41.62982,-87.50048,way/306512348,Columbia Susbstation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+31 GALEW,COMED,41.92317,-87.78579,way/449369704,ComEd Galewood Substation,station number and name both match
+317 DIXO,COMED,41.84234,-89.49544,way/311856507,Dixon Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+32 HANSO,COMED,41.91646,-87.7539,way/449369705,Hanson Park Substation,station number and name both match
+33 HAYFO,COMED,41.75641,-87.7134,way/95063618,Hayford Substation,station number and name both match
+34 KINGS,COMED,41.89177,-87.63843,way/210679946,Kingsbury Substation,kept on Angie's review (location disagrees with its line neighbours)
+35_LAKEV,COMED,41.93195,-87.65664,way/210320778,Lakeview Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+37 NATOM,COMED,41.92522,-87.7909,way/217817024,ComEd Natoma Substation,station number and name both match
+372 STER,COMED,41.80815,-89.64963,way/311354363,Sterling TDC,station number and name both match
+38 HUMBO,COMED,41.90085,-87.68735,way/209388403,Humboldt Park Substation,station number and name both match
+380 CHAR,COMED,42.25934,-89.05185,way/45309008,Charles Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+387 BLAC,COMED,42.19368,-89.06893,way/488394423,Blackhawk Substation,ambiguous name; neighbour pick is clear
+39 PORTA,COMED,41.94828,-87.74131,way/449369706,Portage Substation,station number and name both match
+391 ARGY,COMED,42.3632,-88.94607,way/1482296894,Argyle Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+4 QUAD C,COMED,41.72652,-90.30628,way/104334522,Quad Cities Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+40 DIVER,COMED,41.93076,-87.67595,way/209884169,ComEd Diversey Substation,station number and name both match
+409 JOLI,COMED,41.53215,-88.07845,way/491241659,Joliet Central Substation,kept on Angie's review (OSM voltage does not match and nothing confirms it; nothing confirms it yet)
+41 ROSEL,COMED,41.69672,-87.62047,way/210701571,Roseland Substation,kept on Angie's review (OSM voltage does not match and nothing confirms it; nothing confirms it yet)
+411 ROME,COMED,41.63821,-88.09483,way/177930723,Romeoville Substation,station number and name both match
+414 ROBE,COMED,41.70508,-87.81219,way/489965625,ComEd Roberts Road Substation,station number and name both match
+416 BELL,COMED,42.25664,-90.49581,way/170491104,Bellevue Switch Station,kept on Angie's review (ambiguous name and no confident pick)
+419 TINL,COMED,41.60081,-87.81879,way/103542223,Tinley Park Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+42 ROUND,COMED,42.36284,-88.10588,way/92998435,Round Lake Substation,station number and name both match
+43 WILDW,COMED,41.66295,-87.61816,way/103533965,Wildwood Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+436 HILL,COMED,41.55197,-88.13103,way/92041794,Hillcrest Substation,station number and name both match
+439 ROCK,COMED,41.79116,-90.29537,way/75701627,Rock Creek Substation,kept on Angie's review (ambiguous name and no confident pick)
+440 PALO,COMED,41.65774,-87.81042,way/489956850,Palos Township Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+443 HARV,COMED,41.59687,-87.64243,way/313769112,Harvey Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+446 LANS,COMED,41.56966,-87.56767,way/104296608,Lansing Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+45 JEFFE,COMED,41.87083,-87.64305,way/210665969,Jefferson Street Substation,station number and name both match
+452 GLEN,COMED,41.53562,-87.62351,way/491651625,Glenwood Substation,station number and name both match
+453 WOOD,COMED,41.43363,-87.74113,way/89705943,Woodhill Substation,station number and name both match
+454 PLAI,COMED,41.62202,-88.20819,way/93457004,Plainfield Substation,station number and name both match
+456 JOL,COMED,41.53215,-88.07845,way/491241659,Joliet Central Substation,station number and name both match
+458 GREE,COMED,41.60207,-87.5488,way/490381431,Green Lake Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+46 DESPL,COMED,42.05043,-87.89698,way/26320534,Des Plaines 138kV-345kV Substation,station number and name both match
+461 CRES,COMED,41.63994,-87.73316,way/103541280,Crestwood Substation,ambiguous name; neighbour pick is clear
+47 EVANS,COMED,42.05109,-87.6958,way/28520759,ComEd Evanston 138kV Substation,station number and name both match
+470 ORLA,COMED,41.64306,-87.85309,way/489724769,Orland Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+48 HIGHL,COMED,42.18736,-87.82529,way/28521145,Highland Park Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+487 ARCH,COMED,41.64544,-88.00043,way/52035154,Archer Substation,station number and name both match
+49 PLYMO,COMED,41.87526,-87.6284,way/149119621,Plymouth Court Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+51 MC CO,COMED,41.80221,-87.82315,way/44391737,ComEd McCook 138kV-345kV Substation,name match confirmed by line neighbours
+517 SAYR,COMED,41.75304,-87.79315,way/489966009,Sayre Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+52 HAWTH,COMED,41.84249,-87.74809,way/449950599,Hawthorne Substation,station number and name both match
+525 NORM,COMED,41.56077,-89.70718,way/450081262,Normandy Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+527PLANO,COMED,41.68372,-88.47935,way/102597859,Plano Substation,kept on Angie's review (OSM voltage does not match and nothing confirms it; nothing confirms it yet)
+531 BRID,COMED,41.73851,-87.80859,way/489965741,Bridgeview Substation,station number and name both match
+54 CLYBO,COMED,41.91385,-87.65613,way/35799001,Clybourn Substation,station number and name both match
+549 BERK,COMED,41.89451,-87.91095,way/214219064,ComEd Berkeley 138kV Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+55 HEGEW,COMED,41.66344,-87.55077,way/103532273,Hegewisch Substation,station number and name both match
+550 CLEA,COMED,41.77095,-87.7764,way/489994413,Clearing Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+555 GLEN,COMED,41.85997,-88.0433,way/72861542,Glen Ellyn Substation,station number and name both match
+556 BERW,COMED,41.83576,-87.78469,way/449889485,Berwyn Substation,station number and name both match
+557 BUTT,COMED,41.83331,-88.04593,way/177930721,Butterfield Substation,station number and name both match
+56 NO AU,COMED,41.78421,-88.30875,way/47058568,North Aurora Substation,kept on Angie's review (station number matches but the name does not; nothing confirms it yet)
+562 GLEN,COMED,41.85997,-88.0433,way/72861542,Glen Ellyn Substation,kept on Angie's review (ambiguous name and no confident pick)
+563 HANO,COMED,41.42055,-87.45176,way/1205523824,Hanover Station,kept on Angie's review (OSM voltage does not match and nothing confirms it; nothing confirms it yet)
+565 NORD,COMED,41.94699,-88.03246,way/491528894,Nordic Substation,station number and name both match
+566 OAKB,COMED,41.85135,-87.93465,way/214219068,Oak Brook Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+569 SUGA,COMED,41.80646,-88.43372,way/486720994,Sugar Grove Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+57 FORES,COMED,41.87249,-87.81699,way/449369703,Forest Park Substation,station number and name both match
+570 ELGI,COMED,42.03122,-88.28226,way/366916296,Elgin Substation,station number and name both match
+572 GILB,COMED,42.08234,-88.34464,way/95999528,ComEd Gilberts 138kV Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+574 BART,COMED,41.97966,-88.15144,way/116559066,Bartlett Substation,name match confirmed by line neighbours
+577 S EL,COMED,41.98435,-88.32827,way/184516768,South Elgin Substation,kept on Angie's review (station number matches but the name does not; nothing confirms it yet)
+580 DOWN,COMED,41.74813,-88.0037,way/491512747,Downers Grove Substation,station number and name both match
+581 FRON,COMED,41.74776,-88.23445,way/102577184,Frontenac Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+59 CICER,COMED,41.85153,-87.75461,way/449369701,Cicero Substation,station number and name both match
+592 OSWE,COMED,41.70771,-88.29838,way/102597846,Oswego Substation,kept on Angie's review (name match with no neighbour to confirm it; nothing confirms it yet)
+593 WILL,COMED,42.58708,-88.55258,way/1039700985,Williams Bay,kept on Angie's review (ambiguous name and no confident pick)
+6 BYRON,COMED,42.07406,-89.28661,way/176733289,Byron Station,name match confirmed by line neighbours
+60 ALSIP,COMED,41.6888,-87.74219,way/103541285,TSS60 Alsip Substation,station number matches and line neighbours confirm it
+63 SAWYE,COMED,41.80476,-87.71316,way/489998639,ComEd Sawyer Substation,name match confirmed by line neighbours
+64 BELLW,COMED,41.8849,-87.8715,way/214219062,Bellwood Substation,station number and name both match
+648 NORR,COMED,41.95975,-87.83394,way/217755461,Norridge Substation,name match confirmed by line neighbours
+65 OHIO,COMED,41.89209,-87.63887,relation/18052331,Ohio Substation,kept on Angie's review (location disagrees with its line neighbours)
+68 LASAL,COMED,41.87285,-87.63138,way/148803815,LaSalle Substation,station number and name both match
+70 BRADL,COMED,41.16422,-87.85934,way/449418937,Bradley Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+70 MODAF,COMED,41.16422,-87.85934,way/449418937,Bradley Substation,kept on Angie's review (location disagrees with its line neighbours)
+71 HIGGI,COMED,41.97932,-87.80766,way/449418938,ComEd Higgins 138kV Substation,station number and name both match
+73 CHI H,COMED,41.52355,-87.60579,way/202150196,ComEd Chicago Heights Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+75 CRYST,COMED,42.25494,-88.30223,way/285152710,Crystal Lake Substation,station number and name both match
+76 BLUE,COMED,41.63676,-87.66632,way/103533968,ComEd Blue Island 138kV-345kV Substation,station number and name both match
+78 FRANK,COMED,41.93542,-87.88852,way/86193601,Franklin Park Substation,station number and name both match
+785 ONTA,COMED,41.89301,-87.63003,way/158621273,Ontario Street Substation,station number and name both match
+79 SPAUL,COMED,42.00448,-88.24052,way/116856690,Spaulding Substation,station number and name both match
+80 FORTH,COMED,41.74805,-88.19547,way/124912791,Fort Hill Substation,kept on Angie's review (location disagrees with its line neighbours)
+80 PONTI,COMED,40.84217,-88.59907,way/177078585,Pontiac Midpoint Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+82 CROSB,COMED,41.90232,-87.64623,way/449872370,ComEd Crosby 138kV Substation,station number and name both match
+83 GLIDD,COMED,41.93621,-88.72827,way/311944989,Glidden Substation,name match confirmed by line neighbours
+84 ROSEH,COMED,41.98708,-87.67419,way/449872373,ComEd Rosehill Substation,station number and name both match
+840 QUAR,COMED,41.84731,-87.65405,way/992584924,Quarry TDC,station number and name both match
+85 SKOKI,COMED,42.0235,-87.71378,way/24888554,ComEd Skokie-Oakton Street 138kV Substation,station number and name both match
+86 DAVIS,COMED,41.20981,-87.91128,way/103567861,ComEd Davis Creek Substation,name match confirmed by line neighbours
+87 DEARB,COMED,41.88377,-87.62917,way/124865475,Dearborn Street  Substation,station number and name both match
+88 SKOKI,COMED,42.05042,-87.75636,way/24886742,Skokie 345kV Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+9 JOLIET,COMED,41.53215,-88.07845,way/491241659,Joliet Central Substation,name match confirmed by line neighbours
+900 ELWO,COMED,41.43862,-88.11543,way/103591940,Elwood Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+913 BLOO,COMED,41.48804,-87.60408,way/89709585,Bloom 345 kV Substation,kept on Angie's review (OSM voltage does not match and nothing confirms it; nothing confirms it yet)
+942 NELS,COMED,41.76078,-89.60894,way/47015693,Nelson Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+945 CRET,COMED,41.43106,-87.61914,way/89705938,Crete Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+955 RIVE,COMED,41.68721,-87.55904,way/493781207,River Energy Center Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+960 ELGI,COMED,42.03122,-88.28226,way/366916296,Elgin Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+974 ZION,COMED,42.44667,-87.80532,way/177599080,Zion Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+09CENTER,DAY,39.83864,-84.96429,way/1150900637,Centerville Station,name match confirmed by your review
+09ESIDNY,DAY,40.26034,-84.06497,way/179523700,East Sidney Substation,name match confirmed by your review
+09GIVENS,DAY,40.06102,-83.70827,way/955934363,Givens Substation,name match confirmed by line neighbours
+09KNOLLW,DAY,39.72519,-84.0609,way/30145435,Knollwood Substation,name match confirmed by your review
+09MECHAN,DAY,40.07671,-83.54451,way/160792149,Mechanicsburg Substation,name match confirmed by line neighbours
+09NORTHR,DAY,39.81458,-84.17593,way/61266767,Northridge Substation,name match confirmed by your review
+09OVERLK,DAY,39.75094,-84.13837,way/30145499,Overlook Substation,name match confirmed by your review
+09SPRING,DAY,40.16566,-84.21182,way/134368168,Springcreek Substation,name match confirmed by line neighbours
+AIRPORT2,DAY,39.92755,-84.23302,way/1283361869,Airport Substation,name match confirmed by your review
+ELDEAN1,DAY,40.08299,-84.23721,way/133440631,Eldean Substation,name match confirmed by your review
+FAYETTE2,DAY,39.63016,-83.57968,way/1434505579,Fayette Substation,name match confirmed by your review
+FRANKLI5,DAY,39.56088,-84.30179,way/171359642,Franklin Substation,name match confirmed by your review
+MIDD DAY,DAY,39.46793,-84.35407,way/579731461,Middletown Energy Center,"kept on Angie's review (plausible plant match, nothing confirms it; nothing confirms it yet)"
+MILCREEK,DAY,40.26441,-84.18994,way/133440598,Millcreek Substation,name match confirmed by your review
+AERO1,DEOK,39.03084,-84.65996,way/1169677419,Aero Solar Facility,name match confirmed by line neighbours
+CLINTONC,DEOK,39.39745,-83.85468,way/36923781,Clinton Substation,name match confirmed by your review
+CORNELL,DEOK,39.26778,-84.36024,way/168959403,Cornell Substation,name match confirmed by your review
+EBEND,DEOK,38.90507,-84.85099,way/28534071,East Bend Power Plant,name match confirmed by line neighbours
+HEBRON1,DEOK,39.08995,-84.7294,way/32780375,Hebron Substation,"Hebron, KY sits on the DEOK/EKPC border; both codes are confirmed by line neighbours, so they look like one site modelled by each utility"
+HILCRST2,DEOK,39.0767,-83.90782,way/580149385,Hillcrest Substation,name match confirmed by your review
+KLEEMAN,DEOK,39.17835,-84.60196,way/80912425,Kleeman Substation,name match confirmed by your review
+NEWTWN,DEOK,39.11794,-84.36642,way/28358147,Newtown Substation,name match confirmed by your review
+ZIMMER2,DEOK,38.86562,-84.22528,way/152586740,Zimmer Substation,name match confirmed by line neighbours
+CRANESCR,DOM,38.35358,-77.45585,way/568567584,Cranes Corner Substation,name match confirmed by your review
+EDWSFERY,DOM,39.11328,-77.50479,way/717431813,Edwards Ferry Substation,name match confirmed by your review
+ELMONT,DOM,37.69757,-77.48454,way/81597861,Elmont Substation,name match confirmed by line neighbours
+FOURRIVR,DOM,37.82143,-77.44355,way/96368731,Four Rivers Substation,name match confirmed by line neighbours
+GARRSNV,DOM,38.45571,-77.48981,way/149970099,Garrisonville Substation,name match confirmed by your review
+GOOSECRE,DOM,39.07508,-77.53175,way/504125676,Goose Creek Substation,name match confirmed by line neighbours
+IDYLWOO4,DOM,38.88582,-77.2098,way/107945006,Idylwood Substation,name match confirmed by line neighbours
+LOUDOUN,DOM,38.89483,-77.56819,way/45836738,Loudoun Substation,name match confirmed by line neighbours
+PLEASANT VIEW,DOM,39.07713,-77.5295,way/34610867,Pleasant View Substation,name match confirmed by line neighbours
+POSSUM POINT,DOM,38.55187,-77.27808,way/45855878,Possum Point Substation,name match confirmed by your review
+PROFITDP,DOM,38.11857,-78.41537,way/82899127,Proffit Substation,name match confirmed by your review
+YADKIN,DOM,36.76289,-76.35485,way/80878311,Yadkin Substation,name match confirmed by line neighbours
+CONCRDDP,DPL,38.60614,-75.51185,way/1197551701,Concord 2 Substation,name match confirmed by line neighbours
+DARLEYRD,DPL,39.81162,-75.47357,way/108984972,Darley Substation,name match confirmed by your review
+FRUITLAN,DPL,38.31448,-75.62669,way/747477502,Fruitland Substation,name match confirmed by your review
+LAURELDP,DPL,38.56299,-75.57802,way/68890867,Laurel Substation,name match confirmed by line neighbours
+MARDELA,DPL,38.4418,-75.72692,way/68883342,Mardela Substation,name match confirmed by your review
+PRESTON,DPL,38.69083,-75.8954,way/554327059,Preston Substation,name match confirmed by line neighbours
+SIGNPOST,DPL,37.9972,-75.4667,way/730768936,Sign Post Substation,name match confirmed by your review
+TODD,DPL,38.61931,-75.85394,way/103428835,Todd Substation,name match confirmed by line neighbours
+BAVARIAN,EKPC,38.86484,-84.65181,way/152962201,Bavarian Substation,name match confirmed by your review
+GHENT_LG,EKPC,38.74582,-85.03477,way/103777444,Ghent Station,name match confirmed by line neighbours
+HEBRN_EK,EKPC,39.08995,-84.7294,way/32780375,Hebron Substation,"Hebron, KY sits on the DEOK/EKPC border; both codes are confirmed by line neighbours, so they look like one site modelled by each utility"
+JACKSNVL,EKPC,38.28647,-84.36373,way/721045739,Jacksonville Substation,name match confirmed by your review
+JKSMT_EK,EKPC,37.88401,-84.10246,way/723324515,JK Smith Generating Station,name match confirmed by your review
+MARIONCO,EKPC,37.60512,-85.24822,way/155925593,Marion Substation,name match confirmed by your review
+MILLCRK,EKPC,38.05175,-85.90666,way/62382201,Mill Creek Generating Station,name match confirmed by your review
+SMITHST,METED,39.97175,-76.74086,way/740861895,Smith Street Substation,name match confirmed by your review
+CLIFTYCR,OVEC,38.73895,-85.41731,way/80362555,Clifty Creek Generating Station,name match confirmed by your review
+COOPERPE,PECO,39.75207,-76.3005,way/168936368,Cooper Substation,name match confirmed by line neighbours
+ERIES,PENELEC,42.06962,-80.04821,relation/19684437,Erie South Substation,name match confirmed by line neighbours
+ETOWANDA,PENELEC,41.75943,-76.431,way/144818449,East Towanda Substation,name match confirmed by your review
+KEYSTONE,PENELEC,40.6578,-79.33833,way/64971451,Keystone Substation,name match confirmed by line neighbours
+MANOR,PPL,39.92824,-76.38863,way/96006881,Manor Substation,name match confirmed by line neighbours
+SAKRON,PPL,40.14208,-76.20674,way/95986378,South Akron Substation,name match confirmed by line neighbours
+STEELCITY,PPL,40.61982,-75.30869,way/44510623,Steel City Substation,name match confirmed by line neighbours
+CEDARSUB,PSEG,40.86724,-74.21759,way/95200267,Cedar Substation,name match confirmed by line neighbours
+08WILM_J,,42.07815,-87.70885,way/197982597,ComEd Wilmette Substation,kept on Angie's review (ambiguous name and no confident pick)
+108 LOCK,,41.63024,-88.09519,way/33127731,ComEd Lockport 345kV Substation,station number and name both match
+112 WILT,,41.39922,-87.94907,way/43881289,ComEd Wilton Center 345kV Substation,station number and name both match
+116 GOOD,,41.62463,-87.93259,way/52008692,ComEd Goodings Grove 138kV-345kV Substation,station number and name both match
+119 LANC,,42.31842,-89.61809,way/285384469,Lancaster Substation,station number and name both match
+138 SILV,,42.25465,-88.25065,way/43086055,Silver Lake Substation,station number and name both match
+141 PLEA,,42.25709,-88.44004,way/42853607,Pleasant Valley Substation,station number and name both match
+143 WOLF,,41.70754,-88.23258,way/102577182,Wolfs Crossing Substation,station number and name both match
+144 WAYN,,41.98281,-88.2405,way/116856798,ComEd Wayne 138kV-345kV Substation,name match confirmed by line neighbours
+153 TAYL,,41.8709,-87.63659,way/95357393,ComEd Taylor 138kV-345kV Substation,station number and name both match
+155 NELS,,41.76078,-89.60894,way/47015693,Nelson Substation,name match confirmed by line neighbours
+156 CHER,,42.21649,-88.97589,way/42851983,ComEd Cherry Valley 138kV-345kV Substation,name match confirmed by line neighbours
+159 NORT,,42.12669,-87.78569,way/28520867,Northbrook 138kV-345kV Substation,station number and name both match
+167 PLAN,,41.68372,-88.47935,way/102597859,Plano Substation,name match confirmed by line neighbours
+170 HARB,,41.72474,-87.54527,way/490252922,Harbor Substation,name match confirmed by line neighbours
+171 WEMP,,42.34246,-89.19266,way/43315609,Wempletown Substation,name match confirmed by line neighbours
+177 BURN,,41.63361,-87.54576,way/103532296,ComEd Burnham 138kV-345kV Substation,name match confirmed by line neighbours
+185 TOLL,,42.06362,-88.24014,way/95999530,ComEd Tollway 138kV-345kV Substation,ambiguous name; neighbour pick is clear
+192 RIDG,,41.81134,-87.78528,way/449889487,Ridgeland Substation,station number and name both match
+22 ZION,,42.44667,-87.80532,way/177599080,Zion Substation,name match confirmed by line neighbours
+23 COLLI,,41.34951,-88.34768,way/43822091,Collins Substation,name match confirmed by line neighbours
+29 JOLIE,,41.53215,-88.07845,way/491241659,Joliet Central Substation,"OSM voltage tag incomplete, but line neighbours confirm the location"
+50 ROCKW,,41.89186,-87.69228,way/241490186,ComEd Rockwell 138kV Substation,station number and name both match
+66 E FRN,,41.4949,-87.82526,way/89480216,ComEd East Frankfort Substation,station number matches and line neighbours confirm it
+67 CONGR,,41.8744,-87.6909,way/209359404,Congress Substation,station number and name both match
+7 STATE,,41.70441,-87.51603,way/103532292,State Line Substation,name match confirmed by line neighbours
+74 KEWAN,,41.2229,-89.95446,way/363537668,Kewanee Substation,station number and name both match
+90 DEKOV,,41.86898,-87.64279,way/148903010,DeKoven Substation,station number and name both match
