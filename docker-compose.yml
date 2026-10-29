@@ -41,7 +41,10 @@ services:
     restart: unless-stopped
     # Backend store (run/metric/param metadata) is the `mlflow` db on the shared
     # timescaledb instance; artifact store (logged models) is a plain volume - no
-    # need for S3/GCS-style object storage at this scale.
+    # need for S3/GCS-style object storage at this scale. --artifacts-destination: new
+    # experiments get mlflow-artifacts:/ locations, so clients upload through the server
+    # (a host-side notebook can't write into the volume); older experiments keep their
+    # /app/mlflow-artifacts paths, read straight off the volume by api/prefect-deployments.
     # --workers 1: default is 4, one is plenty at this scale (~4GB RAM shared across
     # ~10 containers, same constraint as KAFKA_HEAP_OPTS below) - NOTE: ruled out as
     # the cause of the startup hang below (still hung with 1 worker), kept anyway
@@ -69,7 +72,7 @@ services:
       --port 5000
       --workers 1
       --backend-store-uri postgresql://${TIMESCALEDB_USER}:${TIMESCALEDB_PASSWORD}@timescaledb:5432/mlflow
-      --default-artifact-root /app/mlflow-artifacts
+      --artifacts-destination /app/mlflow-artifacts
       --allowed-hosts "*"
       --cors-allowed-origins "*"
     env_file: .env
