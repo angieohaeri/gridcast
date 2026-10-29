@@ -2,8 +2,8 @@
 
 For the TOP_FACILITIES facilities by RT shadow-price weight whose stations have pnodes but none in
 the GNN, pick one station per facility (the end with the higher-voltage bus) and one pnode per
-station: highest voltage, LOAD before GEN, then lowest pnode_id (the fill-in rule in
-_archive/scripts/build_backfill_node_list.py). Replaces earlier 'constraint' rows, so reruns are
+station: highest voltage, LOAD before GEN, then lowest pnode_id (the rule the original fill-in
+nodes were picked with). Replaces earlier 'constraint' rows, so reruns are
 safe. Run after network_reference.build; prices come from network_reference.backfill_node_prices.
 """
 

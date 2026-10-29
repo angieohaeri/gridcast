@@ -11,10 +11,10 @@ PYTHON_INTERPRETER = python
 #################################################################################
 
 
-## Install Python dependencies
-.PHONY: requirements
-requirements:
-	uv pip install -r requirements.txt
+## Install the project and its dependencies into the active venv
+.PHONY: install
+install:
+	uv pip install -e .
 
 ## start shiny app
 .PHONY: app
@@ -66,7 +66,7 @@ create_environment:
 
 ## Make dataset
 .PHONY: data
-data: requirements
+data:
 	$(PYTHON_INTERPRETER) gridcast/dataset.py
 
 

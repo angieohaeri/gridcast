@@ -212,3 +212,6 @@ references/dashboard-design.md
 references/ccds-practices.md
 references/decisions.md
 references/decisions.md
+
+# local MLflow artifacts (the registry lives on the Mac Mini)
+mlartifacts/

@@ -5,7 +5,7 @@ streaming data (see decisions.md's Isolation section, and the per-source cadence
 below, confirmed against PJM Data Miner where a feed page was found). One `@flow`
 function per source so each keeps its own retries/schedule/run history in Prefect
 (deployments.py schedules them independently) - running this file directly just runs
-all 18 in sequence, same pattern as _archive/scripts/gapfill_raw_lmp.py.
+all 18 in sequence.
 """
 
 from datetime import UTC, datetime, timedelta

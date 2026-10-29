@@ -1,6 +1,6 @@
 """Backfill verified RT and DA hourly LMPs for GNN nodes that have no price history yet.
 
-Same limits as _archive/scripts/backfill_rt_hrl_lmps_nodal.py: Data Miner 2 only takes a pnode_id
+Data Miner 2 only takes a pnode_id
 filter on the last 731 days, at most ~1,700 characters of ids per request, one 50,000-row page per
 request, 6 requests/min. Rows go straight into the raw tables as hour ending (Interval End), the
 same upsert the daily sync uses, so reruns are safe and the daily flows carry on from here.

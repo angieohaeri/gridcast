@@ -171,8 +171,8 @@ create table if not exists raw_lmp.natural_gas_fuel_cost (
 -- (Hour Ending, UTC), matching public.lmp / lmp_da_zonal. Lean on purpose: ~25.7M rows,
 -- so no per-row text (names/zone/voltage live in pnode_topology_nodes) and real (float4)
 -- prices - the feed's values fit float4 to the cent. lmp = system_energy_price +
--- congestion_price + marginal_loss_price (to $0.01). Backfill:
--- _archive/scripts/backfill_rt_hrl_lmps_nodal.py -> load_rt_hrl_lmps_nodal.py.
+-- congestion_price + marginal_loss_price (to $0.01). History backfilled once in Oct 2026
+-- (scripts removed, see git history); new nodes: network_reference/backfill_node_prices.py.
 create table if not exists raw_lmp.lmp_rt (
     time timestamptz not null,
     pnode_id bigint not null,
@@ -206,8 +206,8 @@ select add_compression_policy('raw_lmp.lmp_rt', interval '30 days', if_not_exist
 -- lmp_rt, same lean shape, hour-ending time and compression. No is_verified:
 -- DA prices are final when the market clears the day before, so they're known ahead of the
 -- RT hour they price - a leakage-safe input, and the DA-RT spread is a congestion signal.
--- Backfill: _archive/scripts/backfill_da_hrl_lmps_nodal.py -> load_da_hrl_lmps_nodal.py;
--- kept current by sync_lmp_da in raw_lmp_sync.py.
+-- History backfilled once in Oct 2026 (scripts removed, see git history); new nodes:
+-- network_reference/backfill_node_prices.py; kept current by sync_lmp_da in raw_lmp_sync.py.
 create table if not exists raw_lmp.lmp_da (
     time timestamptz not null,
     pnode_id bigint not null,

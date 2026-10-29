@@ -21,7 +21,7 @@ EIA-930 + PJM Data Miner 2 + Open-Meteo → Kafka → TimescaleDB → dbt → Li
 
 ## Stack
 - **Python 3.12** — snake_case, type hints throughout, no ORM
-- **Kafka** KRaft mode (`confluent-kafka`) — topics: `load`, `lmp`, `weather`
+- **Kafka** KRaft mode (`confluent-kafka`) — topics: `load`, `lmp`, `weather`, `inst_load`
 - **TimescaleDB** on PostgreSQL 16 — hypertables + continuous aggregates
 - **dbt** — feature engineering SQL models (incremental)
 - **Prefect** — orchestration and scheduling
@@ -43,19 +43,24 @@ gridcast/           installable Python package (pip install -e .)
   modeling/
     train.py        reads processed features → trains → logs to MLflow
     predict.py      loads from MLflow registry → exposes predict()
+  monitoring/       drift checks and prediction logging
 lmp_model/          installable Python package for the LMP pricing model (branch lmp-pricing-model)
   dataset.py        load_window(): features onto an hours x nodes grid (Window)
+  features.py       per-fold scalers and loss mask
   splits.py         walk-forward folds
   graph.py          build_edges(): pnode graph, correlation edges learned per training window
+  exposure.py       per-fold facility-to-node shadow-price weights
+network_reference/  re-runnable builders for the GNN topology (substations, constraint nodes, edges)
+maintenance/        re-runnable gap fillers to run after an ingestion outage
+_archive/scripts/   finished one-off scripts (kept as a record of how tables were built)
 src/
   producers/          Kafka producer scripts (poll EIA-930, PJM LMP, Open-Meteo, publish messages)
-  consumers/          Kafka consumers (read topics, write to TimescaleDB)
+  consumers/          Kafka consumers (read topics, write to TimescaleDB) and table DDL
   dbt/                feature engineering SQL models
-  prefect/            orchestration flows
-  training/           MLflow training entry points
+  prefect/            orchestration flows (load stack: deployments.py; LMP: lmp_deployments.py)
   api/                FastAPI app
   dashboard/          Shiny app
-  infra/              Cloudflare config, Docker supporting files
+models/             LMP GNN notebook (model.ipynb)
 notebooks/          EDA and exploration (naming: 0.NN-description.ipynb)
 tests/              pytest — mirrors package structure
 references/         architecture, schema, decisions, experiment log, best practices
@@ -81,13 +86,13 @@ and are joined explicitly in a named dbt model — never silently resampled.
 
 ## Common Commands
 ```bash
-make install        # pip install -e . in active venv
+make install        # uv pip install -e . in active venv
 make data           # pull raw EIA-930 / PJM LMP extracts
 make features       # run dbt build for the load stack (selector `load`)
 make features-lmp   # run dbt build for the LMP model (selectors `lmp_history`, then `lmp_serving`)
-make train          # train + log to MLflow
 make test           # pytest tests/
-make lint           # ruff check . --fix
+make lint           # ruff check
+make format         # ruff check --fix && ruff format
 make up             # docker compose up -d
 make down           # docker compose down
 ```
@@ -117,19 +122,19 @@ make down           # docker compose down
 - Raw SQL for TimescaleDB — no ORM
 - MLflow run naming: `{model}_{feature_set}_{YYYYMMDD}`
 - Logs via `loguru` module — no `print()` in package code
-- Dead letter queue topics: `load_dlq`, `lmp_dlq`, `weather_dlq`
+- Dead letter queue topics: `load_dlq`, `lmp_dlq`, `weather_dlq`, `inst_load_dlq`
 - Manual Kafka offset commits only (`enable.auto.commit: False`)
 - dbt incremental models for anything touching raw snapshot tables
 
 ---
 
 ## LMP pricing model (branch `lmp-pricing-model`)
-Per-pnode next-day RT-minus-DA spread (a GNN over 1,505 pnodes), isolated from the load stack:
+Per-pnode next-day RT-minus-DA spread (a GNN over 1,580 pnodes), isolated from the load stack:
 `raw_lmp` and `analytics_lmp` schemas, `lmp_model/` package, `tests/lmp_model/`, its own Prefect
 deployments (`src/prefect/lmp_deployments.py`) and dbt selectors (`src/dbt/selectors.yml`: `load`,
-`lmp_history`, `lmp_serving`). The data pipeline is done; the model is not built yet. Start from
-`references/lmp-pricing-model/` (`lmp-pricing-model.md`, `decisions.md`, `schema.md`) and
-`modeling-session-prompt.md` for the modeling handoff. Every feature must respect the 14:30 ET
+`lmp_history`, `lmp_serving`). The data pipeline is done; modeling is in progress. Start from
+`references/lmp-pricing-model/` (`lmp-pricing-model.md`, `decisions.md`, `schema.md`), with model
+results in `experiments.md`. Every feature must respect the 14:30 ET
 cutoff (`feature_availability_days`, `forecast_cutoff_et` in `dbt_project.yml`).
 
 ---

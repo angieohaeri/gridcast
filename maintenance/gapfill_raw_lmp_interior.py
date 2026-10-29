@@ -1,8 +1,7 @@
 """Fill interior gaps in the raw_lmp batch tables - stretches inside a table's history
 where the Prefect flows were off (2026-10-09 → 10-15 hit every table) plus older small holes.
 
-gapfill_raw_lmp.py only fills forward from each table's max timestamp, so it can't reach
-these. Holes are found from the data (same rules as the gap scan): dense hourly tables -
+The daily syncs only reach back their own lookback window, so they can't reach these. Holes are found from the data (same rules as the gap scan): dense hourly tables -
 any missing hour; event tables (shadow prices, DA constraints) - days with zero rows, since
 PJM binds constraints essentially every day; outage forecasts - missing execution days.
 Missing days are merged into windows padded a day each side, then pulled with
@@ -10,21 +9,20 @@ raw_lmp_sync.py's own poll functions / upsert SQL / column lists, so rows match 
 flows exactly. Some holes may be missing at PJM too - those stay empty.
 """
 
+from datetime import UTC, datetime, timedelta
 import os
+from pathlib import Path
 import sys
 import time
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 from dotenv import load_dotenv
 import gridstatus as gs
 from loguru import logger
-import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src" / "prefect"))
-import raw_lmp_sync as s  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src" / "prefect"))
+import raw_lmp_sync as s
 
-from gridcast.config import get_connection, setup_logging  # noqa: E402
+from gridcast.config import get_connection, setup_logging
 
 load_dotenv()
 setup_logging()

@@ -1,7 +1,7 @@
 """OpenStreetMap locations for GNN nodes the original topology could not place, and map edges for them.
 
-Coordinates come from network_reference/osm_station_locations.csv (matched to OSM and reviewed by hand,
-see references/lmp-pricing-model/*-osm-locations-review.csv). Nodes still without a location get them,
+Coordinates come from network_reference/osm_station_locations.csv (matched to OSM and reviewed by hand;
+see decisions.md, Oct 28). Nodes still without a location get them,
 with topo_source 'osm'. Every located station is attached to the nearest HIFLD transmission-line
 endpoint (raw_lmp.transmission_nodes) within SNAP_KM, the rule the original map edges used
 (_archive/scripts/join_pnode_hifld.py), and attached stations within MAX_HOPS on the HIFLD line graph
