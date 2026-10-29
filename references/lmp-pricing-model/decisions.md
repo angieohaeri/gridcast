@@ -630,7 +630,15 @@ One-time setup (Tailscale admin console, https://login.tailscale.com/admin):
 sudo tailscale serve --bg --http=8765 /home/angieohaeri/gridcast/data/processed/train_npz
 ```
 
-Each Colab session: pick the Colab GPU runtime as the kernel, run the Colab setup cell, then the notebook as usual.
+Each Colab session: pick the Colab GPU runtime as the kernel, run the three Colab setup cells (the second only on a new Colab machine), then the notebook as usual.
+
+**Title: Colab smoke test passed; spread table for build_edges built on the Mac Mini, Author: Angie Ohaeri (assisted), Date: October 29th Time: 11:56am CT**
+
+- Smoke test (Tesla T4, free tier): the A/B cell's three runs logged to the Mac Mini's MLflow with `device=cuda`, their three dataset samples, and `model.pt` / `scalers.npz` uploaded through the server (`mlflow-artifacts:/3/...`). An epoch takes 3.8 s on the T4, so a full run (early stop around epoch 8) is under a minute of GPU time.
+- GPU vs CPU: the GPU baseline (15 inputs, `history_calendar`) scored 29.28 test MAE on the original 1,505 nodes, the same as the CPU run. Spike MAE 618.9; 29.49 / 626.3 on all 1,580 nodes.
+- The slow part is moving data off the Mac Mini, whose internet upload is ~0.35 MB/s (measured against Cloudflare's speed test). `window.npz` took 41 min. `build_edges` pulls the training window's `analytics_lmp.spread` (~325 MB per 30-day chunk over the wire), ~3 hours. Fix: `maintenance/spread_wide_cache.py` builds that table on the Mac Mini (1.2 min, 51 MB, `train_npz/spread_wide_fold0.npz`), Colab downloads it with the cache, and the third Colab setup cell points `lmp_model.graph.load_spread_wide` at it. Fold 0 only; rerun the script after the spread data or fold dates change, and delete Colab's copy to fetch the new one.
+- Pitfalls hit: `REPO` must be an absolute path (a relative one split the clone and the cache into two folders); Colab replaces the machine after idle time or a runtime reset (everything re-downloads), while a kernel restart keeps the files and the tunnels but clears variables and env vars; the VS Code extension's link to the kernel dropped once and needed a manual reconnect, which restarted the kernel.
+- The first auth key was made without the tag, so Colab joined as an untagged device owned by Angie and the `tag:colab` limits didn't apply. The second key was tagged (`tagged-devices` in `tailscale status`).
 
 **Title: Per-node shadow-price exposure features (no lift) and an hour-level model for the system-wide part of the spread, Author: Angie Ohaeri (assisted), Date: October 29th Time: 1:15am CT**
 
