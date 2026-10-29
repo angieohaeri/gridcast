@@ -591,3 +591,68 @@ Why: after station grouping (`network_reference/build.py`), 42% of RT shadow-pri
 - `zone_features.interface_util`: the target hour's highest DA flow / limit among the interfaces ending in the zone. Max, not mean: the interface closest to its limit is what moves prices, a mean dilutes it with slack interfaces, and APSOUTH and BED-BLA (0.90 correlated) would count twice. Negative values (flow away from the limit, mostly CENTRAL) drop out under max. 0 for the 10 zones with no interface (AE, AEP, ATSI, CE, DAY, DEOK, DUQ, EKPC, JC, RECO); null outside the loaded hours. Same timing as the system `*_util` columns.
 - Limitation: only zones where interface lines end get a value. Zones behind an interface (e.g. AE and JC behind EAST) get 0 even though they likely see its congestion; the graph may carry some of that.
 - Added to `model_features` and `ZONE_FEATURES`; the 6 system `*_util` columns are still in `SYSTEM_TABLE_FEATURES`. The npz cache needs a rebuild to pick up `interface_util`.
+
+**Title: Training models/model.ipynb on a Colab GPU over Tailscale, Author: Angie Ohaeri (assisted), Date: October 29th Time: 12:56am CT**
+
+- Why: one GNN run is ~20 min on the Mac Mini's 4 cores, and runs from different sessions compete for its 4 cores and 15 GB. Colab (GPU runtime picked as the kernel in VS Code) does the training; the data stays on the Mac Mini and runs log straight to its MLflow, so there is no export/merge step (chosen over `mlflow-export-import`).
+- What Colab needs from `angies-server`: TimescaleDB on 5432 (`load_nodes`, `build_edges`), MLflow on 5000 (experiment `gridcast-lmp-spread`, artifact location `mlflow-artifacts:/3`, so artifacts upload through the server, commit `0dcbc79`), and the cache (`window.npz` ~740 MB, `exposure.npz` ~50 MB) served on 8765. Docker publishes 5432 and 5000 on all interfaces, so both already answer on the tailnet; no Docker or MLflow change.
+- Colab joins the tailnet as an ephemeral node tagged `tag:colab`, in userspace mode (Colab has no `/dev/net/tun`). Userspace mode gives no network interface, and psycopg2 can't use a proxy, so the setup cell runs `socat` to forward `localhost:5432/5000/8765` on Colab to `angies-server` through `tailscale nc`. The env vars then point at `localhost`. `tailscale serve` picks what to serve by the request's host name, so the cache download sends `Host: angies-server:8765` (with `Host: localhost` it returns 404).
+- Setup is the "Colab setup" cell at the top of `models/model.ipynb` (skip it on the Mac Mini). It installs Tailscale, joins, clones `lmp-pricing-model` from GitHub (public repo, no token), installs `mlflow-skinny==3.14.0` (matches the server) and `torch_geometric`, sets the DB and `MLFLOW_TRACKING_URI` env vars, and downloads the cache. Colab only runs code that is pushed to the branch.
+- Secrets: Colab secrets (`userdata.get`) don't work from the VS Code extension (googlecolab/colab-vscode known issues), so the cell asks for the Tailscale auth key and DB login with `getpass`. Nothing is saved in the notebook.
+- Cache over the tailnet, not Drive: always the current cache, no re-upload after each rebuild. Cost: 740 MB per Colab session, slower if Tailscale relays the connection (DERP) instead of connecting directly.
+- GPU: `device` (cuda if present, else cpu) in the Graph cell; the tensors, edges and model move to it, and runs get a `device` tag. On the Mac Mini nothing changes. GPU results differ slightly from CPU (different kernels; `SAGEConv`'s scatter is not deterministic on GPU), so compare variants run on the same device (filter on the `device` tag). A `model.pt` saved on GPU needs `torch.load(..., map_location="cpu")` on the Mac Mini.
+
+One-time setup (Tailscale admin console, https://login.tailscale.com/admin):
+
+1. Access controls: add the tag owner, the server's address, and a grant that lets `tag:colab` reach only these three ports:
+
+```json
+"tagOwners": {
+  "tag:colab": ["autogroup:admin"],
+},
+"hosts": {
+  "angies-server": "100.119.203.105",
+},
+"grants": [
+  {"src": ["autogroup:member"], "dst": ["*"], "ip": ["*"]},
+  {"src": ["tag:colab"], "dst": ["angies-server"], "ip": ["tcp:5432", "tcp:5000", "tcp:8765"]},
+],
+"tests": [
+  {"src": "tag:colab", "accept": ["angies-server:5432", "angies-server:5000", "angies-server:8765"], "deny": ["angies-server:22", "angies-server:4200", "100.67.156.33:22"]},
+],
+```
+
+   The default policy's allow-all rule (`"src": ["*"]`) also matches tagged devices, so it must be replaced by the `autogroup:member` rule above (your own devices keep full access; tagged devices are not members). If the file uses `"acls"` instead of `"grants"`, the same rules are `{"action": "accept", "src": ["autogroup:member"], "dst": ["*:*"]}` and `{"action": "accept", "src": ["tag:colab"], "dst": ["angies-server:5432,5000,8765"]}`. The `tests` block makes the console refuse to save a policy that lets Colab reach anything else.
+2. Settings > Keys > Generate auth key: Reusable on, Ephemeral on (the node disappears when Colab shuts down), Tags `tag:colab`, expiry 90 days. Keep it in a password manager; paste it when the setup cell asks.
+3. On the Mac Mini, serve the cache folder on the tailnet only (persists across reboots; `sudo tailscale serve --http=8765 off` removes it):
+
+```bash
+sudo tailscale serve --bg --http=8765 /home/angieohaeri/gridcast/data/processed/train_npz
+```
+
+Each Colab session: pick the Colab GPU runtime as the kernel, run the Colab setup cell, then the notebook as usual.
+
+**Title: Per-node shadow-price exposure features (no lift) and an hour-level model for the system-wide part of the spread, Author: Angie Ohaeri (assisted), Date: October 29th Time: 1:15am CT**
+
+Exposure features (`lmp_model/exposure.py`, `notebooks/3.07-lmp-exposure-features.ipynb`):
+- Ridge weights from the hourly RT shadow prices of the top 100 monitored facilities (by RT shadow-price weight in the training window) to each node's verified RT congestion price, fit per fold on its training hours only, like `graph.py`'s correlation edges. Ridge strength is relative to the mean diagonal of XᵀX; 0.01 was best on held-out hours (0.001-0.1 within 0.03 R²; 1.0 clearly worse).
+- `da_exposure` = weights x the target hour's DA shadow prices; `rt_exposure_prev_day` = weights x the RT shadow prices 48h back (`feature_availability_days.marginal_value_rt`). The weights differ per fold, so they are not in `window.npz`: raw inputs go in a separate `train_npz/exposure.npz` (hourly RT/DA shadow price per facility, node RT congestion) and features are computed per fold.
+- Weights out of sample (validation hours, same hour): R² 0.38 fold 0 (11 months of training), 0.61 fold 3. Median node R² 0.38 / 0.64.
+- Limits: the top 100 RT facilities carry 89% of RT shadow-price weight but 43% of DA weight (56% in fold 0's validation months), since many DA constraints rarely bind in RT. `da_exposure` vs `da_congestion_price`: correlation 0.40. Spike-size rank correlation (|spread|, fold 0 val): |`da_congestion_price`| 0.24, |`rt_exposure_prev_day` - `da_exposure`| 0.12.
+- GNN, fold 0, scored on the 1,505 original nodes (folds 1-3 not run, by choice):
+
+| inputs | val MAE | test MAE | test spike MAE | skill vs zero |
+|---|---|---|---|---|
+| 15 (node + calendar) | 13.17 | 29.27 | 618.0 | 12.6% |
+| 15 + exposure | 13.14 | 29.28 | 623.8 | 12.5% |
+| predict zero | 15.04 | 33.48 | 689.3 | |
+
+Kept in the repo, not used by the model.
+
+Why the system features hurt, and the hour model (scratch scripts, not in the repo):
+- Over Oct 2025-Feb 2026 (1,505 nodes), 59% of RT-DA spread variance is the hour's mean across nodes, mostly the system energy price difference. Predicting zero: node MAE 26.0; knowing each hour's mean exactly: 14.4. DA LMP is 79% between-hour too (mean energy price $73 vs mean |congestion| $14, |loss| $3).
+- System-wide features copied into 1,580 nodes repeat ~8,000 training hours 1,580 times, which fits why 15 -> 31 -> 37 inputs got worse.
+- Fold 0 hour model (LightGBM, one row per hour, target = hour mean spread, 53 inputs: calendar, system_features, DA energy price and mean DA LMP, area load forecasts, lagged hour-mean spread): hour-level test MAE 25.92 vs zero 27.95 (val 10.42 vs 12.20). Node-level test MAE when every node gets its hour's prediction: 31.38 (zero 33.48, base GNN 29.27, hour mean known 18.42).
+- Fresh RT features (verified values standing in for the unverified RT LMPs, which are in the DB through HE14 of the cutoff day): the cutoff day's HE14 hour mean alone scores 26.13 (correlation 0.54 with the target), but adding five fresh features did not improve the hour model (25.8-26.5 across L1, Huber and L2 losses). A linear fit on four fresh features matches it (25.82) with better node spike MAE (637 vs 673).
+- Caveat: fold 0's test months swing far more than training (hour-mean std 75 vs 35; validation 27), so one fold is a weak judge.
+- Next: GNN on the node part (spread minus hour mean) with node features only, plus the hour model, compared to 29.27; hour model on all 4 folds. Score all 1,580 nodes from here on, with the 1,505 number alongside for one round.
