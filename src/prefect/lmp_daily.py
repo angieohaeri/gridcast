@@ -14,6 +14,7 @@ from loguru import logger
 from raw_lmp_sync import (
     sync_forecasted_generation_outages,
     sync_generation_ehv_losses,
+    sync_interface_flows_da,
     sync_lmp_da,
     sync_lmp_da_zonal,
     sync_lmp_rt,
@@ -22,6 +23,7 @@ from raw_lmp_sync import (
     sync_marginal_value_da,
     sync_marginal_value_rt,
     sync_scheduled_generation,
+    sync_scheduled_interchange,
     sync_transmission_constraints_da,
     sync_weather_forecast,
 )
@@ -44,6 +46,7 @@ def lmp_morning():
         sync_scheduled_generation,
         sync_generation_ehv_losses,
         sync_forecasted_generation_outages,
+        sync_scheduled_interchange,
     )
 
 
@@ -52,6 +55,6 @@ def lmp_afternoon():
     sync_lmp_da()
     sync_load_forecast()
     sync_load_forecast_live()
-    _run_optional(sync_weather_forecast, sync_marginal_value_da)
+    _run_optional(sync_weather_forecast, sync_marginal_value_da, sync_interface_flows_da)
     dbt_build(selector="lmp_serving")
     _run_optional(sync_lmp_da_zonal, sync_transmission_constraints_da)
