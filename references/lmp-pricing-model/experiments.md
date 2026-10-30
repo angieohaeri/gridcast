@@ -2,6 +2,8 @@
 
 **Title: Experiment log for the next-day RT-DA spread model, Author: Angie Ohaeri (assisted), Date: October 29th Time: 1:47am CT**
 
+**Title: Added MLflow run lists to each entry, renamed runs to the new pattern, Author: Angie Ohaeri (assisted), Date: October 29th Time: 7:03pm CT**
+
 One entry per experiment, newest last. Reasoning and design choices live in `decisions.md`;
 this file is the results record. Add new experiments at the bottom with the same layout.
 
@@ -21,7 +23,7 @@ this file is the results record. Add new experiments at the bottom with the same
 
 - **GNN defaults** (`models/model.ipynb`): SAGEConv (mean aggregation), 2 layers, hidden 64, 16-dim node embedding, Huber loss, Adam lr 1e-3, 16 hours per batch, early stopping on val MAE (patience 5), seed 0. Best epoch is usually 0-3.
 - **Input sets**: `core4` = `da_lmp`, `da_congestion_price`, `da_marginal_loss_price`, `spread_last_verified_day`. 15 inputs = the 9 node `FEATURES` + 6 calendar. 31 / 37 = 15 + PJM-wide `system_features` copied into every node.
-- **Runs**: MLflow experiment `gridcast-lmp-spread` on the Mac Mini, except where noted.
+- **Runs**: MLflow experiment `gridcast-lmp-spread` on the Mac Mini, except where noted. Each entry lists its runs as run name (first 8 characters of the run ID), and every run carries an `entry` tag (filter with `tags.entry = 'E10'`). Run names are `{model}_{feature_set}_{edge_set}_f{fold}_s{seed}[_gpu]_{YYYYMMDD}` (UTC date); LightGBM runs have no edge set or seed. Edge sets: `map` (the Oct 27 graph), `map_only`, `direct_lines`, `all_lines` (every source except `hifld_osm`), `all` (every source), `none`. Set `ENTRY` next to `FOLD` in the notebook before a new experiment. Runs were renamed Oct 29; the 15-input set was called `history` before Oct 28 and is named `history_calendar` here.
 
 ## Leaderboard (fold 0 test, 1,505 nodes)
 
@@ -39,6 +41,8 @@ this file is the results record. Add new experiments at the bottom with the same
 
 ## E01: Naive baselines (Oct 25)
 
+MLflow runs: none (no fitting).
+
 - **Question**: is yesterday's spread a usable forecast?
 - **Setup**: no fitting; test window 2026-04-01 onward, 1,505 nodes. Spike threshold $342/MWh.
 
@@ -51,6 +55,12 @@ this file is the results record. Add new experiments at the bottom with the same
 
 ## E02: LightGBM reference, all folds (Oct 26)
 
+MLflow runs:
+- `lgbm_reference_f0_20261027` (`0988d5c9`)
+- `lgbm_reference_f1_20261027` (`51d99efa`)
+- `lgbm_reference_f2_20261027` (`2b7c4ba5`)
+- `lgbm_reference_f3_20261027` (`e86326a1`)
+
 - **Question**: how well does a global tree model with the node as a categorical feature do?
 - **Setup**: `notebooks/3.06-lmp-lightgbm-reference.ipynb`, all inputs available on Oct 26.
 
@@ -61,9 +71,15 @@ this file is the results record. Add new experiments at the bottom with the same
 | 2 | 23.17 | 24.05 | 3.7% | 623.2 |
 | 3 | 32.53 | 33.94 | 4.2% | 1,138.3 |
 
-- **Takeaway**: about 4% skill in every fold. MLflow names are off by one (`fold0`, `fold1`, `fold3`, `fold4` = folds 0-3).
+- **Takeaway**: about 4% skill in every fold. (These runs were first named `fold0`, `fold1`, `fold3`, `fold4`, off by one; renamed Oct 29.)
 
 ## E03: First GNN runs (Oct 26-27, fold 0)
+
+MLflow runs:
+- `gnn_core4_map_f0_s0_20261027` (`6a0475d0`)
+- `gnn_core4_none_f0_s0_20261027` (`ad1890dc`)
+- `lgbm_core4_f0_20261027` (`af4632e5`)
+- `gnn_history_calendar_map_f0_s0_20261027` (`02eaa149`): 15 inputs
 
 | run | inputs | graph | best val | test MAE | spike MAE | skill |
 |---|---|---|---|---|---|---|
@@ -75,6 +91,11 @@ this file is the results record. Add new experiments at the bottom with the same
 - **Takeaway**: the GNN beats LightGBM by ~3 MAE; the graph adds nothing on 4 inputs; 15 inputs helps mostly on spikes.
 
 ## E04: Adding PJM-wide system features (Oct 28, fold 0)
+
+MLflow runs:
+- `gnn_history_calendar_all_lines_f0_s0_20261029` (`7a1992f6`): 15 inputs
+- `gnn_history_pruned_all_lines_f0_s0_20261029` (`a9aaf899`): 31 inputs
+- 37 inputs: the E05 run `gnn_history_all_lines_f0_s0_20261029` (`5a9a7de3`) and its edge variants
 
 - **Question**: do the new `system_features` (shadow totals, fuel mix, outages, gas cost, interfaces, interchange) help when copied into every node?
 
@@ -89,6 +110,13 @@ this file is the results record. Add new experiments at the bottom with the same
 
 ## E05: Edge ablation (Oct 28, fold 0, 37 inputs, 1,580 nodes)
 
+MLflow runs:
+- `gnn_history_map_only_f0_s0_20261029` (`4a4a54ab`)
+- `gnn_history_direct_lines_f0_s0_failed_20261029` (`e2d57401`): interrupted
+- `gnn_history_direct_lines_f0_s0_20261029` (`6548baf9`)
+- `gnn_history_all_lines_f0_s0_20261029` (`5a9a7de3`)
+- `gnn_history_none_f0_s0_20261029` (`4fbad253`)
+
 | edge set | edges | test MAE | spike MAE |
 |---|---|---|---|
 | map_only | 4,217 | 30.82 | 637.5 |
@@ -99,6 +127,10 @@ this file is the results record. Add new experiments at the bottom with the same
 - **Takeaway**: the edge set does not move overall MAE; any graph lowers spike MAE by ~10. One fold and seed.
 
 ## E06: Per-node shadow-price exposure (Oct 29, fold 0)
+
+MLflow runs:
+- `gnn_base_all_f0_s0_20261029` (`dbcd2400`): 15 inputs
+- `gnn_exposure_all_f0_s0_20261029` (`7ed483e5`): 15 + exposure
 
 - **Question**: do location-specific constraint signals beat the PJM-wide shadow totals?
 - **Setup**: `lmp_model/exposure.py`, `notebooks/3.07-lmp-exposure-features.ipynb`. Ridge weights (top 100 RT facilities -> node RT congestion price), fit per fold. Features `da_exposure` (target-day DA shadow prices) and `rt_exposure_prev_day` (RT, 48h back).
@@ -114,6 +146,8 @@ this file is the results record. Add new experiments at the bottom with the same
 
 ## E07: Spread decomposition (Oct 29, analysis)
 
+MLflow runs: none (SQL analysis).
+
 - **Setup**: Oct 2025-Feb 2026, 1,505 nodes, SQL on `raw_lmp.lmp_rt` / `lmp_da`.
 
 | | value |
@@ -128,6 +162,8 @@ this file is the results record. Add new experiments at the bottom with the same
 
 ## E08: Hour-level model (Oct 29, fold 0)
 
+MLflow runs: none (scratch script, not logged).
+
 - **Setup**: LightGBM (L1 loss), one row per hour, target = the hour's mean spread over the 1,505 nodes. 53 inputs: calendar, `system_features`, DA energy price, mean DA LMP, area load forecasts, lagged (72h) hour-mean spread. Scratch script, not in the repo.
 
 | | hour val | hour test | node test MAE | node spike MAE |
@@ -140,6 +176,8 @@ this file is the results record. Add new experiments at the bottom with the same
 - **Takeaway**: closes 14% of the gap to the exact-hour-mean bound. Top inputs: DA energy price, 7-day lagged hour mean, mean DA LMP, solar share, 7-day RT shadow total.
 
 ## E09: Fresh real-time features in the hour model (Oct 29, fold 0)
+
+MLflow runs: none (scratch script, not logged).
 
 - **Setup**: unverified RT LMPs are in the DB through HE14 of the cutoff day; verified values stand in for them in training. Five features: same hour previous day (48h), cutoff day HE1-14 mean (spread and energy-only), cutoff day HE14, previous day mean.
 
@@ -154,6 +192,20 @@ this file is the results record. Add new experiments at the bottom with the same
 - **Takeaway**: fresh features carry signal (HE14 correlation 0.54) but overlap with the system features; no gain combined. Fold 0's test months swing twice as hard as training (hour-mean std 75 vs 35), so one fold is a weak judge.
 
 ## E10: Run A / Run B across seeds, and permutation importance (Oct 29, fold 0, GPU)
+
+MLflow runs (all tagged `device=cuda`):
+- baseline, 15 inputs
+  - `gnn_history_calendar_all_lines_f0_s0_gpu_20261029` (`7432c171`)
+  - `gnn_history_calendar_all_lines_f0_s1_gpu_20261029` (`9dd00c0c`)
+  - `gnn_history_calendar_all_lines_f0_s2_gpu_20261029` (`aafb77fc`)
+- Run A
+  - `gnn_target_day2_all_lines_f0_s0_gpu_20261029` (`e3892389`)
+  - `gnn_target_day2_all_lines_f0_s1_gpu_20261029` (`d6f78c72`)
+  - `gnn_target_day2_all_lines_f0_s2_gpu_20261029` (`4851533a`)
+- Run B
+  - `gnn_context16_all_lines_f0_s0_gpu_20261029` (`86016e8b`)
+  - `gnn_context16_all_lines_f0_s1_gpu_20261029` (`3927dcc2`)
+  - `gnn_context16_all_lines_f0_s2_gpu_20261029` (`43d6f30c`)
 
 **Title: Seed check of runs A and B and permutation importance on Colab, Author: Angie Ohaeri (assisted), Date: October 29th Time: 12:07pm CT**
 
