@@ -65,27 +65,48 @@ models:
     columns:
       - name: time
         tests: [unique, not_null]
+      # lagged feeds: nulls in past hours fail; target-day nulls (a feed posting late) only warn
       - name: rt_constraint_count_prev_day
         tests:
           - not_null:
               config:
-                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
+                where: "time >= now() - interval '60 days' and time <= now()"
+          - not_null:
+              name: not_null_system_features_rt_constraint_count_prev_day_target_day
+              config:
+                severity: warn
+                where: "time > now() and time <= now() + interval '1 day'"
       - name: rt_shadow_total_mean_7d
         tests:
           - not_null:
               config:
-                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
+                where: "time >= now() - interval '60 days' and time <= now()"
+          - not_null:
+              name: not_null_system_features_rt_shadow_total_mean_7d_target_day
+              config:
+                severity: warn
+                where: "time > now() and time <= now() + interval '1 day'"
       - name: gas_share_prev_day
         tests:
           - not_null:
               config:
                 # PJM's fuel mix has no repeated 1am hour on the 2026-11-01 DST fall-back
-                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day' and time <> '2026-11-03 07:00+00'"
+                where: "time >= now() - interval '60 days' and time <= now() and time <> '2026-11-03 07:00+00'"
+          - not_null:
+              name: not_null_system_features_gas_share_prev_day_target_day
+              config:
+                severity: warn
+                where: "time > now() and time <= now() + interval '1 day'"
       - name: gas_cost_per_mmbtu
         tests:
           - not_null:
               config:
-                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
+                where: "time >= now() - interval '60 days' and time <= now()"
+          - not_null:
+              name: not_null_system_features_gas_cost_per_mmbtu_target_day
+              config:
+                severity: warn
+                where: "time > now() and time <= now() + interval '1 day'"
       # target-day DA flows can post after the afternoon build, so only past hours are tested
       - name: apsouth_util
         tests:
@@ -96,7 +117,12 @@ models:
         tests:
           - not_null:
               config:
-                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
+                where: "time >= now() - interval '60 days' and time <= now()"
+          - not_null:
+              name: not_null_system_features_net_interchange_prev_day_target_day
+              config:
+                severity: warn
+                where: "time > now() and time <= now() + interval '1 day'"
 
   - name: load_forecast_features
     description: >
@@ -140,12 +166,22 @@ models:
         tests:
           - not_null:
               config:
-                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
+                where: "time >= now() - interval '60 days' and time <= now()"
+          - not_null:
+              name: not_null_zone_features_commitment_count_target_day
+              config:
+                severity: warn
+                where: "time > now() and time <= now() + interval '1 day'"
       - name: border_interchange_prev_day
         tests:
           - not_null:
               config:
-                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
+                where: "time >= now() - interval '60 days' and time <= now()"
+          - not_null:
+              name: not_null_zone_features_border_interchange_prev_day_target_day
+              config:
+                severity: warn
+                where: "time > now() and time <= now() + interval '1 day'"
       # target-day DA flows can post after the afternoon build, so only past hours are tested
       - name: interface_util
         tests:
