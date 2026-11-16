@@ -15,9 +15,8 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
-          python-version: "3.12"
 
-      - run: uv sync --extra dev
+      - run: uv sync --extra dev --python 3.12
 
       - run: uv run make lint
 

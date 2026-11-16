@@ -1,11 +1,12 @@
 """Daily LMP pipeline as two sequential flows, replacing a cron entry per sync and dbt build.
 
-lmp_morning: verified RT prices -> dbt lmp_history, then the remaining RT-side syncs.
-lmp_afternoon: DA prices, load and weather forecasts, then the DA-side syncs -> dbt lmp_serving
-before the 14:30 ET forecast.
+lmp_morning: the RT-side syncs, then verified RT prices -> dbt lmp_history.
+lmp_afternoon: the DA-side syncs, then DA prices, load forecasts -> dbt lmp_serving before the
+14:30 ET forecast.
 
 Critical syncs are called plainly, so a failure stops the flow before the dbt build that needs
 them. Optional syncs run with return_state=True: a failure is logged and the flow continues.
+They run first, so a failed critical sync does not skip them.
 Running them one after another also keeps PJM's shared 6 requests/min.
 """
 
@@ -39,8 +40,6 @@ def _run_optional(*syncs) -> None:
 
 @flow(name="lmp_morning", log_prints=True)
 def lmp_morning():
-    sync_lmp_rt()
-    dbt_build(selector="lmp_history")
     _run_optional(
         sync_marginal_value_rt,
         sync_scheduled_generation,
@@ -48,13 +47,12 @@ def lmp_morning():
         sync_forecasted_generation_outages,
         sync_scheduled_interchange,
     )
+    sync_lmp_rt()
+    dbt_build(selector="lmp_history")
 
 
 @flow(name="lmp_afternoon", log_prints=True)
 def lmp_afternoon():
-    sync_lmp_da()
-    sync_load_forecast()
-    sync_load_forecast_live()
     _run_optional(
         sync_weather_forecast,
         sync_marginal_value_da,
@@ -62,4 +60,7 @@ def lmp_afternoon():
         sync_lmp_da_zonal,
         sync_transmission_constraints_da,
     )
+    sync_lmp_da()
+    sync_load_forecast()
+    sync_load_forecast_live()
     dbt_build(selector="lmp_serving")
