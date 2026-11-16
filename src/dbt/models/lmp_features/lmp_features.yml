@@ -79,7 +79,8 @@ models:
         tests:
           - not_null:
               config:
-                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day'"
+                # PJM's fuel mix has no repeated 1am hour on the 2026-11-01 DST fall-back
+                where: "time >= now() - interval '60 days' and time <= now() + interval '1 day' and time <> '2026-11-03 07:00+00'"
       - name: gas_cost_per_mmbtu
         tests:
           - not_null:

@@ -1,8 +1,8 @@
 """Daily LMP pipeline as two sequential flows, replacing a cron entry per sync and dbt build.
 
 lmp_morning: verified RT prices -> dbt lmp_history, then the remaining RT-side syncs.
-lmp_afternoon: DA prices, load and weather forecasts -> dbt lmp_serving before the 14:30 ET
-forecast, then the remaining DA-side syncs.
+lmp_afternoon: DA prices, load and weather forecasts, then the DA-side syncs -> dbt lmp_serving
+before the 14:30 ET forecast.
 
 Critical syncs are called plainly, so a failure stops the flow before the dbt build that needs
 them. Optional syncs run with return_state=True: a failure is logged and the flow continues.
@@ -55,6 +55,11 @@ def lmp_afternoon():
     sync_lmp_da()
     sync_load_forecast()
     sync_load_forecast_live()
-    _run_optional(sync_weather_forecast, sync_marginal_value_da, sync_interface_flows_da)
+    _run_optional(
+        sync_weather_forecast,
+        sync_marginal_value_da,
+        sync_interface_flows_da,
+        sync_lmp_da_zonal,
+        sync_transmission_constraints_da,
+    )
     dbt_build(selector="lmp_serving")
-    _run_optional(sync_lmp_da_zonal, sync_transmission_constraints_da)
